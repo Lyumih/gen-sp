@@ -1,11 +1,13 @@
+import { useState } from 'react'
 import { FlagOutlined, PlayCircleOutlined } from '@ant-design/icons'
-import { Button, Card, Space, Typography } from 'antd'
+import { Button, Card, Select, Space, Typography } from 'antd'
 import { SCENARIOS } from '../../game/campaign/scenarios'
 import { useGameStore } from '../../store/gameStore'
 
 export function CampaignHub() {
   const campaign = useGameStore((s) => s.campaign)
   const dispatchRun = useGameStore((s) => s.dispatchRun)
+  const [replaySlot, setReplaySlot] = useState(0)
   const done = campaign.scenarioIndex >= SCENARIOS.length
   const scenario = SCENARIOS[campaign.scenarioIndex]
 
@@ -52,14 +54,47 @@ export function CampaignHub() {
             ))}
           </ul>
         </div>
-        <Button
-          type="primary"
-          disabled={done || campaign.battle !== null}
-          icon={done ? undefined : <PlayCircleOutlined />}
-          onClick={() => dispatchRun({ type: 'START_OR_CONTINUE_BATTLE' })}
-        >
-          {done ? 'Все бои пройдены' : 'Начать / продолжить бой'}
-        </Button>
+        {done ? (
+          <>
+            <Typography.Text type="secondary">
+              Цепочка сценариев пройдена. Можно снова сыграть любой сценарий с текущим прогрессом.
+            </Typography.Text>
+            <Space wrap style={{ width: '100%' }}>
+              <Select
+                aria-label="Сценарий для повтора"
+                style={{ minWidth: 200 }}
+                value={replaySlot}
+                onChange={setReplaySlot}
+                options={SCENARIOS.map((s, i) => ({
+                  value: i,
+                  label: s.id,
+                }))}
+              />
+              <Button
+                type="primary"
+                disabled={campaign.battle !== null}
+                icon={<PlayCircleOutlined />}
+                onClick={() =>
+                  dispatchRun({
+                    type: 'START_REPLAY_BATTLE',
+                    scenarioSlotIndex: replaySlot,
+                  })
+                }
+              >
+                Играть сценарий
+              </Button>
+            </Space>
+          </>
+        ) : (
+          <Button
+            type="primary"
+            disabled={campaign.battle !== null}
+            icon={<PlayCircleOutlined />}
+            onClick={() => dispatchRun({ type: 'START_OR_CONTINUE_BATTLE' })}
+          >
+            Начать / продолжить бой
+          </Button>
+        )}
       </Space>
     </Card>
   )
