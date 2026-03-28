@@ -10,7 +10,7 @@ export function CampaignHub() {
 
   return (
     <Card title="Gen — кампания">
-      <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+      <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
         <Typography.Text>
           Сценарий:{' '}
           {done

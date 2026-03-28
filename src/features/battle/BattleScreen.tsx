@@ -132,7 +132,7 @@ export function BattleScreen() {
         </Button>
       }
     >
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      <Space orientation="vertical" size="large" style={{ width: '100%' }}>
         {battle.phase === 'defeat' && (
           <Alert
             type="error"
