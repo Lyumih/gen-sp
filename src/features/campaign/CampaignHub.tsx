@@ -84,12 +84,13 @@ export function CampaignHub() {
         </Typography.Text>
         <Typography.Text>Уровень героя: {campaign.playerUnitLevel}</Typography.Text>
 
-        <Divider titlePlacement="start">
+        <Typography.Title level={5} style={{ marginTop: 8, marginBottom: 0 }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <ShoppingOutlined aria-hidden />
             Магазин
           </span>
-        </Divider>
+        </Typography.Title>
+        <Divider style={{ margin: '8px 0 16px' }} />
         <Space wrap>
           {SHOP_TEMPLATE_IDS.map((tid) => {
             const t = ITEM_TEMPLATES[tid]!
@@ -102,7 +103,10 @@ export function CampaignHub() {
           })}
         </Space>
 
-        <Divider titlePlacement="start">Инвентарь и экипировка</Divider>
+        <Typography.Title level={5} style={{ marginTop: 8, marginBottom: 0 }}>
+          Инвентарь и экипировка
+        </Typography.Title>
+        <Divider style={{ margin: '8px 0 16px' }} />
         <Typography.Text type="secondary">
           В рюкзаке:{' '}
           {stash.length === 0

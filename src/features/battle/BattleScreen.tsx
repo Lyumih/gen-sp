@@ -191,7 +191,7 @@ export function BattleScreen() {
         {battle.phase === 'defeat' && (
           <Alert
             type="error"
-            message="Поражение"
+            title="Поражение"
             description="Начните бой заново — мета-прогресс без дюпа наград за прошлую попытку."
             action={
               <Button
@@ -210,7 +210,7 @@ export function BattleScreen() {
             type="success"
             showIcon
             icon={<CheckCircleOutlined />}
-            message="Победа"
+            title="Победа"
             description="Просмотрите журнал и поле боя. Награды кампании и переход дальше произойдут только после вашего выбора."
             action={
               <Space>
