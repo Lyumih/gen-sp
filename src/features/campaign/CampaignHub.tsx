@@ -78,6 +78,48 @@ export function CampaignHub() {
       }
     >
       <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+        {done ? (
+          <>
+            <Typography.Text type="secondary">
+              Цепочка сценариев пройдена. Можно снова сыграть любой сценарий с текущим прогрессом.
+            </Typography.Text>
+            <Space wrap style={{ width: '100%' }}>
+              <Select
+                aria-label="Сценарий для повтора"
+                style={{ minWidth: 200 }}
+                value={replaySlot}
+                onChange={setReplaySlot}
+                options={SCENARIOS.map((s, i) => ({
+                  value: i,
+                  label: s.id,
+                }))}
+              />
+              <Button
+                type="primary"
+                disabled={inBattle}
+                icon={<PlayCircleOutlined />}
+                onClick={() =>
+                  dispatchRun({
+                    type: 'START_REPLAY_BATTLE',
+                    scenarioSlotIndex: replaySlot,
+                  })
+                }
+              >
+                Играть сценарий
+              </Button>
+            </Space>
+          </>
+        ) : (
+          <Button
+            type="primary"
+            disabled={inBattle}
+            icon={<PlayCircleOutlined />}
+            onClick={() => dispatchRun({ type: 'START_OR_CONTINUE_BATTLE' })}
+          >
+            Начать / продолжить бой
+          </Button>
+        )}
+
         <Typography.Text>
           Сценарий:{' '}
           {done
@@ -108,42 +150,6 @@ export function CampaignHub() {
             Профиль героя
           </Button>
         </div>
-
-        <Typography.Title level={5} style={{ marginTop: 8, marginBottom: 0 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <ShoppingOutlined aria-hidden />
-            Магазин
-          </span>
-        </Typography.Title>
-        <Divider style={{ margin: '8px 0 16px' }} />
-        <Typography.Paragraph type="secondary" style={{ marginBottom: 8, fontSize: 12 }}>
-          Новый предмет стартует с уровня 1; уровень может расти после побед в сценарии (Memento).
-        </Typography.Paragraph>
-        <Space wrap size="middle">
-          {SHOP_TEMPLATE_IDS.map((tid) => {
-            const t = ITEM_TEMPLATES[tid]!
-            const can = campaign.gold >= t.shopPrice && !inBattle
-            return (
-              <Card key={tid} size="small" style={{ maxWidth: 280 }}>
-                <Space orientation="vertical" size="small" style={{ width: '100%' }}>
-                  <Typography.Text strong>{t.label}</Typography.Text>
-                  <Typography.Text type="secondary">
-                    {equipmentSlotLabelRu(t.slot)} · {t.shopPrice} зол.
-                  </Typography.Text>
-                  <Typography.Text style={{ fontSize: 12 }}>
-                    На ур. 1:{' '}
-                    {itemPerLevelBonusesLines(t)
-                      .filter((line) => !line.startsWith('Нет бонусов'))
-                      .join(' · ') || 'нет бонусов'}
-                  </Typography.Text>
-                  <Button type="primary" disabled={!can} block onClick={() => buy(tid)}>
-                    Купить
-                  </Button>
-                </Space>
-              </Card>
-            )
-          })}
-        </Space>
 
         <Typography.Title level={5} style={{ marginTop: 8, marginBottom: 0 }}>
           Инвентарь и экипировка
@@ -242,47 +248,42 @@ export function CampaignHub() {
             ))}
           </ul>
         </div>
-        {done ? (
-          <>
-            <Typography.Text type="secondary">
-              Цепочка сценариев пройдена. Можно снова сыграть любой сценарий с текущим прогрессом.
-            </Typography.Text>
-            <Space wrap style={{ width: '100%' }}>
-              <Select
-                aria-label="Сценарий для повтора"
-                style={{ minWidth: 200 }}
-                value={replaySlot}
-                onChange={setReplaySlot}
-                options={SCENARIOS.map((s, i) => ({
-                  value: i,
-                  label: s.id,
-                }))}
-              />
-              <Button
-                type="primary"
-                disabled={inBattle}
-                icon={<PlayCircleOutlined />}
-                onClick={() =>
-                  dispatchRun({
-                    type: 'START_REPLAY_BATTLE',
-                    scenarioSlotIndex: replaySlot,
-                  })
-                }
-              >
-                Играть сценарий
-              </Button>
-            </Space>
-          </>
-        ) : (
-          <Button
-            type="primary"
-            disabled={inBattle}
-            icon={<PlayCircleOutlined />}
-            onClick={() => dispatchRun({ type: 'START_OR_CONTINUE_BATTLE' })}
-          >
-            Начать / продолжить бой
-          </Button>
-        )}
+
+        <Typography.Title level={5} style={{ marginTop: 8, marginBottom: 0 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <ShoppingOutlined aria-hidden />
+            Магазин
+          </span>
+        </Typography.Title>
+        <Divider style={{ margin: '8px 0 16px' }} />
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 8, fontSize: 12 }}>
+          Новый предмет стартует с уровня 1; уровень может расти после побед в сценарии (Memento).
+        </Typography.Paragraph>
+        <Space wrap size="middle">
+          {SHOP_TEMPLATE_IDS.map((tid) => {
+            const t = ITEM_TEMPLATES[tid]!
+            const can = campaign.gold >= t.shopPrice && !inBattle
+            return (
+              <Card key={tid} size="small" style={{ maxWidth: 280 }}>
+                <Space orientation="vertical" size="small" style={{ width: '100%' }}>
+                  <Typography.Text strong>{t.label}</Typography.Text>
+                  <Typography.Text type="secondary">
+                    {equipmentSlotLabelRu(t.slot)} · {t.shopPrice} зол.
+                  </Typography.Text>
+                  <Typography.Text style={{ fontSize: 12 }}>
+                    На ур. 1:{' '}
+                    {itemPerLevelBonusesLines(t)
+                      .filter((line) => !line.startsWith('Нет бонусов'))
+                      .join(' · ') || 'нет бонусов'}
+                  </Typography.Text>
+                  <Button type="primary" disabled={!can} block onClick={() => buy(tid)}>
+                    Купить
+                  </Button>
+                </Space>
+              </Card>
+            )
+          })}
+        </Space>
       </Space>
       <HeroProfileModal
         open={profileOpen}
