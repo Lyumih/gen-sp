@@ -10,6 +10,13 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons'
 import { Alert, App, Button, Card, Collapse, Radio, Space, Typography } from 'antd'
+import { computeCardAttackDamage } from '../../game/content/cardAttackDamage'
+import { getCardAttackTemplate } from '../../game/content/cardTemplates'
+import {
+  HERO_BASIC_MELEE_DAMAGE,
+  HERO_BASIC_RANGED_DAMAGE,
+  HERO_BASIC_RANGED_MAX_RANGE,
+} from '../../game/battle/combat'
 import { describeCardCombatStats, getCardDisplayLabel } from '../../game/descriptions/cardText'
 import { HeroProfileModal } from '../profile/HeroProfileModal'
 import type { Unit } from '../../game/types'
@@ -87,6 +94,15 @@ export function BattleScreen() {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [battle?.battleLog.length])
 
+  const primaryBattleCard = battle?.playerCards[0]
+  const primaryCardDamage = useMemo(() => {
+    if (!battle || battle.playerCards.length === 0) return null
+    const card = battle.playerCards[0]!
+    const tmpl = getCardAttackTemplate(card.templateId)
+    if (!tmpl) return null
+    return computeCardAttackDamage(tmpl, card.global_level + battle.gearCardLevelBonus)
+  }, [battle])
+
   const gridCells = useMemo(() => {
     if (!battle) return []
     const rows: { x: number; y: number }[][] = []
@@ -146,7 +162,7 @@ export function BattleScreen() {
         type: 'attack',
         attackerId: hero.id,
         targetId: target.id,
-        damage: 5,
+        damage: HERO_BASIC_MELEE_DAMAGE,
         kind: 'melee',
       })
       return
@@ -169,9 +185,9 @@ export function BattleScreen() {
       type: 'attack',
       attackerId: hero.id,
       targetId: target.id,
-      damage: 4,
+      damage: HERO_BASIC_RANGED_DAMAGE,
       kind: 'ranged',
-      maxRange: 6,
+      maxRange: HERO_BASIC_RANGED_MAX_RANGE,
     })
   }
 
@@ -276,19 +292,21 @@ export function BattleScreen() {
             <Radio.Button value="melee">
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <ThunderboltOutlined aria-hidden />
-                Удар (1 кл.)
+                Удар (1 кл.) — {HERO_BASIC_MELEE_DAMAGE} ур.
               </span>
             </Radio.Button>
             <Radio.Button value="ranged">
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <AimOutlined aria-hidden />
-                Выстрел (≤6)
+                Выстрел (≤{HERO_BASIC_RANGED_MAX_RANGE}) — {HERO_BASIC_RANGED_DAMAGE} ур.
               </span>
             </Radio.Button>
             <Radio.Button value="card">
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <CreditCardOutlined aria-hidden />
-                Карта (strike, %%)
+                {primaryBattleCard && primaryCardDamage !== null
+                  ? `${getCardDisplayLabel(primaryBattleCard.templateId)} — ${primaryCardDamage} ур.`
+                  : 'Карта'}
               </span>
             </Radio.Button>
           </Radio.Group>
@@ -383,11 +401,20 @@ export function BattleScreen() {
               size="small"
               items={battle.playerCards.map((c) => {
                 const desc = describeCardCombatStats(c, battle.gearCardLevelBonus)
+                const tmpl = getCardAttackTemplate(c.templateId)
+                const dmg =
+                  tmpl !== undefined
+                    ? computeCardAttackDamage(
+                        tmpl,
+                        c.global_level + battle.gearCardLevelBonus,
+                      )
+                    : null
                 return {
                   key: c.id,
                   label: (
                     <span style={{ fontSize: 13 }}>
                       {getCardDisplayLabel(c.templateId)} L{c.global_level} · использ. {c.uses_count}
+                      {dmg !== null ? ` · ${dmg} ур.` : ''}
                     </span>
                   ),
                   children: (

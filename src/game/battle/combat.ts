@@ -1,6 +1,15 @@
 import type { Unit } from '../types'
 import { manhattan } from './grid'
 
+/** Урон базовой рукопашной атаки героя (см. `BattleScreen` / `dispatchBattle`). */
+export const HERO_BASIC_MELEE_DAMAGE = 5
+
+/** Урон базовой дальней атаки героя. */
+export const HERO_BASIC_RANGED_DAMAGE = 4
+
+/** Макс. дистанция дальней атаки героя (манхэттен). */
+export const HERO_BASIC_RANGED_MAX_RANGE = 6
+
 /**
  * Дальний бой (MVP): дистанция — манхэттен между атакующим и целью.
  * Укрытий и блокировки луча нет (LOS не считаем); это сознательное упрощение v0.
