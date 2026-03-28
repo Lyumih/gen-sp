@@ -99,13 +99,18 @@ describe('runReducer', () => {
     expect(s.battle?.phase).toBe('victory')
     expect(s.scenarioIndex).toBe(0)
 
-    s = applyRunAction(s, { type: 'FINALIZE_VICTORY', itemLevelRolls: [] })
+    s = applyRunAction(s, {
+      type: 'FINALIZE_VICTORY',
+      itemLevelRolls: [],
+      playerUnitLevelRoll: 50,
+    })
     expect(s.phase).toBe('hub')
     expect(s.scenarioIndex).toBe(1)
     expect(s.battle).toBeNull()
     expect(s.battleAttemptSnapshot).toBeNull()
     expect(s.worldPower).toBe(1)
     expect(s.gold).toBe(55)
+    expect(s.playerUnitLevel).toBe(2)
   })
 
   it('defeat then retry resets battle meta from snapshot (no dup rewards)', () => {
@@ -223,13 +228,18 @@ describe('runReducer', () => {
     expect(s.phase).toBe('victory')
     expect(s.scenarioIndex).toBe(SCENARIOS.length)
 
-    s = applyRunAction(s, { type: 'FINALIZE_VICTORY', itemLevelRolls: [] })
+    s = applyRunAction(s, {
+      type: 'FINALIZE_VICTORY',
+      itemLevelRolls: [],
+      playerUnitLevelRoll: 1,
+    })
     expect(s.phase).toBe('hub')
     expect(s.scenarioIndex).toBe(SCENARIOS.length)
     expect(s.battle).toBeNull()
     expect(s.battleAttemptSnapshot).toBeNull()
     expect(s.worldPower).toBe(1)
     expect(s.gold).toBe(55)
+    expect(s.playerUnitLevel).toBe(2)
   })
 
   it('replay defeat then retry uses same scenario slot', () => {
@@ -405,11 +415,16 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
       battle: b,
       battleAttemptSnapshot: snap,
     }
-    const next = applyRunAction(s, { type: 'FINALIZE_VICTORY', itemLevelRolls: [] })
+    const next = applyRunAction(s, {
+      type: 'FINALIZE_VICTORY',
+      itemLevelRolls: [],
+      playerUnitLevelRoll: 100,
+    })
     expect(next.phase).toBe('victory')
     expect(next.gold).toBe(100)
     expect(next.scenarioIndex).toBe(init.scenarioIndex)
     expect(next.items[0]!.itemLevel).toBe(1)
+    expect(next.playerUnitLevel).toBe(1)
   })
 
   it('FINALIZE_VICTORY applies memento roll and gold when length matches', () => {
@@ -436,10 +451,48 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
       battle: b,
       battleAttemptSnapshot: snap,
     }
-    s = applyRunAction(s, { type: 'FINALIZE_VICTORY', itemLevelRolls: [100] })
+    s = applyRunAction(s, {
+      type: 'FINALIZE_VICTORY',
+      itemLevelRolls: [100],
+      playerUnitLevelRoll: 100,
+    })
     expect(s.phase).toBe('hub')
     expect(s.items.find((i) => i.id === 'w1')!.itemLevel).toBe(2)
     expect(s.gold).toBe(10 + 55)
+    expect(s.playerUnitLevel).toBe(2)
+  })
+
+  it('FINALIZE_VICTORY hero level memento uses same curve as cards/items', () => {
+    const init = initialCampaignState()
+    const b = makeBattle({ phase: 'victory' })
+    const s: CampaignState = {
+      ...init,
+      playerUnitLevel: 50,
+      phase: 'victory',
+      battle: b,
+      battleAttemptSnapshot: {
+        worldPower: 0,
+        cards: cloneCards(init.cards),
+        playerUnitLevel: 50,
+        modKillTargetCardId: 'c1',
+        scenarioSlotIndex: 0,
+        gold: 0,
+        items: [],
+        equipment: { ...init.equipment },
+      },
+    }
+    const noUp = applyRunAction(s, {
+      type: 'FINALIZE_VICTORY',
+      itemLevelRolls: [],
+      playerUnitLevelRoll: 49,
+    })
+    expect(noUp.playerUnitLevel).toBe(50)
+    const up = applyRunAction(s, {
+      type: 'FINALIZE_VICTORY',
+      itemLevelRolls: [],
+      playerUnitLevelRoll: 50,
+    })
+    expect(up.playerUnitLevel).toBe(51)
   })
 
   it('BUY_ITEM then defeat then RETRY restores gold and items from snapshot', () => {

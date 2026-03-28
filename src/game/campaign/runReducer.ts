@@ -39,7 +39,7 @@ export type RunAction =
     }
   | { type: 'RETRY_CURRENT_BATTLE' }
   | { type: 'ABANDON_BATTLE' }
-  | { type: 'FINALIZE_VICTORY'; itemLevelRolls: number[] }
+  | { type: 'FINALIZE_VICTORY'; itemLevelRolls: number[]; playerUnitLevelRoll: number }
   | { type: 'BUY_ITEM'; templateId: string }
   | { type: 'EQUIP_ITEM'; itemId: string; slot: EquipmentSlot }
   | { type: 'UNEQUIP_ITEM'; slot: EquipmentSlot }
@@ -69,7 +69,11 @@ function startBattleFromScenario(state: CampaignState): CampaignState {
   }
 }
 
-function finalizeVictory(state: CampaignState, itemLevelRolls: number[]): CampaignState {
+function finalizeVictory(
+  state: CampaignState,
+  itemLevelRolls: number[],
+  playerUnitLevelRoll: number,
+): CampaignState {
   if (!state.battle || state.battle.phase !== 'victory') return state
 
   const expected = occupiedEquipmentSlotsInOrder(state.equipment).length
@@ -90,6 +94,11 @@ function finalizeVictory(state: CampaignState, itemLevelRolls: number[]): Campai
     }
   }
 
+  let playerUnitLevel = state.playerUnitLevel
+  if (rollMementoLevelUp(playerUnitLevel, playerUnitLevelRoll)) {
+    playerUnitLevel += 1
+  }
+
   const scenarioSlot =
     state.battleAttemptSnapshot?.scenarioSlotIndex ?? state.scenarioIndex
   const goldGain = goldForScenarioVictory(scenarioSlot)
@@ -106,6 +115,7 @@ function finalizeVictory(state: CampaignState, itemLevelRolls: number[]): Campai
     battleAttemptSnapshot: null,
     items,
     gold: state.gold + goldGain,
+    playerUnitLevel,
   }
 }
 
@@ -307,7 +317,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
     }
     case 'FINALIZE_VICTORY': {
       if (!state.battle || state.battle.phase !== 'victory') return state
-      return finalizeVictory(state, action.itemLevelRolls)
+      return finalizeVictory(state, action.itemLevelRolls, action.playerUnitLevelRoll)
     }
   }
 }

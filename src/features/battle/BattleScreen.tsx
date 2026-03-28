@@ -138,7 +138,11 @@ export function BattleScreen() {
   const finalizeVictoryToHub = () => {
     const n = occupiedEquipmentSlotsInOrder(campaign.equipment).length
     const rolls = Array.from({ length: n }, () => randomInt1to100())
-    dispatchRun({ type: 'FINALIZE_VICTORY', itemLevelRolls: rolls })
+    dispatchRun({
+      type: 'FINALIZE_VICTORY',
+      itemLevelRolls: rolls,
+      playerUnitLevelRoll: randomInt1to100(),
+    })
   }
 
   const confirmAbandon = () => {
