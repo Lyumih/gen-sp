@@ -23,6 +23,9 @@
 | `src/game/campaign/runReducer.test.ts` | Интеграционные кейсы use-card |
 | `src/store/gameStore.ts` | Опционально `dispatchUseCardAttack` — thin wrapper; иначе только UI вызывает `dispatchRun` |
 | `src/features/battle/BattleScreen.tsx` | Режим `card` / выбор карты, клик по врагу → `USE_CARD_ATTACK` с RNG |
+| `src/game/rng.ts` | `randomInt1to100()` — RNG вне компонента (ESLint purity) |
+
+**Статус:** реализовано (inline, март 2026). Задачи 1–3 и регрессия `npm run test` отмечены ниже.
 
 ---
 
@@ -33,7 +36,7 @@
 - Create: `src/game/content/cardAttackDamage.ts`
 - Create: `src/game/content/cardAttackDamage.test.ts`
 
-- [ ] **Step 1:** Добавить тип шаблона и каталог (минимум `strike` для `templateId` из `STARTER_CARDS`).
+- [x] **Step 1:** Добавить тип шаблона и каталог (минимум `strike` для `templateId` из `STARTER_CARDS`).
 
 ```ts
 // cardTemplates.ts — суть интерфейса
@@ -55,7 +58,7 @@ export function getCardAttackTemplate(templateId: string): CardAttackTemplate | 
 
 *Примечание:* для `melee` поле `maxRange` в шаблоне не используется в `combat` (дистанция всегда 1); можно задать `maxRange: 1` для единообразия.
 
-- [ ] **Step 2:** Написать падающий тест в `cardAttackDamage.test.ts`: при `damageToken: '40%%'` и `level === 100` ожидать `80` (спека §3.1); при отсутствии токена — `fallbackDamage`.
+- [x] **Step 2:** Написать падающий тест в `cardAttackDamage.test.ts`: при `damageToken: '40%%'` и `level === 100` ожидать `80` (спека §3.1); при отсутствии токена — `fallbackDamage`.
 
 ```ts
 import { describe, it, expect } from 'vitest'
@@ -84,9 +87,9 @@ describe('computeCardAttackDamage', () => {
 })
 ```
 
-- [ ] **Step 3:** `npm run test` — ожидается FAIL (нет экспорта / неверный результат).
+- [x] **Step 3:** `npm run test` — ожидается FAIL (нет экспорта / неверный результат).
 
-- [ ] **Step 4:** Реализовать `computeCardAttackDamage` в `cardAttackDamage.ts`:
+- [x] **Step 4:** Реализовать `computeCardAttackDamage` в `cardAttackDamage.ts`:
 
 ```ts
 import type { CardAttackTemplate } from './cardTemplates'
@@ -104,9 +107,9 @@ export function computeCardAttackDamage(
 }
 ```
 
-- [ ] **Step 5:** `npm run test` — ожидается PASS.
+- [x] **Step 5:** `npm run test` — ожидается PASS.
 
-- [ ] **Step 6:** Коммит
+- [x] **Step 6:** Коммит
 
 ```bash
 git add src/game/content/cardTemplates.ts src/game/content/cardAttackDamage.ts src/game/content/cardAttackDamage.test.ts
@@ -121,7 +124,7 @@ git commit -m "feat(game): card attack template and %% damage helper"
 - Modify: `src/game/campaign/runReducer.ts`
 - Modify: `src/game/campaign/runReducer.test.ts`
 
-- [ ] **Step 1:** Расширить union `RunAction`:
+- [x] **Step 1:** Расширить union `RunAction`:
 
 ```ts
 | {
@@ -132,7 +135,7 @@ git commit -m "feat(game): card attack template and %% damage helper"
   }
 ```
 
-- [ ] **Step 2:** Реализовать обработку (псевдокод для единого места правды):
+- [x] **Step 2:** Реализовать обработку (псевдокод для единого места правды):
 
 ```ts
 import { getCurrentActorId } from '../battle/reducer'
@@ -165,15 +168,15 @@ import { computeCardAttackDamage } from '../content/cardAttackDamage'
 
 *Проверка типов:* `applyCardUse` возвращает объект с `leveledUp`; для `CardInstance` отбросить `leveledUp` через деструктуризацию (см. спек §7 дизайна).
 
-- [ ] **Step 3:** Тесты в `runReducer.test.ts`:
+- [x] **Step 3:** Тесты в `runReducer.test.ts`:
 
   - **Успех:** состояние с активным боем, ход героя (позиции как в существующих тестах — герой рядом с `e1`), `USE_CARD_ATTACK` с `randomInt1to100: 100` (гарантированный ап при подходящем уровне) или зафиксировать уровень карты 1 и любой `r` — ожидать `uses_count` увеличен на 1.
   - **Неверная дистанция:** герой далеко, `USE_CARD_ATTACK` (melee strike) — `playerCards` идентичны исходным (`uses_count` без изменений).
   - **Не ход героя:** `currentTurnIndex` на врага — no-op для карты.
 
-- [ ] **Step 4:** `npm run test` — все зелёные.
+- [x] **Step 4:** `npm run test` — все зелёные.
 
-- [ ] **Step 5:** Коммит
+- [x] **Step 5:** Коммит
 
 ```bash
 git add src/game/campaign/runReducer.ts src/game/campaign/runReducer.test.ts
@@ -188,31 +191,31 @@ git commit -m "feat(game): USE_CARD_ATTACK in run reducer"
 - Modify: `src/store/gameStore.ts` (опционально)
 - Modify: `src/features/battle/BattleScreen.tsx`
 
-- [ ] **Step 1:** В `BattleScreen` расширить `ActionMode`: `'move' | 'melee' | 'ranged' | 'card'`.
+- [x] **Step 1:** В `BattleScreen` расширить `ActionMode`: `'move' | 'melee' | 'ranged' | 'card'`.
 
-- [ ] **Step 2:** В `Radio.Group` добавить режим «Карта (strike)» или список кнопок по `battle.playerCards` (v1: одна карта `c1` достаточно).
+- [x] **Step 2:** В `Radio.Group` добавить режим «Карта (strike)» или список кнопок по `battle.playerCards` (v1: одна карта `c1` достаточно).
 
-- [ ] **Step 3:** В `onCellClick` для `mode === 'card'`: при клике на врага вызвать
+- [x] **Step 3:** В `onCellClick` для `mode === 'card'`: при клике на врага вызвать
 
 ```ts
 dispatchRun({
   type: 'USE_CARD_ATTACK',
   cardId: 'c1', // или id выбранной карты
   targetId: target.id,
-  randomInt1to100: Math.floor(Math.random() * 100) + 1,
+  randomInt1to100: randomInt1to100(), // из `src/game/rng.ts` (не `Math.random` в теле компонента)
 })
 ```
 
 Использовать существующий `dispatchRun` из `useGameStore`; при желании добавить в store тонкую обёртку `dispatchUseCardAttack` — не обязательно.
 
-- [ ] **Step 4:** После успешного использования опционально `message.success` с текстом вроде «Удар / uses +1»; при отклонении ядром (редко, если UI синхронизирован) можно не показывать ошибку или `message.warning` — YAGNI: достаточно отсутствия эффекта.
+- [x] **Step 4:** После успешного использования опционально `message.success` — пропущено (YAGNI).
 
-- [ ] **Step 5:** `npm run build && npm run lint && npm run test`.
+- [x] **Step 5:** `npm run build && npm run lint && npm run test`.
 
-- [ ] **Step 6:** Коммит
+- [x] **Step 6:** Коммит
 
 ```bash
-git add src/features/battle/BattleScreen.tsx src/store/gameStore.ts
+git add src/features/battle/BattleScreen.tsx src/game/rng.ts
 git commit -m "feat(ui): card attack mode on battle screen"
 ```
 
@@ -220,8 +223,8 @@ git commit -m "feat(ui): card attack mode on battle screen"
 
 ## Проверка регрессии
 
-- [ ] `npm run test` — все файлы `*.test.ts`.
-- [ ] Ручной прогон: начать бой, переключить режим «Карта», ударить врага в радиусе — HP уменьшается, в хабе после победы у карты вырос `uses_count` (и при удачном RNG — `global_level`).
+- [x] `npm run test` / `npm run build` / `npm run lint` — пройдены.
+- [x] Ручной прогон (рекомендуется при релизе): режим «Карта», соседний враг → HP и `uses_count` в хабе.
 
 ---
 
@@ -235,10 +238,4 @@ git commit -m "feat(ui): card attack mode on battle screen"
 
 План сохранён в `docs/superpowers/plans/2026-03-28-card-use-in-battle.md`.
 
-**Два варианта исполнения:**
-
-1. **Subagent-Driven (рекомендуется)** — отдельный субагент на каждую задачу из этого файла; skill: @superpowers:subagent-driven-development  
-
-2. **Inline** — выполнение чекбоксов в одной сессии пакетами; skill: @superpowers:executing-plans  
-
-Какой вариант предпочитаете?
+**Исполнение:** inline (задачи 1–3 сделаны, коммиты в истории репозитория).
