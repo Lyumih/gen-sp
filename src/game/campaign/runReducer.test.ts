@@ -1,6 +1,72 @@
 import { describe, expect, it } from 'vitest'
-import { applyRunAction, initialCampaignState } from './runReducer'
+import type { BattleState, CampaignState, Unit } from '../types'
+import {
+  applyRunAction,
+  cloneCards,
+  initialCampaignState,
+} from './runReducer'
 import { SCENARIOS } from './scenarios'
+
+function unit(p: Unit): Unit {
+  return p
+}
+
+function makeBattle(overrides: Partial<BattleState> = {}): BattleState {
+  const base: BattleState = {
+    width: 5,
+    height: 5,
+    walls: [],
+    units: [
+      unit({
+        id: 'hero',
+        side: 'player',
+        x: 3,
+        y: 2,
+        hp: 200,
+        maxHp: 200,
+        unitLevel: 1,
+      }),
+      unit({
+        id: 'e1',
+        side: 'enemy',
+        x: 4,
+        y: 2,
+        hp: 500,
+        maxHp: 500,
+        unitLevel: 1,
+      }),
+    ],
+    turnOrder: ['hero', 'e1'],
+    currentTurnIndex: 0,
+    phase: 'ongoing',
+    worldPower: 0,
+    playerCards: [
+      {
+        id: 'c1',
+        templateId: 'strike',
+        global_level: 50,
+        uses_count: 0,
+        modifications: [],
+      },
+    ],
+    modKillTargetCardId: 'c1',
+  }
+  return { ...base, ...overrides, units: overrides.units ?? base.units }
+}
+
+function campaignWithBattle(b: BattleState): CampaignState {
+  return {
+    ...initialCampaignState(),
+    phase: 'battle',
+    battle: b,
+    battleAttemptSnapshot: {
+      worldPower: b.worldPower,
+      cards: cloneCards(b.playerCards),
+      playerUnitLevel: 1,
+      modKillTargetCardId: 'c1',
+    },
+  }
+}
 
 describe('runReducer', () => {
   it('after victory advances scenario and keeps meta from battle', () => {
@@ -70,6 +136,70 @@ describe('runReducer', () => {
     expect(s.battle!.phase).toBe('ongoing')
     expect(s.battle!.worldPower).toBe(0)
     expect(s.worldPower).toBe(0)
+  })
+})
+
+describe('USE_CARD_ATTACK', () => {
+  it('increments uses_count and deals damage when adjacent', () => {
+    const b = makeBattle()
+    let s = campaignWithBattle(b)
+    s = applyRunAction(s, {
+      type: 'USE_CARD_ATTACK',
+      cardId: 'c1',
+      targetId: 'e1',
+      randomInt1to100: 48,
+    })
+    const card = s.battle!.playerCards.find((c) => c.id === 'c1')!
+    expect(card.uses_count).toBe(1)
+    expect(card.global_level).toBe(50)
+    expect(s.battle!.units.find((u) => u.id === 'e1')!.hp).toBe(440)
+  })
+
+  it('does not consume use when out of melee range', () => {
+    const b = makeBattle({
+      units: [
+        unit({
+          id: 'hero',
+          side: 'player',
+          x: 0,
+          y: 0,
+          hp: 20,
+          maxHp: 20,
+          unitLevel: 1,
+        }),
+        unit({
+          id: 'e1',
+          side: 'enemy',
+          x: 4,
+          y: 2,
+          hp: 50,
+          maxHp: 50,
+          unitLevel: 1,
+        }),
+      ],
+    })
+    let s = campaignWithBattle(b)
+    s = applyRunAction(s, {
+      type: 'USE_CARD_ATTACK',
+      cardId: 'c1',
+      targetId: 'e1',
+      randomInt1to100: 50,
+    })
+    expect(s.battle!.playerCards.find((c) => c.id === 'c1')!.uses_count).toBe(0)
+    expect(s.battle!.units.find((u) => u.id === 'e1')!.hp).toBe(50)
+  })
+
+  it('no-op when not hero turn', () => {
+    const b = makeBattle({ currentTurnIndex: 1 })
+    let s = campaignWithBattle(b)
+    const before = s.battle!.playerCards[0]!.uses_count
+    s = applyRunAction(s, {
+      type: 'USE_CARD_ATTACK',
+      cardId: 'c1',
+      targetId: 'e1',
+      randomInt1to100: 50,
+    })
+    expect(s.battle!.playerCards[0]!.uses_count).toBe(before)
   })
 })
 
