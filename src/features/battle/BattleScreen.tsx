@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   AimOutlined,
+  CheckCircleOutlined,
   CreditCardOutlined,
   DragOutlined,
   LogoutOutlined,
@@ -172,9 +173,11 @@ export function BattleScreen() {
         </span>
       }
       extra={
-        <Button type="default" danger icon={<LogoutOutlined />} onClick={confirmAbandon}>
-          Выйти из боя
-        </Button>
+        battle.phase === 'ongoing' || battle.phase === 'defeat' ? (
+          <Button type="default" danger icon={<LogoutOutlined />} onClick={confirmAbandon}>
+            Выйти из боя
+          </Button>
+        ) : undefined
       }
     >
       <Space orientation="vertical" size="large" style={{ width: '100%' }}>
@@ -195,16 +198,51 @@ export function BattleScreen() {
             }
           />
         )}
+        {battle.phase === 'victory' && (
+          <Alert
+            type="success"
+            showIcon
+            icon={<CheckCircleOutlined />}
+            message="Победа"
+            description="Просмотрите журнал и поле боя. Награды кампании и переход дальше произойдут только после вашего выбора."
+            action={
+              <Space>
+                <Button
+                  type="primary"
+                  onClick={() => dispatchRun({ type: 'FINALIZE_VICTORY' })}
+                >
+                  Продолжить
+                </Button>
+                <Button onClick={() => dispatchRun({ type: 'FINALIZE_VICTORY' })}>
+                  Закончить
+                </Button>
+              </Space>
+            }
+          />
+        )}
         <Typography.Text>
-          Ход:{' '}
-          <strong>
-            {current?.side === 'player' ? 'Герой' : current?.id ?? '—'}
-          </strong>
-          {' · '}
-          <span style={{ fontSize: 28, lineHeight: 1, verticalAlign: '-0.18em' }} aria-hidden>
-            ⚡
-          </span>{' '}
-          worldPower (бой): {battle.worldPower}
+          {battle.phase === 'victory' ? (
+            <>
+              Победа — можно пролистать журнал ниже.
+              {' · '}
+              <span style={{ fontSize: 28, lineHeight: 1, verticalAlign: '-0.18em' }} aria-hidden>
+                ⚡
+              </span>{' '}
+              worldPower (бой): {battle.worldPower}
+            </>
+          ) : (
+            <>
+              Ход:{' '}
+              <strong>
+                {current?.side === 'player' ? 'Герой' : current?.id ?? '—'}
+              </strong>
+              {' · '}
+              <span style={{ fontSize: 28, lineHeight: 1, verticalAlign: '-0.18em' }} aria-hidden>
+                ⚡
+              </span>{' '}
+              worldPower (бой): {battle.worldPower}
+            </>
+          )}
         </Typography.Text>
         <div>
           <Typography.Text type="secondary">Действие героя: </Typography.Text>

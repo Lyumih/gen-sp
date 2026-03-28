@@ -24,6 +24,7 @@ export type RunAction =
     }
   | { type: 'RETRY_CURRENT_BATTLE' }
   | { type: 'ABANDON_BATTLE' }
+  | { type: 'FINALIZE_VICTORY' }
 
 export function cloneCards(cards: readonly CardInstance[]): CardInstance[] {
   return cards.map((c) => ({
@@ -81,7 +82,7 @@ function finalizeVictory(state: CampaignState): CampaignState {
 
 function applyBattleOutcome(state: CampaignState, nextBattle: BattleState): CampaignState {
   if (nextBattle.phase === 'victory') {
-    return finalizeVictory({ ...state, battle: nextBattle })
+    return { ...state, battle: nextBattle, phase: 'victory' }
   }
   if (nextBattle.phase === 'defeat') {
     return { ...state, battle: nextBattle, phase: 'defeat' }
@@ -236,6 +237,10 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         phase: 'hub',
         battleAttemptSnapshot: null,
       }
+    }
+    case 'FINALIZE_VICTORY': {
+      if (!state.battle || state.battle.phase !== 'victory') return state
+      return finalizeVictory(state)
     }
   }
 }

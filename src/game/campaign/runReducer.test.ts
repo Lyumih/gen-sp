@@ -89,6 +89,11 @@ describe('runReducer', () => {
       },
     })
 
+    expect(s.phase).toBe('victory')
+    expect(s.battle?.phase).toBe('victory')
+    expect(s.scenarioIndex).toBe(0)
+
+    s = applyRunAction(s, { type: 'FINALIZE_VICTORY' })
     expect(s.phase).toBe('hub')
     expect(s.scenarioIndex).toBe(1)
     expect(s.battle).toBeNull()
@@ -208,6 +213,10 @@ describe('runReducer', () => {
       },
     })
 
+    expect(s.phase).toBe('victory')
+    expect(s.scenarioIndex).toBe(SCENARIOS.length)
+
+    s = applyRunAction(s, { type: 'FINALIZE_VICTORY' })
     expect(s.phase).toBe('hub')
     expect(s.scenarioIndex).toBe(SCENARIOS.length)
     expect(s.battle).toBeNull()
