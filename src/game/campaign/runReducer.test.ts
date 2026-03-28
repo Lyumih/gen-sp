@@ -50,6 +50,7 @@ function makeBattle(overrides: Partial<BattleState> = {}): BattleState {
       },
     ],
     modKillTargetCardId: 'c1',
+    battleLog: [],
   }
   return { ...base, ...overrides, units: overrides.units ?? base.units }
 }
@@ -137,6 +138,49 @@ describe('runReducer', () => {
     expect(s.battle!.worldPower).toBe(0)
     expect(s.worldPower).toBe(0)
   })
+
+  it('RETRY_CURRENT_BATTLE starts fresh battleLog', () => {
+    let s = initialCampaignState()
+    s = applyRunAction(s, { type: 'START_OR_CONTINUE_BATTLE' })
+    s = applyRunAction(s, {
+      type: 'BATTLE_DISPATCH',
+      battleAction: { type: 'move', unitId: 'hero', toX: 1, toY: 2 },
+    })
+    expect(s.battle!.battleLog.length).toBeGreaterThan(0)
+
+    s = applyRunAction(s, {
+      type: 'BATTLE_DISPATCH',
+      battleAction: {
+        type: 'attack',
+        attackerId: 'e1',
+        targetId: 'hero',
+        damage: 999,
+        kind: 'ranged',
+        maxRange: 10,
+      },
+    })
+    expect(s.phase).toBe('defeat')
+
+    s = applyRunAction(s, { type: 'RETRY_CURRENT_BATTLE' })
+    expect(s.battle!.battleLog).toEqual([])
+  })
+
+  it('ABANDON_BATTLE rolls back meta and returns to hub', () => {
+    let s = initialCampaignState()
+    s = applyRunAction(s, { type: 'START_OR_CONTINUE_BATTLE' })
+    const wpBefore = s.worldPower
+    s = applyRunAction(s, {
+      type: 'BATTLE_DISPATCH',
+      battleAction: { type: 'move', unitId: 'hero', toX: 1, toY: 2 },
+    })
+    expect(s.battle!.battleLog.length).toBeGreaterThan(0)
+
+    s = applyRunAction(s, { type: 'ABANDON_BATTLE' })
+    expect(s.battle).toBeNull()
+    expect(s.phase).toBe('hub')
+    expect(s.battleAttemptSnapshot).toBeNull()
+    expect(s.worldPower).toBe(wpBefore)
+  })
 })
 
 describe('USE_CARD_ATTACK', () => {
@@ -200,6 +244,38 @@ describe('USE_CARD_ATTACK', () => {
       randomInt1to100: 50,
     })
     expect(s.battle!.playerCards[0]!.uses_count).toBe(before)
+  })
+
+  it('appends card_level_up to battleLog when level increases', () => {
+    const b = makeBattle({
+      playerCards: [
+        {
+          id: 'c1',
+          templateId: 'strike',
+          global_level: 1,
+          uses_count: 0,
+          modifications: [],
+        },
+      ],
+    })
+    let s = campaignWithBattle(b)
+    const roll = 42
+    s = applyRunAction(s, {
+      type: 'USE_CARD_ATTACK',
+      cardId: 'c1',
+      targetId: 'e1',
+      randomInt1to100: roll,
+    })
+    expect(s.battle!.playerCards[0]!.global_level).toBe(2)
+    const up = s.battle!.battleLog.find((e) => e.type === 'card_level_up')
+    expect(up).toMatchObject({
+      type: 'card_level_up',
+      cardId: 'c1',
+      templateId: 'strike',
+      fromLevel: 1,
+      toLevel: 2,
+      roll,
+    })
   })
 })
 

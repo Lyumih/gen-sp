@@ -38,6 +38,7 @@ function battle(overrides: Partial<BattleState> = {}): BattleState {
     worldPower: 0,
     playerCards: [],
     modKillTargetCardId: null,
+    battleLog: [],
   }
   return { ...base, ...overrides, units: overrides.units ?? base.units }
 }
@@ -100,6 +101,15 @@ describe('applyAction move', () => {
     const next = applyAction(s, { type: 'move', unitId: 'hero', toX: 1, toY: 0 })
     expect(next.units.find((u) => u.id === 'hero')).toMatchObject({ x: 1, y: 0 })
     expect(next.currentTurnIndex).toBe(1)
+    expect(next.battleLog).toHaveLength(1)
+    expect(next.battleLog[0]).toMatchObject({
+      type: 'move',
+      unitId: 'hero',
+      fromX: 0,
+      fromY: 0,
+      toX: 1,
+      toY: 0,
+    })
   })
 })
 
@@ -168,6 +178,15 @@ describe('applyAction attack', () => {
       kind: 'melee',
     })
     expect(hit.units.find((u) => u.id === 'e1')?.hp).toBe(3)
+    const last = hit.battleLog[hit.battleLog.length - 1]
+    expect(last).toMatchObject({
+      type: 'strike',
+      attackerId: 'hero',
+      targetId: 'e1',
+      damage: 2,
+      attackKind: 'melee',
+      targetKilled: false,
+    })
   })
 
   it('ranged when manhattan in [1, maxRange] (no LOS MVP)', () => {

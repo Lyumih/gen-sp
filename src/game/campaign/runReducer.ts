@@ -22,6 +22,7 @@ export type RunAction =
       randomInt1to100: number
     }
   | { type: 'RETRY_CURRENT_BATTLE' }
+  | { type: 'ABANDON_BATTLE' }
 
 export function cloneCards(cards: readonly CardInstance[]): CardInstance[] {
   return cards.map((c) => ({
@@ -79,17 +80,6 @@ function applyBattleOutcome(state: CampaignState, nextBattle: BattleState): Camp
   return { ...state, battle: nextBattle, phase: 'battle' }
 }
 
-function cardAfterUse(card: CardInstance, randomInt1to100: number): CardInstance {
-  const used = applyCardUse(card, randomInt1to100)
-  return {
-    id: used.id,
-    templateId: used.templateId,
-    global_level: used.global_level,
-    uses_count: used.uses_count,
-    modifications: used.modifications,
-  }
-}
-
 function tryUseCardAttack(
   state: CampaignState,
   action: Extract<RunAction, { type: 'USE_CARD_ATTACK' }>,
@@ -115,11 +105,19 @@ function tryUseCardAttack(
     return state
   }
 
+  const used = applyCardUse(card, action.randomInt1to100)
+  const nextCard: CardInstance = {
+    id: used.id,
+    templateId: used.templateId,
+    global_level: used.global_level,
+    uses_count: used.uses_count,
+    modifications: used.modifications,
+  }
   const damage = computeCardAttackDamage(tmpl, card.global_level)
-  const nextCard = cardAfterUse(card, action.randomInt1to100)
   const playerCards = b.playerCards.map((c) => (c.id === card.id ? nextCard : c))
   const bWithCards = { ...b, playerCards }
 
+  const fromCard = { cardId: card.id, templateId: card.templateId }
   const battleAction: BattleAction =
     tmpl.kind === 'melee'
       ? {
@@ -128,6 +126,7 @@ function tryUseCardAttack(
           targetId: target.id,
           damage,
           kind: 'melee',
+          fromCard,
         }
       : {
           type: 'attack',
@@ -136,9 +135,26 @@ function tryUseCardAttack(
           damage,
           kind: 'ranged',
           maxRange: tmpl.maxRange,
+          fromCard,
         }
 
-  const nextBattle = applyAction(bWithCards, battleAction)
+  let nextBattle = applyAction(bWithCards, battleAction)
+  if (used.leveledUp) {
+    nextBattle = {
+      ...nextBattle,
+      battleLog: [
+        ...nextBattle.battleLog,
+        {
+          type: 'card_level_up',
+          cardId: card.id,
+          templateId: card.templateId,
+          fromLevel: card.global_level,
+          toLevel: used.global_level,
+          roll: action.randomInt1to100,
+        },
+      ],
+    }
+  }
   return applyBattleOutcome(state, nextBattle)
 }
 
@@ -178,6 +194,20 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         },
       }
       return restored
+    }
+    case 'ABANDON_BATTLE': {
+      const snap = state.battleAttemptSnapshot
+      if (!state.battle || !snap) return state
+      return {
+        ...state,
+        worldPower: snap.worldPower,
+        cards: cloneCards(snap.cards),
+        playerUnitLevel: snap.playerUnitLevel,
+        modKillTargetCardId: snap.modKillTargetCardId,
+        battle: null,
+        phase: 'hub',
+        battleAttemptSnapshot: null,
+      }
     }
   }
 }

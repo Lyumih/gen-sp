@@ -45,6 +45,7 @@ function battle(overrides: Partial<BattleState> = {}): BattleState {
     worldPower: 0,
     playerCards: [],
     modKillTargetCardId: null,
+    battleLog: [],
   }
   return { ...base, ...overrides, units: overrides.units ?? base.units }
 }

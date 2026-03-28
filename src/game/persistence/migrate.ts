@@ -2,6 +2,16 @@ import { SAVE_VERSION } from './schema'
 import type { SaveEnvelopeV1 } from './schema'
 import type { CampaignState } from '../types'
 
+/** Старые сохранения без `battle.battleLog` — подставляем пустой массив. */
+export function normalizeLoadedCampaign(c: CampaignState): CampaignState {
+  if (!c.battle) return c
+  if (Array.isArray(c.battle.battleLog)) return c
+  return {
+    ...c,
+    battle: { ...c.battle, battleLog: [] },
+  }
+}
+
 function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null && !Array.isArray(x)
 }
@@ -27,7 +37,7 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
     console.warn('[gen-sp] save: missing campaign object')
     return null
   }
-  return campaign as unknown as CampaignState
+  return normalizeLoadedCampaign(campaign as unknown as CampaignState)
 }
 
 export function assertEnvelopeV1(e: SaveEnvelopeV1): CampaignState {

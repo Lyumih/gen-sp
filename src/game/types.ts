@@ -27,6 +27,33 @@ export type CardProgressSlice = Pick<CardInstance, 'global_level' | 'uses_count'
 
 export type BattlePhase = 'ongoing' | 'victory' | 'defeat'
 
+export type BattleLogEntry =
+  | {
+      type: 'move'
+      unitId: string
+      fromX: number
+      fromY: number
+      toX: number
+      toY: number
+    }
+  | {
+      type: 'strike'
+      attackerId: string
+      targetId: string
+      damage: number
+      attackKind: 'melee' | 'ranged'
+      targetKilled: boolean
+      fromCard?: { cardId: string; templateId: string }
+    }
+  | {
+      type: 'card_level_up'
+      cardId: string
+      templateId: string
+      fromLevel: number
+      toLevel: number
+      roll: number
+    }
+
 /**
  * Тактический бой: сетка, стены как ключи "x,y", очередь ходов по id.
  * worldPower и карты игрока используются наградами за убийство (см. reducer / run).
@@ -46,6 +73,8 @@ export type BattleState = {
   playerCards: readonly CardInstance[]
   /** id карточки, на которую копятся очки за убийство врага в этом бою. */
   modKillTargetCardId: string | null
+  /** События текущего боя; не влияют на геймплей, только отображение. */
+  battleLog: readonly BattleLogEntry[]
 }
 
 export type BattleAction =
@@ -56,6 +85,7 @@ export type BattleAction =
       targetId: string
       damage: number
       kind: 'melee'
+      fromCard?: { cardId: string; templateId: string }
     }
   | {
       type: 'attack'
@@ -64,6 +94,7 @@ export type BattleAction =
       damage: number
       kind: 'ranged'
       maxRange: number
+      fromCard?: { cardId: string; templateId: string }
     }
 
 export type RunPhase = 'hub' | 'battle' | 'victory' | 'defeat'

@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Alert, App, Button, Card, Radio, Space, Typography } from 'antd'
 import { useGameStore } from '../../store/gameStore'
+import { formatBattleLogEntry } from '../../game/battle/battleLog'
 import { getCurrentActorId } from '../../game/battle/reducer'
 import { cellKey } from '../../game/battle/grid'
 import { randomInt1to100 } from '../../game/rng'
@@ -8,13 +9,16 @@ import { pickEnemyAiAction } from './enemyAi'
 
 type ActionMode = 'move' | 'melee' | 'ranged' | 'card'
 
+const CELL_PX = 48
+
 export function BattleScreen() {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const campaign = useGameStore((s) => s.campaign)
   const dispatchRun = useGameStore((s) => s.dispatchRun)
   const dispatchBattle = useGameStore((s) => s.dispatchBattle)
   const battle = campaign.battle
   const [mode, setMode] = useState<ActionMode>('move')
+  const logEndRef = useRef<HTMLDivElement>(null)
 
   const currentId = battle ? getCurrentActorId(battle) : undefined
   const current = battle?.units.find((u) => u.id === currentId)
@@ -33,6 +37,10 @@ export function BattleScreen() {
     return () => window.clearTimeout(t)
   }, [battle])
 
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }, [battle?.battleLog.length])
+
   const gridCells = useMemo(() => {
     if (!battle) return []
     const rows: { x: number; y: number }[][] = []
@@ -49,6 +57,18 @@ export function BattleScreen() {
   const walls = new Set(battle.walls)
   const unitAt = (x: number, y: number) =>
     battle.units.find((u) => u.hp > 0 && u.x === x && u.y === y)
+
+  const confirmAbandon = () => {
+    modal.confirm({
+      title: 'Выйти из боя?',
+      content:
+        'Прогресс этого боя будет потерян. Мета-прогресс вернётся к состоянию на начало попытки; награды за незавершённый бой не начислятся.',
+      okText: 'Выйти',
+      cancelText: 'Отмена',
+      okButtonProps: { danger: true },
+      onOk: () => dispatchRun({ type: 'ABANDON_BATTLE' }),
+    })
+  }
 
   const onCellClick = (x: number, y: number) => {
     if (battle.phase !== 'ongoing') return
@@ -104,20 +124,27 @@ export function BattleScreen() {
   }
 
   return (
-    <Card title="Бой">
+    <Card
+      title="Бой"
+      extra={
+        <Button type="default" danger onClick={confirmAbandon}>
+          Выйти из боя
+        </Button>
+      }
+    >
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         {battle.phase === 'defeat' && (
           <Alert
             type="error"
             message="Поражение"
-            description="Повторите бой — мета-прогресс без дюпа наград за прошлую попытку."
+            description="Начните бой заново — мета-прогресс без дюпа наград за прошлую попытку."
             action={
               <Button
                 type="primary"
                 danger
                 onClick={() => dispatchRun({ type: 'RETRY_CURRENT_BATTLE' })}
               >
-                Повторить бой
+                Начать новый бой
               </Button>
             }
           />
@@ -145,7 +172,7 @@ export function BattleScreen() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: `repeat(${battle.width}, 36px)`,
+            gridTemplateColumns: `repeat(${battle.width}, ${CELL_PX}px)`,
             gap: 4,
           }}
         >
@@ -154,31 +181,77 @@ export function BattleScreen() {
               const k = cellKey(x, y)
               const u = unitAt(x, y)
               const wall = walls.has(k)
-              let label = '·'
-              if (wall) label = '█'
-              else if (u?.id === 'hero') label = '@'
-              else if (u) label = 'E'
+              let inner: ReactNode = '·'
+              if (wall) inner = '█'
+              else if (u?.id === 'hero') inner = '@'
+              else if (u?.side === 'enemy') {
+                inner = (
+                  <span
+                    style={{
+                      fontSize: 9,
+                      lineHeight: 1.15,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      textAlign: 'center',
+                      width: '100%',
+                    }}
+                  >
+                    <span>L{u.unitLevel}</span>
+                    <span>
+                      {u.hp}/{u.maxHp}
+                    </span>
+                  </span>
+                )
+              }
               return (
                 <button
                   key={k}
                   type="button"
                   onClick={() => onCellClick(x, y)}
                   style={{
-                    width: 36,
-                    height: 36,
-                    padding: 0,
-                    fontSize: 14,
+                    width: CELL_PX,
+                    height: CELL_PX,
+                    padding: wall ? 0 : 2,
+                    fontSize: wall ? 14 : 12,
                     cursor: wall ? 'default' : 'pointer',
                     background: wall ? '#333' : '#f5f5f5',
                     color: wall ? '#fff' : '#000',
                     border: '1px solid #ccc',
                   }}
                 >
-                  {label}
+                  {inner}
                 </button>
               )
             }),
           )}
+        </div>
+        <div>
+          <Typography.Text strong>Журнал боя</Typography.Text>
+          <div
+            style={{
+              marginTop: 8,
+              maxHeight: 200,
+              overflowY: 'auto',
+              padding: 8,
+              background: '#fafafa',
+              border: '1px solid #eee',
+              borderRadius: 6,
+              fontSize: 12,
+            }}
+          >
+            {battle.battleLog.length === 0 ? (
+              <Typography.Text type="secondary">Пока пусто</Typography.Text>
+            ) : (
+              battle.battleLog.map((entry, i) => (
+                <div key={i} style={{ marginBottom: 4 }}>
+                  {formatBattleLogEntry(entry)}
+                </div>
+              ))
+            )}
+            <div ref={logEndRef} />
+          </div>
         </div>
         <Space wrap>
           {battle.units.map((u) => (

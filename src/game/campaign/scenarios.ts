@@ -122,5 +122,6 @@ export function battleStateFromScenario(
       modifications: c.modifications.map((m) => ({ ...m })),
     })),
     modKillTargetCardId: snapshot.modKillTargetCardId,
+    battleLog: [],
   }
 }

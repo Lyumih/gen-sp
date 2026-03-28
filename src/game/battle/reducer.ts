@@ -1,4 +1,4 @@
-import type { BattleAction, BattleState, Unit } from '../types'
+import type { BattleAction, BattleLogEntry, BattleState, Unit } from '../types'
 import { applyModKillReward } from '../memento/modifications'
 import { canMeleeAttack, canRangedAttack, withDamage } from './combat'
 import { cellKey, manhattan, wallSet } from './grid'
@@ -112,7 +112,19 @@ function tryMove(state: BattleState, action: Extract<BattleAction, { type: 'move
 
   const moved: Unit = { ...unit, x: toX, y: toY }
   const units = state.units.map((u) => (u.id === unit.id ? moved : u))
-  let next: BattleState = { ...state, units }
+  const moveLog: BattleLogEntry = {
+    type: 'move',
+    unitId: unit.id,
+    fromX: unit.x,
+    fromY: unit.y,
+    toX,
+    toY,
+  }
+  let next: BattleState = {
+    ...state,
+    units,
+    battleLog: [...state.battleLog, moveLog],
+  }
   next = afterHpChange(next, null)
   if (next.phase !== 'ongoing') return next
   return advanceTurnFrom(next, ptr)
@@ -139,7 +151,20 @@ function tryAttack(state: BattleState, action: Extract<BattleAction, { type: 'at
   const wasKill = updated.hp <= 0 && target.hp > 0
   const killed = wasKill ? updated : null
 
-  let next: BattleState = { ...state, units }
+  const strikeLog: BattleLogEntry = {
+    type: 'strike',
+    attackerId: action.attackerId,
+    targetId: action.targetId,
+    damage: action.damage,
+    attackKind: action.kind === 'melee' ? 'melee' : 'ranged',
+    targetKilled: wasKill,
+    ...(action.fromCard !== undefined ? { fromCard: action.fromCard } : {}),
+  }
+  let next: BattleState = {
+    ...state,
+    units,
+    battleLog: [...state.battleLog, strikeLog],
+  }
   next = afterHpChange(next, killed)
   if (next.phase !== 'ongoing') return next
   return advanceTurnFrom(next, ptr)
