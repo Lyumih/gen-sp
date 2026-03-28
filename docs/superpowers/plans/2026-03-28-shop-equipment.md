@@ -48,7 +48,7 @@
 
 - [ ] **Step 2:** В `initialCampaignState` задать `gold: 0`, `items: []`, `equipment: { weapon: null, armor: null, accessory: null }`.
 
-- [ ] **Step 3:** `npm run test` — ожидаются ошибки компиляции в местах, где создают `BattleState` / `CampaignState` без новых полей; исправить **минимально** (следующие задачи добьют логику).
+- [ ] **Step 3:** Исправить компиляцию во **всех** местах создания `BattleState`, `CampaignState`, `BattleAttemptSnapshot` (тесты `runReducer`, `reducer`, `migrate`, др.): добавить `gearCardLevelBonus`, `gold`, `items`, `equipment` с безопасными нулями до Task 4–6. Затем `npm run test` — зелёный или ожидаемо падающие тесты только по новой логике.
 
 - [ ] **Step 4:** Commit  
 `git add src/game/types.ts src/game/campaign/runReducer.ts …`  
@@ -168,7 +168,7 @@
 - Create: `src/game/memento/rollMementoLevelUp.ts` (опционально)
 - Modify: `src/game/campaign/runReducer.test.ts`
 
-- [ ] **Step 1:** Изменить тип: `{ type: 'FINALIZE_VICTORY'; itemLevelRolls: number[] }`.
+- [ ] **Step 1:** Изменить тип: `{ type: 'FINALIZE_VICTORY'; itemLevelRolls: number[] }`. Обновить **все** вызовы: `src/game/campaign/runReducer.test.ts` (оба места) — передавать `itemLevelRolls: []` там, где экипировка пуста; при тестах с экипировкой — массив нужной длины. В `src/features/battle/BattleScreen.tsx` обновить **обе** кнопки победы (~два `onClick`).
 
 - [ ] **Step 2:** В начале `finalizeVictory` (или обёртке):  
   `expected = occupiedEquipmentSlotsInOrder(state.equipment).length`  
