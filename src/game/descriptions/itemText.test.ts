@@ -12,20 +12,20 @@ describe('itemPerLevelBonusesLines', () => {
   it('wooden_sword: only card level', () => {
     const t = ITEM_TEMPLATES.wooden_sword!
     expect(itemPerLevelBonusesLines(t)).toEqual([
-      '+1 к ⭐ для 💥 карт за ⭐ предмета',
+      '+1 к ⭐ для 💥 карт за уровень предмета',
     ])
   })
 
   it('leather_armor: only hp', () => {
     const t = ITEM_TEMPLATES.leather_armor!
-    expect(itemPerLevelBonusesLines(t)).toEqual(['+2 к max ❤️ за ⭐ предмета'])
+    expect(itemPerLevelBonusesLines(t)).toEqual(['+2 к max ❤️ за уровень предмета'])
   })
 
   it('copper_ring: both', () => {
     const t = ITEM_TEMPLATES.copper_ring!
     expect(itemPerLevelBonusesLines(t)).toEqual([
-      '+1 к max ❤️ за ⭐ предмета',
-      '+1 к ⭐ для 💥 карт за ⭐ предмета',
+      '+1 к max ❤️ за уровень предмета',
+      '+1 к ⭐ для 💥 карт за уровень предмета',
     ])
   })
 })

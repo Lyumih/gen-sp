@@ -16,15 +16,15 @@ export function equipmentSlotLabelRu(slot: EquipmentSlot): string {
 export function itemPerLevelBonusesLines(t: ItemTemplate): string[] {
   const out: string[] = []
   if (t.hpBonusPerItemLevel > 0) {
-    out.push(`+${t.hpBonusPerItemLevel} к max ${UI_HEART} за ${UI_LEVEL} предмета`)
+    out.push(`+${t.hpBonusPerItemLevel} к max ${UI_HEART} за уровень предмета`)
   }
   if (t.cardLevelBonusPerItemLevel > 0) {
     out.push(
-      `+${t.cardLevelBonusPerItemLevel} к ${UI_LEVEL} для ${UI_DAMAGE} карт за ${UI_LEVEL} предмета`,
+      `+${t.cardLevelBonusPerItemLevel} к ${UI_LEVEL} для ${UI_DAMAGE} карт за уровень предмета`,
     )
   }
   if (out.length === 0) {
-    out.push(`Нет бонусов за ${UI_LEVEL} предмета`)
+    out.push('Нет бонусов за уровень предмета')
   }
   return out
 }
