@@ -1,75 +1,21 @@
-# React + TypeScript + Vite
+# Gen-sp
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+MVP тактической RPG **Gen**: пошаговые бои на сетке (4 направления), прогресс «Memento Mori», цепочка сценариев, автосохранение. UI — React 19, Ant Design 6, Zustand; игровое ядро — чистые функции в `src/game/**`.
 
-Currently, two official plugins are available:
+## Команды
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| Команда | Назначение |
+|--------|------------|
+| `npm run dev` / `npm run start` | Dev-сервер (Vite) |
+| `npm run test` | Vitest, unit-тесты ядра |
+| `npm run build` | `tsc -b` и production-сборка |
+| `npm run lint` | ESLint |
 
-## React Compiler
+## Документы
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+- Спека геймдизайна: [docs/superpowers/specs/2026-03-28-gen-game-design.md](docs/superpowers/specs/2026-03-28-gen-game-design.md)
+- План реализации MVP: [docs/superpowers/plans/2026-03-28-gen-game-implementation.md](docs/superpowers/plans/2026-03-28-gen-game-implementation.md)
 
-Note: This will impact Vite dev & build performances.
+## Сохранения
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Снимок кампании пишется в `localStorage` с версией схемы (`SAVE_VERSION` в `src/game/persistence/schema.ts`), ключ по умолчанию: `gen-sp-save-v1`. Подписка Zustand дебаунсит запись (300 ms).
