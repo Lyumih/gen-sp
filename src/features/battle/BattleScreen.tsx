@@ -4,11 +4,13 @@ import {
   CheckCircleOutlined,
   CreditCardOutlined,
   DragOutlined,
+  IdcardOutlined,
   LogoutOutlined,
   RedoOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons'
 import { Alert, App, Button, Card, Radio, Space, Typography } from 'antd'
+import { HeroProfileModal } from '../profile/HeroProfileModal'
 import type { Unit } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
 import { formatBattleLogEntry } from '../../game/battle/battleLog'
@@ -60,6 +62,7 @@ export function BattleScreen() {
   const dispatchBattle = useGameStore((s) => s.dispatchBattle)
   const battle = campaign.battle
   const [mode, setMode] = useState<ActionMode>('move')
+  const [profileOpen, setProfileOpen] = useState(false)
   const logEndRef = useRef<HTMLDivElement>(null)
 
   const currentId = battle ? getCurrentActorId(battle) : undefined
@@ -180,11 +183,21 @@ export function BattleScreen() {
         </span>
       }
       extra={
-        battle.phase === 'ongoing' || battle.phase === 'defeat' ? (
-          <Button type="default" danger icon={<LogoutOutlined />} onClick={confirmAbandon}>
-            Выйти из боя
+        <Space wrap>
+          <Button
+            type="default"
+            icon={<IdcardOutlined aria-hidden />}
+            aria-label="Профиль героя"
+            onClick={() => setProfileOpen(true)}
+          >
+            Профиль героя
           </Button>
-        ) : undefined
+          {battle.phase === 'ongoing' || battle.phase === 'defeat' ? (
+            <Button type="default" danger icon={<LogoutOutlined />} onClick={confirmAbandon}>
+              Выйти из боя
+            </Button>
+          ) : null}
+        </Space>
       }
     >
       <Space orientation="vertical" size="large" style={{ width: '100%' }}>
@@ -368,6 +381,13 @@ export function BattleScreen() {
             .join(', ') || '—'}
         </Typography.Text>
       </Space>
+      <HeroProfileModal
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        mode="battle"
+        campaign={campaign}
+        battle={battle}
+      />
     </Card>
   )
 }

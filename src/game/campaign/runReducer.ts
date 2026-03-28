@@ -12,13 +12,18 @@ import { applyCardUse } from '../memento/cardProgress'
 import { rollMementoLevelUp } from '../memento/rollMementoLevelUp'
 import type {
   BattleAction,
-  BattleAttemptSnapshot,
   BattleState,
   CampaignState,
   CardInstance,
   EquipmentSlot,
   ItemInstance,
 } from '../types'
+import {
+  buildBattleAttemptSnapshot,
+  cloneCards,
+  cloneItems,
+  copyBattleAttemptSnapshot,
+} from './battleSnapshot'
 import { goldForScenarioVictory } from './scenarioRewards'
 import { SCENARIOS, battleStateFromScenario } from './scenarios'
 
@@ -39,16 +44,7 @@ export type RunAction =
   | { type: 'EQUIP_ITEM'; itemId: string; slot: EquipmentSlot }
   | { type: 'UNEQUIP_ITEM'; slot: EquipmentSlot }
 
-export function cloneCards(cards: readonly CardInstance[]): CardInstance[] {
-  return cards.map((c) => ({
-    ...c,
-    modifications: c.modifications.map((m) => ({ ...m })),
-  }))
-}
-
-export function cloneItems(items: readonly ItemInstance[]): ItemInstance[] {
-  return items.map((i) => ({ ...i }))
-}
+export { cloneCards, cloneItems }
 
 function newItemId(): string {
   if (typeof globalThis.crypto !== 'undefined' && 'randomUUID' in globalThis.crypto) {
@@ -57,40 +53,11 @@ function newItemId(): string {
   return `item-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
-function snapshotFromCampaign(
-  state: CampaignState,
-  scenarioSlotIndex: number,
-): BattleAttemptSnapshot {
-  return {
-    worldPower: state.worldPower,
-    cards: cloneCards(state.cards),
-    playerUnitLevel: state.playerUnitLevel,
-    modKillTargetCardId: state.modKillTargetCardId,
-    scenarioSlotIndex,
-    gold: state.gold,
-    items: cloneItems(state.items),
-    equipment: { ...state.equipment },
-  }
-}
-
-function copySnapshot(snap: BattleAttemptSnapshot): BattleAttemptSnapshot {
-  return {
-    worldPower: snap.worldPower,
-    cards: cloneCards(snap.cards),
-    playerUnitLevel: snap.playerUnitLevel,
-    modKillTargetCardId: snap.modKillTargetCardId,
-    scenarioSlotIndex: snap.scenarioSlotIndex,
-    gold: snap.gold,
-    items: cloneItems(snap.items),
-    equipment: { ...snap.equipment },
-  }
-}
-
 function startBattleFromScenario(state: CampaignState): CampaignState {
   const scenario = SCENARIOS[state.scenarioIndex]
   if (!scenario) return state
 
-  const snapshot = snapshotFromCampaign(state, state.scenarioIndex)
+  const snapshot = buildBattleAttemptSnapshot(state, state.scenarioIndex)
   const battle = battleStateFromScenario(scenario, snapshot)
 
   return {
@@ -245,7 +212,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       if (slot < 0 || slot >= SCENARIOS.length) return state
       const scenario = SCENARIOS[slot]
       if (!scenario) return state
-      const snapshot = snapshotFromCampaign(state, slot)
+      const snapshot = buildBattleAttemptSnapshot(state, slot)
       const battle = battleStateFromScenario(scenario, snapshot)
       return {
         ...state,
@@ -304,7 +271,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       const scenario = SCENARIOS[snap.scenarioSlotIndex]
       if (!scenario) return state
 
-      const snapCopy = copySnapshot(snap)
+      const snapCopy = copyBattleAttemptSnapshot(snap)
       const restored: CampaignState = {
         ...state,
         worldPower: snap.worldPower,

@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { FlagOutlined, PlayCircleOutlined, ShoppingOutlined } from '@ant-design/icons'
+import { FlagOutlined, IdcardOutlined, PlayCircleOutlined, ShoppingOutlined } from '@ant-design/icons'
 import { App, Button, Card, Divider, Select, Space, Typography } from 'antd'
+import { HeroProfileModal } from '../profile/HeroProfileModal'
 import { SCENARIOS } from '../../game/campaign/scenarios'
 import { ITEM_TEMPLATES, SHOP_TEMPLATE_IDS, getItemTemplate } from '../../game/content/itemTemplates'
 import { EQUIPMENT_ROLL_ORDER } from '../../game/equipment/equipmentOrder'
@@ -32,6 +33,7 @@ export function CampaignHub() {
   const campaign = useGameStore((s) => s.campaign)
   const dispatchRun = useGameStore((s) => s.dispatchRun)
   const [replaySlot, setReplaySlot] = useState(0)
+  const [profileOpen, setProfileOpen] = useState(false)
   const done = campaign.scenarioIndex >= SCENARIOS.length
   const scenario = SCENARIOS[campaign.scenarioIndex]
   const inBattle = campaign.battle !== null
@@ -83,6 +85,16 @@ export function CampaignHub() {
           Золото: {campaign.gold}
         </Typography.Text>
         <Typography.Text>Уровень героя: {campaign.playerUnitLevel}</Typography.Text>
+        <div>
+          <Button
+            type="default"
+            icon={<IdcardOutlined aria-hidden />}
+            aria-label="Профиль героя"
+            onClick={() => setProfileOpen(true)}
+          >
+            Профиль героя
+          </Button>
+        </div>
 
         <Typography.Title level={5} style={{ marginTop: 8, marginBottom: 0 }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -209,6 +221,13 @@ export function CampaignHub() {
           </Button>
         )}
       </Space>
+      <HeroProfileModal
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        mode="hub"
+        campaign={campaign}
+        battle={null}
+      />
     </Card>
   )
 }
