@@ -125,6 +125,16 @@ export function BattleScreen() {
   const unitAt = (x: number, y: number) =>
     battle.units.find((u) => u.hp > 0 && u.x === x && u.y === y)
 
+  const unitsHealthOrder = [...battle.units].sort((a, b) => {
+    if (a.side === 'player' && b.side !== 'player') return -1
+    if (a.side !== 'player' && b.side === 'player') return 1
+    return 0
+  })
+
+  const actionsDisabled = battle.phase !== 'ongoing' || currentId !== hero?.id
+  const basicMode: ActionMode | undefined =
+    mode === 'move' || mode === 'melee' || mode === 'ranged' ? mode : undefined
+
   const finalizeVictoryToHub = () => {
     const n = occupiedEquipmentSlotsInOrder(campaign.equipment).length
     const rolls = Array.from({ length: n }, () => randomInt1to100())
@@ -281,41 +291,20 @@ export function BattleScreen() {
             </>
           )}
         </Typography.Text>
+
         <div>
-          <Typography.Text type="secondary">Действие героя: </Typography.Text>
-          <Radio.Group
-            value={mode}
-            onChange={(e) => setMode(e.target.value)}
-            disabled={battle.phase !== 'ongoing' || currentId !== hero?.id}
-          >
-            <Radio.Button value="move">
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <DragOutlined aria-hidden />
-                Ход
-              </span>
-            </Radio.Button>
-            <Radio.Button value="melee">
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <ThunderboltOutlined aria-hidden />
-                {`Удар (1${UI_CELL}) — ${HERO_BASIC_MELEE_DAMAGE}${UI_DAMAGE}`}
-              </span>
-            </Radio.Button>
-            <Radio.Button value="ranged">
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <AimOutlined aria-hidden />
-                {`Выстрел (≤${HERO_BASIC_RANGED_MAX_RANGE}${UI_CELL}) — ${HERO_BASIC_RANGED_DAMAGE}${UI_DAMAGE}`}
-              </span>
-            </Radio.Button>
-            <Radio.Button value="card">
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <CreditCardOutlined aria-hidden />
-                {primaryBattleCard && primaryCardDamage !== null
-                  ? `${getCardDisplayLabel(primaryBattleCard.templateId)} — ${String(primaryCardDamage)}${UI_DAMAGE}`
-                  : 'Карта'}
-              </span>
-            </Radio.Button>
-          </Radio.Group>
+          <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>
+            Здоровье героя и врагов
+          </Typography.Text>
+          <Space wrap>
+            {unitsHealthOrder.map((u) => (
+              <Typography.Text key={u.id}>
+                {u.side === 'player' ? 'Герой' : u.id}: {UI_HEART} {u.hp}/{u.maxHp}
+              </Typography.Text>
+            ))}
+          </Space>
         </div>
+
         <div
           style={{
             display: 'grid',
@@ -359,39 +348,84 @@ export function BattleScreen() {
             }),
           )}
         </div>
+
         <div>
-          <Typography.Text strong>Журнал боя</Typography.Text>
-          <div
-            style={{
-              marginTop: 8,
-              maxHeight: 200,
-              overflowY: 'auto',
-              padding: 8,
-              background: '#fafafa',
-              border: '1px solid #eee',
-              borderRadius: 6,
-              fontSize: 12,
-            }}
-          >
-            {battle.battleLog.length === 0 ? (
-              <Typography.Text type="secondary">Пока пусто</Typography.Text>
-            ) : (
-              battle.battleLog.map((entry, i) => (
-                <div key={i} style={{ marginBottom: 4 }}>
-                  {formatBattleLogEntry(entry)}
-                </div>
-              ))
-            )}
-            <div ref={logEndRef} />
-          </div>
+          <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>
+            Действия героя
+          </Typography.Text>
+          <Space orientation="vertical" size="small" style={{ width: '100%' }}>
+            <div>
+              <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>
+                Перемещение и базовая атака
+              </Typography.Text>
+              <Radio.Group
+                value={basicMode}
+                onChange={(e) => setMode(e.target.value as ActionMode)}
+                disabled={actionsDisabled}
+              >
+                <Space wrap>
+                  <Radio.Button value="move">
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <DragOutlined aria-hidden />
+                      Ход
+                    </span>
+                  </Radio.Button>
+                  <Radio.Button value="melee">
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <ThunderboltOutlined aria-hidden />
+                      {`Удар (1${UI_CELL}) — ${HERO_BASIC_MELEE_DAMAGE}${UI_DAMAGE}`}
+                    </span>
+                  </Radio.Button>
+                  <Radio.Button value="ranged">
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <AimOutlined aria-hidden />
+                      {`Выстрел (≤${HERO_BASIC_RANGED_MAX_RANGE}${UI_CELL}) — ${HERO_BASIC_RANGED_DAMAGE}${UI_DAMAGE}`}
+                    </span>
+                  </Radio.Button>
+                </Space>
+              </Radio.Group>
+            </div>
+            <div>
+              <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>
+                Умения и карты
+              </Typography.Text>
+              <Space wrap align="center">
+                <Radio.Group
+                  value={mode === 'card' ? 'card' : undefined}
+                  onChange={() => setMode('card')}
+                  disabled={actionsDisabled || battle.playerCards.length === 0}
+                >
+                  <Radio.Button value="card">
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <CreditCardOutlined aria-hidden />
+                      {primaryBattleCard && primaryCardDamage !== null
+                        ? `Атака картой: ${getCardDisplayLabel(primaryBattleCard.templateId)} — ${String(primaryCardDamage)}${UI_DAMAGE}`
+                        : 'Атака картой'}
+                    </span>
+                  </Radio.Button>
+                </Radio.Group>
+                {battle.playerCards.map((c) => {
+                  const tmpl = getCardAttackTemplate(c.templateId)
+                  const dmg =
+                    tmpl !== undefined
+                      ? computeCardAttackDamage(
+                          tmpl,
+                          c.global_level + battle.gearCardLevelBonus,
+                        )
+                      : null
+                  return (
+                    <Typography.Text key={c.id} type="secondary" style={{ fontSize: 12 }}>
+                      {getCardDisplayLabel(c.templateId)} {UI_LEVEL}
+                      {c.global_level}
+                      {dmg !== null ? ` · ${String(dmg)}${UI_DAMAGE}` : ''}
+                    </Typography.Text>
+                  )
+                })}
+              </Space>
+            </div>
+          </Space>
         </div>
-        <Space wrap>
-          {battle.units.map((u) => (
-            <Typography.Text key={u.id}>
-              {u.id}: {UI_HEART} {u.hp}/{u.maxHp}
-            </Typography.Text>
-          ))}
-        </Space>
+
         <div>
           <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>
             <span style={{ fontSize: 28, lineHeight: 1, verticalAlign: '-0.18em' }} aria-hidden>
@@ -436,6 +470,33 @@ export function BattleScreen() {
               })}
             />
           )}
+        </div>
+
+        <div>
+          <Typography.Text strong>Журнал боя</Typography.Text>
+          <div
+            style={{
+              marginTop: 8,
+              maxHeight: 200,
+              overflowY: 'auto',
+              padding: 8,
+              background: '#fafafa',
+              border: '1px solid #eee',
+              borderRadius: 6,
+              fontSize: 12,
+            }}
+          >
+            {battle.battleLog.length === 0 ? (
+              <Typography.Text type="secondary">Пока пусто</Typography.Text>
+            ) : (
+              battle.battleLog.map((entry, i) => (
+                <div key={i} style={{ marginBottom: 4 }}>
+                  {formatBattleLogEntry(entry)}
+                </div>
+              ))
+            )}
+            <div ref={logEndRef} />
+          </div>
         </div>
       </Space>
       <HeroProfileModal
