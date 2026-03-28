@@ -105,6 +105,8 @@ export type BattleAttemptSnapshot = {
   cards: CardInstance[]
   playerUnitLevel: number
   modKillTargetCardId: string | null
+  /** Индекс в `SCENARIOS` для этой попытки (нужен для retry после финала кампании). */
+  scenarioSlotIndex: number
 }
 
 /** Снимок кампании: цепочка сценариев и мета-прогресс. */
