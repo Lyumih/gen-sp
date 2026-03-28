@@ -1,15 +1,35 @@
 import { SAVE_VERSION } from './schema'
 import type { SaveEnvelopeV1 } from './schema'
 import type { CampaignState } from '../types'
+import { SCENARIOS } from '../campaign/scenarios'
+
+function withDefaultScenarioSlotIndex(c: CampaignState): CampaignState {
+  const snap = c.battleAttemptSnapshot
+  if (!snap || typeof snap.scenarioSlotIndex === 'number') return c
+  const scenarioSlotIndex =
+    c.scenarioIndex >= 0 && c.scenarioIndex < SCENARIOS.length
+      ? Math.min(c.scenarioIndex, SCENARIOS.length - 1)
+      : 0
+  return {
+    ...c,
+    battleAttemptSnapshot: { ...snap, scenarioSlotIndex },
+  }
+}
 
 /** Старые сохранения без `battle.battleLog` — подставляем пустой массив. */
 export function normalizeLoadedCampaign(c: CampaignState): CampaignState {
-  if (!c.battle) return c
-  if (Array.isArray(c.battle.battleLog)) return c
-  return {
-    ...c,
-    battle: { ...c.battle, battleLog: [] },
+  let out: CampaignState
+  if (!c.battle) {
+    out = c
+  } else if (Array.isArray(c.battle.battleLog)) {
+    out = c
+  } else {
+    out = {
+      ...c,
+      battle: { ...c.battle, battleLog: [] },
+    }
   }
+  return withDefaultScenarioSlotIndex(out)
 }
 
 function isRecord(x: unknown): x is Record<string, unknown> {
