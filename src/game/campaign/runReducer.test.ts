@@ -3,6 +3,7 @@ import type { BattleState, CampaignState, Unit } from '../types'
 import {
   applyRunAction,
   cloneCards,
+  cloneItems,
   initialCampaignState,
 } from './runReducer'
 import { SCENARIOS } from './scenarios'
@@ -51,13 +52,15 @@ function makeBattle(overrides: Partial<BattleState> = {}): BattleState {
     ],
     modKillTargetCardId: 'c1',
     battleLog: [],
+    gearCardLevelBonus: 0,
   }
   return { ...base, ...overrides, units: overrides.units ?? base.units }
 }
 
 function campaignWithBattle(b: BattleState): CampaignState {
+  const init = initialCampaignState()
   return {
-    ...initialCampaignState(),
+    ...init,
     phase: 'battle',
     battle: b,
     battleAttemptSnapshot: {
@@ -66,6 +69,9 @@ function campaignWithBattle(b: BattleState): CampaignState {
       playerUnitLevel: 1,
       modKillTargetCardId: 'c1',
       scenarioSlotIndex: 0,
+      gold: init.gold,
+      items: cloneItems(init.items),
+      equipment: { ...init.equipment },
     },
   }
 }
@@ -93,12 +99,13 @@ describe('runReducer', () => {
     expect(s.battle?.phase).toBe('victory')
     expect(s.scenarioIndex).toBe(0)
 
-    s = applyRunAction(s, { type: 'FINALIZE_VICTORY' })
+    s = applyRunAction(s, { type: 'FINALIZE_VICTORY', itemLevelRolls: [] })
     expect(s.phase).toBe('hub')
     expect(s.scenarioIndex).toBe(1)
     expect(s.battle).toBeNull()
     expect(s.battleAttemptSnapshot).toBeNull()
     expect(s.worldPower).toBe(1)
+    expect(s.gold).toBe(55)
   })
 
   it('defeat then retry resets battle meta from snapshot (no dup rewards)', () => {
@@ -216,12 +223,13 @@ describe('runReducer', () => {
     expect(s.phase).toBe('victory')
     expect(s.scenarioIndex).toBe(SCENARIOS.length)
 
-    s = applyRunAction(s, { type: 'FINALIZE_VICTORY' })
+    s = applyRunAction(s, { type: 'FINALIZE_VICTORY', itemLevelRolls: [] })
     expect(s.phase).toBe('hub')
     expect(s.scenarioIndex).toBe(SCENARIOS.length)
     expect(s.battle).toBeNull()
     expect(s.battleAttemptSnapshot).toBeNull()
     expect(s.worldPower).toBe(1)
+    expect(s.gold).toBe(55)
   })
 
   it('replay defeat then retry uses same scenario slot', () => {
@@ -327,6 +335,18 @@ describe('USE_CARD_ATTACK', () => {
     expect(s.battle!.playerCards[0]!.uses_count).toBe(before)
   })
 
+  it('applies gearCardLevelBonus to card damage', () => {
+    const b = makeBattle({ gearCardLevelBonus: 5 })
+    let s = campaignWithBattle(b)
+    s = applyRunAction(s, {
+      type: 'USE_CARD_ATTACK',
+      cardId: 'c1',
+      targetId: 'e1',
+      randomInt1to100: 48,
+    })
+    expect(s.battle!.units.find((u) => u.id === 'e1')!.hp).toBe(438)
+  })
+
   it('appends card_level_up to battleLog when level increases', () => {
     const b = makeBattle({
       playerCards: [
@@ -357,6 +377,101 @@ describe('USE_CARD_ATTACK', () => {
       toLevel: 2,
       roll,
     })
+  })
+})
+
+describe('shop and FINALIZE_VICTORY rolls', () => {
+  it('FINALIZE_VICTORY no-op when itemLevelRolls length mismatches equipped count', () => {
+    const init = initialCampaignState()
+    const items = [{ id: 'w1', templateId: 'wooden_sword', itemLevel: 1 }]
+    const equipment = { ...init.equipment, weapon: 'w1' as const }
+    const snap = {
+      worldPower: 0,
+      cards: cloneCards(init.cards),
+      playerUnitLevel: 1,
+      modKillTargetCardId: 'c1' as const,
+      scenarioSlotIndex: 0,
+      gold: 100,
+      items: cloneItems(items),
+      equipment: { ...equipment },
+    }
+    const b = makeBattle({ phase: 'victory' })
+    const s: CampaignState = {
+      ...init,
+      gold: 100,
+      items,
+      equipment,
+      phase: 'victory',
+      battle: b,
+      battleAttemptSnapshot: snap,
+    }
+    const next = applyRunAction(s, { type: 'FINALIZE_VICTORY', itemLevelRolls: [] })
+    expect(next.phase).toBe('victory')
+    expect(next.gold).toBe(100)
+    expect(next.scenarioIndex).toBe(init.scenarioIndex)
+    expect(next.items[0]!.itemLevel).toBe(1)
+  })
+
+  it('FINALIZE_VICTORY applies memento roll and gold when length matches', () => {
+    const init = initialCampaignState()
+    const items = [{ id: 'w1', templateId: 'wooden_sword', itemLevel: 1 }]
+    const equipment = { ...init.equipment, weapon: 'w1' as const }
+    const snap = {
+      worldPower: 0,
+      cards: cloneCards(init.cards),
+      playerUnitLevel: 1,
+      modKillTargetCardId: 'c1' as const,
+      scenarioSlotIndex: 0,
+      gold: 10,
+      items: cloneItems(items),
+      equipment: { ...equipment },
+    }
+    const b = makeBattle({ phase: 'victory' })
+    let s: CampaignState = {
+      ...init,
+      gold: 10,
+      items,
+      equipment,
+      phase: 'victory',
+      battle: b,
+      battleAttemptSnapshot: snap,
+    }
+    s = applyRunAction(s, { type: 'FINALIZE_VICTORY', itemLevelRolls: [100] })
+    expect(s.phase).toBe('hub')
+    expect(s.items.find((i) => i.id === 'w1')!.itemLevel).toBe(2)
+    expect(s.gold).toBe(10 + 55)
+  })
+
+  it('BUY_ITEM then defeat then RETRY restores gold and items from snapshot', () => {
+    let s = { ...initialCampaignState(), gold: 100 }
+    s = applyRunAction(s, { type: 'BUY_ITEM', templateId: 'wooden_sword' })
+    expect(s.gold).toBe(90)
+    expect(s.items).toHaveLength(1)
+
+    s = applyRunAction(s, { type: 'START_OR_CONTINUE_BATTLE' })
+    const goldAtStart = s.gold
+
+    s = applyRunAction(s, {
+      type: 'BATTLE_DISPATCH',
+      battleAction: { type: 'move', unitId: 'hero', toX: 1, toY: 2 },
+    })
+    s = applyRunAction(s, {
+      type: 'BATTLE_DISPATCH',
+      battleAction: {
+        type: 'attack',
+        attackerId: 'e1',
+        targetId: 'hero',
+        damage: 999,
+        kind: 'ranged',
+        maxRange: 10,
+      },
+    })
+    expect(s.phase).toBe('defeat')
+
+    s = applyRunAction(s, { type: 'RETRY_CURRENT_BATTLE' })
+    expect(s.phase).toBe('battle')
+    expect(s.gold).toBe(goldAtStart)
+    expect(s.items).toHaveLength(1)
   })
 })
 

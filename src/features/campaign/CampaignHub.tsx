@@ -1,15 +1,57 @@
 import { useState } from 'react'
-import { FlagOutlined, PlayCircleOutlined } from '@ant-design/icons'
-import { Button, Card, Select, Space, Typography } from 'antd'
+import { FlagOutlined, PlayCircleOutlined, ShoppingOutlined } from '@ant-design/icons'
+import { App, Button, Card, Divider, Select, Space, Typography } from 'antd'
 import { SCENARIOS } from '../../game/campaign/scenarios'
+import { ITEM_TEMPLATES, SHOP_TEMPLATE_IDS, getItemTemplate } from '../../game/content/itemTemplates'
+import { EQUIPMENT_ROLL_ORDER } from '../../game/equipment/equipmentOrder'
+import type { CampaignState, EquipmentSlot, ItemInstance } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
 
+const SLOT_LABEL: Record<EquipmentSlot, string> = {
+  weapon: 'Оружие',
+  armor: 'Броня',
+  accessory: 'Аксессуар',
+}
+
+function itemsSelectableForSlot(
+  campaign: CampaignState,
+  slot: EquipmentSlot,
+): ItemInstance[] {
+  return campaign.items.filter((i) => {
+    const t = getItemTemplate(i.templateId)
+    if (!t || t.slot !== slot) return false
+    for (const s of EQUIPMENT_ROLL_ORDER) {
+      if (campaign.equipment[s] === i.id && s !== slot) return false
+    }
+    return true
+  })
+}
+
 export function CampaignHub() {
+  const { message } = App.useApp()
   const campaign = useGameStore((s) => s.campaign)
   const dispatchRun = useGameStore((s) => s.dispatchRun)
   const [replaySlot, setReplaySlot] = useState(0)
   const done = campaign.scenarioIndex >= SCENARIOS.length
   const scenario = SCENARIOS[campaign.scenarioIndex]
+  const inBattle = campaign.battle !== null
+
+  const equippedIds = new Set(
+    EQUIPMENT_ROLL_ORDER.map((s) => campaign.equipment[s]).filter(
+      (id): id is string => id !== null,
+    ),
+  )
+  const stash = campaign.items.filter((i) => !equippedIds.has(i.id))
+
+  const buy = (templateId: string) => {
+    const t = getItemTemplate(templateId)
+    if (!t) return
+    if (campaign.gold < t.shopPrice) {
+      message.warning('Недостаточно золота')
+      return
+    }
+    dispatchRun({ type: 'BUY_ITEM', templateId })
+  }
 
   return (
     <Card
@@ -34,7 +76,74 @@ export function CampaignHub() {
           </span>{' '}
           worldPower: {campaign.worldPower}
         </Typography.Text>
+        <Typography.Text>
+          <span style={{ fontSize: 28, lineHeight: 1, verticalAlign: '-0.18em' }} aria-hidden>
+            🪙
+          </span>{' '}
+          Золото: {campaign.gold}
+        </Typography.Text>
         <Typography.Text>Уровень героя: {campaign.playerUnitLevel}</Typography.Text>
+
+        <Divider titlePlacement="start">
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <ShoppingOutlined aria-hidden />
+            Магазин
+          </span>
+        </Divider>
+        <Space wrap>
+          {SHOP_TEMPLATE_IDS.map((tid) => {
+            const t = ITEM_TEMPLATES[tid]!
+            const can = campaign.gold >= t.shopPrice && !inBattle
+            return (
+              <Button key={tid} type="default" disabled={!can} onClick={() => buy(tid)}>
+                {t.label} — {t.shopPrice} зол.
+              </Button>
+            )
+          })}
+        </Space>
+
+        <Divider titlePlacement="start">Инвентарь и экипировка</Divider>
+        <Typography.Text type="secondary">
+          В рюкзаке:{' '}
+          {stash.length === 0
+            ? 'пусто'
+            : stash
+                .map((i) => {
+                  const lab = getItemTemplate(i.templateId)?.label ?? i.templateId
+                  return `${lab} (ур. ${i.itemLevel})`
+                })
+                .join(', ')}
+        </Typography.Text>
+        <Space orientation="vertical" style={{ width: '100%' }} size="small">
+          {EQUIPMENT_ROLL_ORDER.map((slot) => {
+            const choices = itemsSelectableForSlot(campaign, slot)
+            return (
+              <div key={slot}>
+                <Typography.Text style={{ marginRight: 8 }}>{SLOT_LABEL[slot]}:</Typography.Text>
+                <Select
+                  aria-label={`Экипировка: ${SLOT_LABEL[slot]}`}
+                  style={{ minWidth: 220 }}
+                  disabled={inBattle}
+                  allowClear
+                  placeholder="—"
+                  value={campaign.equipment[slot] ?? undefined}
+                  options={choices.map((i) => {
+                    const lab = getItemTemplate(i.templateId)?.label ?? i.templateId
+                    return { value: i.id, label: `${lab} (ур. ${i.itemLevel})` }
+                  })}
+                  onChange={(v) => {
+                    if (v == null || v === '') {
+                      dispatchRun({ type: 'UNEQUIP_ITEM', slot })
+                    } else {
+                      dispatchRun({ type: 'EQUIP_ITEM', itemId: String(v), slot })
+                    }
+                  }}
+                />
+              </div>
+            )
+          })}
+        </Space>
+
         <div>
           <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
             <span style={{ fontSize: 28, lineHeight: 1, verticalAlign: '-0.18em' }} aria-hidden>
@@ -72,7 +181,7 @@ export function CampaignHub() {
               />
               <Button
                 type="primary"
-                disabled={campaign.battle !== null}
+                disabled={inBattle}
                 icon={<PlayCircleOutlined />}
                 onClick={() =>
                   dispatchRun({
@@ -88,7 +197,7 @@ export function CampaignHub() {
         ) : (
           <Button
             type="primary"
-            disabled={campaign.battle !== null}
+            disabled={inBattle}
             icon={<PlayCircleOutlined />}
             onClick={() => dispatchRun({ type: 'START_OR_CONTINUE_BATTLE' })}
           >

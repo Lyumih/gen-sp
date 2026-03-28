@@ -1,7 +1,70 @@
 import { SAVE_VERSION } from './schema'
 import type { SaveEnvelopeV1 } from './schema'
-import type { CampaignState } from '../types'
+import type { BattleAttemptSnapshot, CampaignState, EquipmentSlot, ItemInstance } from '../types'
 import { SCENARIOS } from '../campaign/scenarios'
+import {
+  EMPTY_EQUIPMENT,
+  EQUIPMENT_ROLL_ORDER,
+} from '../equipment/equipmentOrder'
+
+function isItemInstance(x: unknown): x is ItemInstance {
+  if (!x || typeof x !== 'object') return false
+  const o = x as Record<string, unknown>
+  return (
+    typeof o.id === 'string' &&
+    typeof o.templateId === 'string' &&
+    typeof o.itemLevel === 'number' &&
+    Number.isFinite(o.itemLevel)
+  )
+}
+
+function normalizeEquipmentRecord(
+  equipment: unknown,
+  items: ItemInstance[],
+): Record<EquipmentSlot, string | null> {
+  const base: Record<EquipmentSlot, string | null> = { ...EMPTY_EQUIPMENT }
+  if (!equipment || typeof equipment !== 'object') return base
+  const rec = equipment as Record<string, unknown>
+  for (const slot of EQUIPMENT_ROLL_ORDER) {
+    const v = rec[slot]
+    if (typeof v !== 'string') {
+      base[slot] = null
+      continue
+    }
+    base[slot] = items.some((i) => i.id === v) ? v : null
+  }
+  return base
+}
+
+function normalizeCampaignEconomy(c: CampaignState): CampaignState {
+  const gold = typeof c.gold === 'number' && Number.isFinite(c.gold) ? c.gold : 0
+  const rawItems = Array.isArray(c.items) ? c.items : []
+  const items = rawItems.filter(isItemInstance).map((i) => ({ ...i }))
+  const equipment = normalizeEquipmentRecord(c.equipment, items)
+
+  let snap: BattleAttemptSnapshot | null = c.battleAttemptSnapshot
+  if (snap) {
+    const sg = typeof snap.gold === 'number' && Number.isFinite(snap.gold) ? snap.gold : 0
+    const sraw = Array.isArray(snap.items) ? snap.items : []
+    const si = sraw.filter(isItemInstance).map((i) => ({ ...i }))
+    const se = normalizeEquipmentRecord(snap.equipment, si)
+    snap = { ...snap, gold: sg, items: si, equipment: se }
+  }
+
+  const battle =
+    c.battle !== null
+      ? {
+          ...c.battle,
+          gearCardLevelBonus:
+            typeof c.battle.gearCardLevelBonus === 'number' &&
+            Number.isFinite(c.battle.gearCardLevelBonus)
+              ? c.battle.gearCardLevelBonus
+              : 0,
+        }
+      : null
+
+  return { ...c, gold, items, equipment, battleAttemptSnapshot: snap, battle }
+}
 
 function withDefaultScenarioSlotIndex(c: CampaignState): CampaignState {
   const snap = c.battleAttemptSnapshot
@@ -29,7 +92,9 @@ export function normalizeLoadedCampaign(c: CampaignState): CampaignState {
       battle: { ...c.battle, battleLog: [] },
     }
   }
-  return withDefaultScenarioSlotIndex(out)
+  out = withDefaultScenarioSlotIndex(out)
+  out = normalizeCampaignEconomy(out)
+  return out
 }
 
 function isRecord(x: unknown): x is Record<string, unknown> {

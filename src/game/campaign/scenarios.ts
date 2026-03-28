@@ -1,4 +1,6 @@
 import { computeUnitStat } from '../balance'
+import { getItemTemplate } from '../content/itemTemplates'
+import { aggregateGearCardLevelBonus, aggregateGearHpBonus } from '../equipment/aggregates'
 import type { BattleAttemptSnapshot, BattleState, Unit } from '../types'
 import { cellKey } from '../battle/grid'
 
@@ -55,11 +57,13 @@ export const SCENARIOS: readonly BattleScenario[] = [
 ]
 
 function makeHero(snapshot: BattleAttemptSnapshot, scenario: BattleScenario): Unit {
-  const maxHp = computeUnitStat({
+  const baseMaxHp = computeUnitStat({
     baseStat: scenario.heroBaseHpStat,
     unitLevel: snapshot.playerUnitLevel,
     worldPower: snapshot.worldPower,
   })
+  const gearHp = aggregateGearHpBonus(snapshot.items, snapshot.equipment, getItemTemplate)
+  const maxHp = baseMaxHp + gearHp
   return {
     id: 'hero',
     side: 'player',
@@ -123,5 +127,10 @@ export function battleStateFromScenario(
     })),
     modKillTargetCardId: snapshot.modKillTargetCardId,
     battleLog: [],
+    gearCardLevelBonus: aggregateGearCardLevelBonus(
+      snapshot.items,
+      snapshot.equipment,
+      getItemTemplate,
+    ),
   }
 }

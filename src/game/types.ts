@@ -1,3 +1,11 @@
+export type EquipmentSlot = 'weapon' | 'armor' | 'accessory'
+
+export type ItemInstance = {
+  id: string
+  templateId: string
+  itemLevel: number
+}
+
 export type Side = 'player' | 'enemy'
 
 export type Unit = {
@@ -75,6 +83,8 @@ export type BattleState = {
   modKillTargetCardId: string | null
   /** События текущего боя; не влияют на геймплей, только отображение. */
   battleLog: readonly BattleLogEntry[]
+  /** Суммарный бонус уровня карт от экипировки на старт боя (снимок). */
+  gearCardLevelBonus: number
 }
 
 export type BattleAction =
@@ -107,6 +117,9 @@ export type BattleAttemptSnapshot = {
   modKillTargetCardId: string | null
   /** Индекс в `SCENARIOS` для этой попытки (нужен для retry после финала кампании). */
   scenarioSlotIndex: number
+  gold: number
+  items: ItemInstance[]
+  equipment: Record<EquipmentSlot, string | null>
 }
 
 /** Снимок кампании: цепочка сценариев и мета-прогресс. */
@@ -116,6 +129,9 @@ export type CampaignState = {
   playerUnitLevel: number
   cards: CardInstance[]
   modKillTargetCardId: string | null
+  gold: number
+  items: ItemInstance[]
+  equipment: Record<EquipmentSlot, string | null>
   phase: RunPhase
   /** Активный бой; null в хабе после победы / до старта. */
   battle: BattleState | null

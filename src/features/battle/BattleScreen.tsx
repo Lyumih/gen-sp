@@ -14,6 +14,7 @@ import { useGameStore } from '../../store/gameStore'
 import { formatBattleLogEntry } from '../../game/battle/battleLog'
 import { getCurrentActorId } from '../../game/battle/reducer'
 import { cellKey } from '../../game/battle/grid'
+import { occupiedEquipmentSlotsInOrder } from '../../game/equipment/equipmentOrder'
 import { randomInt1to100 } from '../../game/rng'
 import { pickEnemyAiAction } from './enemyAi'
 
@@ -98,6 +99,12 @@ export function BattleScreen() {
   const walls = new Set(battle.walls)
   const unitAt = (x: number, y: number) =>
     battle.units.find((u) => u.hp > 0 && u.x === x && u.y === y)
+
+  const finalizeVictoryToHub = () => {
+    const n = occupiedEquipmentSlotsInOrder(campaign.equipment).length
+    const rolls = Array.from({ length: n }, () => randomInt1to100())
+    dispatchRun({ type: 'FINALIZE_VICTORY', itemLevelRolls: rolls })
+  }
 
   const confirmAbandon = () => {
     modal.confirm({
@@ -207,15 +214,10 @@ export function BattleScreen() {
             description="Просмотрите журнал и поле боя. Награды кампании и переход дальше произойдут только после вашего выбора."
             action={
               <Space>
-                <Button
-                  type="primary"
-                  onClick={() => dispatchRun({ type: 'FINALIZE_VICTORY' })}
-                >
+                <Button type="primary" onClick={finalizeVictoryToHub}>
                   Продолжить
                 </Button>
-                <Button onClick={() => dispatchRun({ type: 'FINALIZE_VICTORY' })}>
-                  Закончить
-                </Button>
+                <Button onClick={finalizeVictoryToHub}>Закончить</Button>
               </Space>
             }
           />

@@ -2,14 +2,24 @@ import { applyAction, getCurrentActorId } from '../battle/reducer'
 import { canMeleeAttack, canRangedAttack } from '../battle/combat'
 import { computeCardAttackDamage } from '../content/cardAttackDamage'
 import { getCardAttackTemplate } from '../content/cardTemplates'
+import { getItemTemplate } from '../content/itemTemplates'
+import {
+  EMPTY_EQUIPMENT,
+  EQUIPMENT_ROLL_ORDER,
+  occupiedEquipmentSlotsInOrder,
+} from '../equipment/equipmentOrder'
 import { applyCardUse } from '../memento/cardProgress'
+import { rollMementoLevelUp } from '../memento/rollMementoLevelUp'
 import type {
   BattleAction,
   BattleAttemptSnapshot,
   BattleState,
   CampaignState,
   CardInstance,
+  EquipmentSlot,
+  ItemInstance,
 } from '../types'
+import { goldForScenarioVictory } from './scenarioRewards'
 import { SCENARIOS, battleStateFromScenario } from './scenarios'
 
 export type RunAction =
@@ -24,13 +34,27 @@ export type RunAction =
     }
   | { type: 'RETRY_CURRENT_BATTLE' }
   | { type: 'ABANDON_BATTLE' }
-  | { type: 'FINALIZE_VICTORY' }
+  | { type: 'FINALIZE_VICTORY'; itemLevelRolls: number[] }
+  | { type: 'BUY_ITEM'; templateId: string }
+  | { type: 'EQUIP_ITEM'; itemId: string; slot: EquipmentSlot }
+  | { type: 'UNEQUIP_ITEM'; slot: EquipmentSlot }
 
 export function cloneCards(cards: readonly CardInstance[]): CardInstance[] {
   return cards.map((c) => ({
     ...c,
     modifications: c.modifications.map((m) => ({ ...m })),
   }))
+}
+
+export function cloneItems(items: readonly ItemInstance[]): ItemInstance[] {
+  return items.map((i) => ({ ...i }))
+}
+
+function newItemId(): string {
+  if (typeof globalThis.crypto !== 'undefined' && 'randomUUID' in globalThis.crypto) {
+    return globalThis.crypto.randomUUID()
+  }
+  return `item-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
 function snapshotFromCampaign(
@@ -43,6 +67,22 @@ function snapshotFromCampaign(
     playerUnitLevel: state.playerUnitLevel,
     modKillTargetCardId: state.modKillTargetCardId,
     scenarioSlotIndex,
+    gold: state.gold,
+    items: cloneItems(state.items),
+    equipment: { ...state.equipment },
+  }
+}
+
+function copySnapshot(snap: BattleAttemptSnapshot): BattleAttemptSnapshot {
+  return {
+    worldPower: snap.worldPower,
+    cards: cloneCards(snap.cards),
+    playerUnitLevel: snap.playerUnitLevel,
+    modKillTargetCardId: snap.modKillTargetCardId,
+    scenarioSlotIndex: snap.scenarioSlotIndex,
+    gold: snap.gold,
+    items: cloneItems(snap.items),
+    equipment: { ...snap.equipment },
   }
 }
 
@@ -62,13 +102,33 @@ function startBattleFromScenario(state: CampaignState): CampaignState {
   }
 }
 
-function finalizeVictory(state: CampaignState): CampaignState {
-  if (!state.battle) return state
+function finalizeVictory(state: CampaignState, itemLevelRolls: number[]): CampaignState {
+  if (!state.battle || state.battle.phase !== 'victory') return state
+
+  const expected = occupiedEquipmentSlotsInOrder(state.equipment).length
+  if (itemLevelRolls.length !== expected) return state
+
   const b = state.battle
+  const ordered = occupiedEquipmentSlotsInOrder(state.equipment)
+  let items = cloneItems(state.items)
+  for (let i = 0; i < ordered.length; i++) {
+    const { itemId } = ordered[i]!
+    const roll = itemLevelRolls[i]!
+    const idx = items.findIndex((x) => x.id === itemId)
+    if (idx < 0) continue
+    const inst = items[idx]!
+    if (rollMementoLevelUp(inst.itemLevel, roll)) {
+      const nextInst = { ...inst, itemLevel: inst.itemLevel + 1 }
+      items = items.map((x, j) => (j === idx ? nextInst : x))
+    }
+  }
+
+  const scenarioSlot =
+    state.battleAttemptSnapshot?.scenarioSlotIndex ?? state.scenarioIndex
+  const goldGain = goldForScenarioVictory(scenarioSlot)
   const nextScenarioIndex =
-    state.scenarioIndex >= SCENARIOS.length
-      ? state.scenarioIndex
-      : state.scenarioIndex + 1
+    state.scenarioIndex >= SCENARIOS.length ? state.scenarioIndex : state.scenarioIndex + 1
+
   return {
     ...state,
     worldPower: b.worldPower,
@@ -77,6 +137,8 @@ function finalizeVictory(state: CampaignState): CampaignState {
     battle: null,
     phase: 'hub',
     battleAttemptSnapshot: null,
+    items,
+    gold: state.gold + goldGain,
   }
 }
 
@@ -123,7 +185,8 @@ function tryUseCardAttack(
     uses_count: used.uses_count,
     modifications: used.modifications,
   }
-  const damage = computeCardAttackDamage(tmpl, card.global_level)
+  const levelForDamage = card.global_level + b.gearCardLevelBonus
+  const damage = computeCardAttackDamage(tmpl, levelForDamage)
   const playerCards = b.playerCards.map((c) => (c.id === card.id ? nextCard : c))
   const bWithCards = { ...b, playerCards }
 
@@ -199,28 +262,62 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
     }
     case 'USE_CARD_ATTACK':
       return tryUseCardAttack(state, action)
+    case 'BUY_ITEM': {
+      const tmpl = getItemTemplate(action.templateId)
+      if (!tmpl) return state
+      if (state.gold < tmpl.shopPrice) return state
+      const inst: ItemInstance = {
+        id: newItemId(),
+        templateId: action.templateId,
+        itemLevel: 1,
+      }
+      return {
+        ...state,
+        gold: state.gold - tmpl.shopPrice,
+        items: [...state.items, inst],
+      }
+    }
+    case 'EQUIP_ITEM': {
+      const { itemId, slot } = action
+      const item = state.items.find((i) => i.id === itemId)
+      if (!item) return state
+      const tmpl = getItemTemplate(item.templateId)
+      if (!tmpl || tmpl.slot !== slot) return state
+      if (state.equipment[slot] === itemId) return state
+      for (const s of EQUIPMENT_ROLL_ORDER) {
+        if (s !== slot && state.equipment[s] === itemId) return state
+      }
+      return {
+        ...state,
+        equipment: { ...state.equipment, [slot]: itemId },
+      }
+    }
+    case 'UNEQUIP_ITEM': {
+      return {
+        ...state,
+        equipment: { ...state.equipment, [action.slot]: null },
+      }
+    }
     case 'RETRY_CURRENT_BATTLE': {
       const snap = state.battleAttemptSnapshot
       if (!snap) return state
       const scenario = SCENARIOS[snap.scenarioSlotIndex]
       if (!scenario) return state
 
+      const snapCopy = copySnapshot(snap)
       const restored: CampaignState = {
         ...state,
         worldPower: snap.worldPower,
         cards: cloneCards(snap.cards),
         playerUnitLevel: snap.playerUnitLevel,
         modKillTargetCardId: snap.modKillTargetCardId,
+        gold: snap.gold,
+        items: cloneItems(snap.items),
+        equipment: { ...snap.equipment },
         phase: 'battle',
-        battle: battleStateFromScenario(scenario, snap),
+        battle: battleStateFromScenario(scenario, snapCopy),
         battleAttemptId: state.battleAttemptId + 1,
-        battleAttemptSnapshot: {
-          worldPower: snap.worldPower,
-          cards: cloneCards(snap.cards),
-          playerUnitLevel: snap.playerUnitLevel,
-          modKillTargetCardId: snap.modKillTargetCardId,
-          scenarioSlotIndex: snap.scenarioSlotIndex,
-        },
+        battleAttemptSnapshot: snapCopy,
       }
       return restored
     }
@@ -233,6 +330,9 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         cards: cloneCards(snap.cards),
         playerUnitLevel: snap.playerUnitLevel,
         modKillTargetCardId: snap.modKillTargetCardId,
+        gold: snap.gold,
+        items: cloneItems(snap.items),
+        equipment: { ...snap.equipment },
         battle: null,
         phase: 'hub',
         battleAttemptSnapshot: null,
@@ -240,7 +340,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
     }
     case 'FINALIZE_VICTORY': {
       if (!state.battle || state.battle.phase !== 'victory') return state
-      return finalizeVictory(state)
+      return finalizeVictory(state, action.itemLevelRolls)
     }
   }
 }
@@ -262,6 +362,9 @@ export function initialCampaignState(): CampaignState {
     playerUnitLevel: 1,
     cards: cloneCards(STARTER_CARDS),
     modKillTargetCardId: 'c1',
+    gold: 0,
+    items: [],
+    equipment: { ...EMPTY_EQUIPMENT },
     phase: 'hub',
     battle: null,
     battleAttemptId: 0,

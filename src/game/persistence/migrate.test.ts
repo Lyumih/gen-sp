@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { initialCampaignState } from '../campaign/runReducer'
 import type { CampaignState } from '../types'
 import { SCENARIOS } from '../campaign/scenarios'
+import { EMPTY_EQUIPMENT } from '../equipment/equipmentOrder'
 import { normalizeLoadedCampaign } from './migrate'
 
 describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
@@ -11,6 +12,9 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
       cards: initialCampaignState().cards,
       playerUnitLevel: 1,
       modKillTargetCardId: 'c1' as const,
+      gold: 0,
+      items: [],
+      equipment: { ...EMPTY_EQUIPMENT },
     }
     const c = {
       ...initialCampaignState(),
@@ -27,6 +31,9 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
       cards: initialCampaignState().cards,
       playerUnitLevel: 1,
       modKillTargetCardId: 'c1' as const,
+      gold: 0,
+      items: [],
+      equipment: { ...EMPTY_EQUIPMENT },
     }
     const c = {
       ...initialCampaignState(),
@@ -47,9 +54,22 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
         playerUnitLevel: 1,
         modKillTargetCardId: 'c1',
         scenarioSlotIndex: 2,
+        gold: 0,
+        items: [],
+        equipment: { ...EMPTY_EQUIPMENT },
       },
     }
     const out = normalizeLoadedCampaign(c)
     expect(out.battleAttemptSnapshot?.scenarioSlotIndex).toBe(2)
+  })
+
+  it('clears equipment slot when item id is missing from items', () => {
+    const c: CampaignState = {
+      ...initialCampaignState(),
+      items: [],
+      equipment: { ...EMPTY_EQUIPMENT, weapon: 'missing-id' },
+    }
+    const out = normalizeLoadedCampaign(c)
+    expect(out.equipment.weapon).toBeNull()
   })
 })

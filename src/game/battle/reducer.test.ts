@@ -39,6 +39,7 @@ function battle(overrides: Partial<BattleState> = {}): BattleState {
     playerCards: [],
     modKillTargetCardId: null,
     battleLog: [],
+    gearCardLevelBonus: 0,
   }
   return { ...base, ...overrides, units: overrides.units ?? base.units }
 }
