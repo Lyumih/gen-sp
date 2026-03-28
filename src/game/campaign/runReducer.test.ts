@@ -65,6 +65,7 @@ function campaignWithBattle(b: BattleState): CampaignState {
       cards: cloneCards(b.playerCards),
       playerUnitLevel: 1,
       modKillTargetCardId: 'c1',
+      scenarioSlotIndex: 0,
     },
   }
 }
@@ -180,6 +181,77 @@ describe('runReducer', () => {
     expect(s.phase).toBe('hub')
     expect(s.battleAttemptSnapshot).toBeNull()
     expect(s.worldPower).toBe(wpBefore)
+  })
+
+  it('linear START_OR_CONTINUE_BATTLE snapshot has scenarioSlotIndex === scenarioIndex', () => {
+    let s = initialCampaignState()
+    s = applyRunAction(s, { type: 'START_OR_CONTINUE_BATTLE' })
+    expect(s.battleAttemptSnapshot?.scenarioSlotIndex).toBe(s.scenarioIndex)
+    expect(s.battleAttemptSnapshot?.scenarioSlotIndex).toBe(0)
+  })
+
+  it('replay victory does not advance scenarioIndex when campaign already complete', () => {
+    let s = { ...initialCampaignState(), scenarioIndex: SCENARIOS.length }
+    s = applyRunAction(s, { type: 'START_REPLAY_BATTLE', scenarioSlotIndex: 0 })
+    expect(s.battle).not.toBeNull()
+    expect(s.battleAttemptSnapshot?.scenarioSlotIndex).toBe(0)
+
+    s = applyRunAction(s, {
+      type: 'BATTLE_DISPATCH',
+      battleAction: {
+        type: 'attack',
+        attackerId: 'hero',
+        targetId: 'e1',
+        damage: 999,
+        kind: 'ranged',
+        maxRange: 10,
+      },
+    })
+
+    expect(s.phase).toBe('hub')
+    expect(s.scenarioIndex).toBe(SCENARIOS.length)
+    expect(s.battle).toBeNull()
+    expect(s.battleAttemptSnapshot).toBeNull()
+    expect(s.worldPower).toBe(1)
+  })
+
+  it('replay defeat then retry uses same scenario slot', () => {
+    let s = { ...initialCampaignState(), scenarioIndex: SCENARIOS.length }
+    s = applyRunAction(s, { type: 'START_REPLAY_BATTLE', scenarioSlotIndex: 1 })
+    expect(s.battle!.units.some((u) => u.id === 'e1')).toBe(true)
+    expect(s.battle!.units.some((u) => u.id === 'e2')).toBe(true)
+
+    s = applyRunAction(s, {
+      type: 'BATTLE_DISPATCH',
+      battleAction: {
+        type: 'attack',
+        attackerId: 'hero',
+        targetId: 'e1',
+        damage: 999,
+        kind: 'ranged',
+        maxRange: 10,
+      },
+    })
+
+    s = applyRunAction(s, {
+      type: 'BATTLE_DISPATCH',
+      battleAction: {
+        type: 'attack',
+        attackerId: 'e2',
+        targetId: 'hero',
+        damage: 999,
+        kind: 'ranged',
+        maxRange: 10,
+      },
+    })
+
+    expect(s.phase).toBe('defeat')
+
+    s = applyRunAction(s, { type: 'RETRY_CURRENT_BATTLE' })
+    expect(s.phase).toBe('battle')
+    expect(s.battle!.width).toBe(SCENARIOS[1]!.width)
+    expect(s.battle!.units.some((u) => u.id === 'e1')).toBe(true)
+    expect(s.battle!.units.some((u) => u.id === 'e2')).toBe(true)
   })
 })
 

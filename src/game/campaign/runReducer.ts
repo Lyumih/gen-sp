@@ -14,6 +14,7 @@ import { SCENARIOS, battleStateFromScenario } from './scenarios'
 
 export type RunAction =
   | { type: 'START_OR_CONTINUE_BATTLE' }
+  | { type: 'START_REPLAY_BATTLE'; scenarioSlotIndex: number }
   | { type: 'BATTLE_DISPATCH'; battleAction: BattleAction }
   | {
       type: 'USE_CARD_ATTACK'
@@ -31,12 +32,16 @@ export function cloneCards(cards: readonly CardInstance[]): CardInstance[] {
   }))
 }
 
-function snapshotFromCampaign(state: CampaignState): BattleAttemptSnapshot {
+function snapshotFromCampaign(
+  state: CampaignState,
+  scenarioSlotIndex: number,
+): BattleAttemptSnapshot {
   return {
     worldPower: state.worldPower,
     cards: cloneCards(state.cards),
     playerUnitLevel: state.playerUnitLevel,
     modKillTargetCardId: state.modKillTargetCardId,
+    scenarioSlotIndex,
   }
 }
 
@@ -44,7 +49,7 @@ function startBattleFromScenario(state: CampaignState): CampaignState {
   const scenario = SCENARIOS[state.scenarioIndex]
   if (!scenario) return state
 
-  const snapshot = snapshotFromCampaign(state)
+  const snapshot = snapshotFromCampaign(state, state.scenarioIndex)
   const battle = battleStateFromScenario(scenario, snapshot)
 
   return {
@@ -59,11 +64,15 @@ function startBattleFromScenario(state: CampaignState): CampaignState {
 function finalizeVictory(state: CampaignState): CampaignState {
   if (!state.battle) return state
   const b = state.battle
+  const nextScenarioIndex =
+    state.scenarioIndex >= SCENARIOS.length
+      ? state.scenarioIndex
+      : state.scenarioIndex + 1
   return {
     ...state,
     worldPower: b.worldPower,
     cards: cloneCards(b.playerCards),
-    scenarioIndex: state.scenarioIndex + 1,
+    scenarioIndex: nextScenarioIndex,
     battle: null,
     phase: 'hub',
     battleAttemptSnapshot: null,
@@ -165,6 +174,23 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       if (state.scenarioIndex >= SCENARIOS.length) return state
       return startBattleFromScenario(state)
     }
+    case 'START_REPLAY_BATTLE': {
+      if (state.battle !== null) return state
+      if (state.scenarioIndex < SCENARIOS.length) return state
+      const slot = action.scenarioSlotIndex
+      if (slot < 0 || slot >= SCENARIOS.length) return state
+      const scenario = SCENARIOS[slot]
+      if (!scenario) return state
+      const snapshot = snapshotFromCampaign(state, slot)
+      const battle = battleStateFromScenario(scenario, snapshot)
+      return {
+        ...state,
+        phase: 'battle',
+        battle,
+        battleAttemptSnapshot: snapshot,
+        battleAttemptId: state.battleAttemptId + 1,
+      }
+    }
     case 'BATTLE_DISPATCH': {
       if (!state.battle || state.battle.phase !== 'ongoing') return state
       const nextBattle = applyAction(state.battle, action.battleAction)
@@ -174,8 +200,9 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       return tryUseCardAttack(state, action)
     case 'RETRY_CURRENT_BATTLE': {
       const snap = state.battleAttemptSnapshot
-      const scenario = SCENARIOS[state.scenarioIndex]
-      if (!snap || !scenario) return state
+      if (!snap) return state
+      const scenario = SCENARIOS[snap.scenarioSlotIndex]
+      if (!scenario) return state
 
       const restored: CampaignState = {
         ...state,
@@ -191,6 +218,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
           cards: cloneCards(snap.cards),
           playerUnitLevel: snap.playerUnitLevel,
           modKillTargetCardId: snap.modKillTargetCardId,
+          scenarioSlotIndex: snap.scenarioSlotIndex,
         },
       }
       return restored
