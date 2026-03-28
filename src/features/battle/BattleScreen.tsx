@@ -1,5 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import {
+  AimOutlined,
+  CreditCardOutlined,
+  DragOutlined,
+  LogoutOutlined,
+  RedoOutlined,
+  ThunderboltOutlined,
+} from '@ant-design/icons'
 import { Alert, App, Button, Card, Radio, Space, Typography } from 'antd'
+import type { Unit } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
 import { formatBattleLogEntry } from '../../game/battle/battleLog'
 import { getCurrentActorId } from '../../game/battle/reducer'
@@ -9,7 +18,38 @@ import { pickEnemyAiAction } from './enemyAi'
 
 type ActionMode = 'move' | 'melee' | 'ranged' | 'card'
 
-const CELL_PX = 48
+const CELL_PX = 58
+
+const unitCellWrapStyle: CSSProperties = {
+  fontSize: 10,
+  lineHeight: 1.12,
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  textAlign: 'center',
+  width: '100%',
+}
+
+const unitCellEmojiStyle: CSSProperties = {
+  fontSize: 28,
+  lineHeight: 1,
+}
+
+function BattleUnitCell({ unit, role }: { unit: Unit; role: 'player' | 'enemy' }) {
+  const glyph = role === 'player' ? '🛡️' : '👾'
+  return (
+    <span style={unitCellWrapStyle}>
+      <span style={unitCellEmojiStyle} aria-hidden>
+        {glyph}
+      </span>
+      <span>L{unit.unitLevel}</span>
+      <span>
+        {unit.hp}/{unit.maxHp}
+      </span>
+    </span>
+  )
+}
 
 export function BattleScreen() {
   const { message, modal } = App.useApp()
@@ -125,9 +165,14 @@ export function BattleScreen() {
 
   return (
     <Card
-      title="Бой"
+      title={
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <ThunderboltOutlined aria-hidden />
+          Бой
+        </span>
+      }
       extra={
-        <Button type="default" danger onClick={confirmAbandon}>
+        <Button type="default" danger icon={<LogoutOutlined />} onClick={confirmAbandon}>
           Выйти из боя
         </Button>
       }
@@ -142,6 +187,7 @@ export function BattleScreen() {
               <Button
                 type="primary"
                 danger
+                icon={<RedoOutlined />}
                 onClick={() => dispatchRun({ type: 'RETRY_CURRENT_BATTLE' })}
               >
                 Начать новый бой
@@ -154,7 +200,11 @@ export function BattleScreen() {
           <strong>
             {current?.side === 'player' ? 'Герой' : current?.id ?? '—'}
           </strong>
-          {' · '}worldPower (бой): {battle.worldPower}
+          {' · '}
+          <span style={{ fontSize: 28, lineHeight: 1, verticalAlign: '-0.18em' }} aria-hidden>
+            ⚡
+          </span>{' '}
+          worldPower (бой): {battle.worldPower}
         </Typography.Text>
         <div>
           <Typography.Text type="secondary">Действие героя: </Typography.Text>
@@ -163,10 +213,30 @@ export function BattleScreen() {
             onChange={(e) => setMode(e.target.value)}
             disabled={battle.phase !== 'ongoing' || currentId !== hero?.id}
           >
-            <Radio.Button value="move">Ход</Radio.Button>
-            <Radio.Button value="melee">Удар (1 кл.)</Radio.Button>
-            <Radio.Button value="ranged">Выстрел (≤6)</Radio.Button>
-            <Radio.Button value="card">Карта (strike, %%)</Radio.Button>
+            <Radio.Button value="move">
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <DragOutlined aria-hidden />
+                Ход
+              </span>
+            </Radio.Button>
+            <Radio.Button value="melee">
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <ThunderboltOutlined aria-hidden />
+                Удар (1 кл.)
+              </span>
+            </Radio.Button>
+            <Radio.Button value="ranged">
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <AimOutlined aria-hidden />
+                Выстрел (≤6)
+              </span>
+            </Radio.Button>
+            <Radio.Button value="card">
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <CreditCardOutlined aria-hidden />
+                Карта (strike, %%)
+              </span>
+            </Radio.Button>
           </Radio.Group>
         </div>
         <div
@@ -182,29 +252,14 @@ export function BattleScreen() {
               const u = unitAt(x, y)
               const wall = walls.has(k)
               let inner: ReactNode = '·'
-              if (wall) inner = '█'
-              else if (u?.id === 'hero') inner = '@'
-              else if (u?.side === 'enemy') {
+              if (wall)
                 inner = (
-                  <span
-                    style={{
-                      fontSize: 9,
-                      lineHeight: 1.15,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      textAlign: 'center',
-                      width: '100%',
-                    }}
-                  >
-                    <span>L{u.unitLevel}</span>
-                    <span>
-                      {u.hp}/{u.maxHp}
-                    </span>
+                  <span style={{ fontSize: 34, lineHeight: 1 }} aria-hidden>
+                    🧱
                   </span>
                 )
-              }
+              else if (u?.side === 'player') inner = <BattleUnitCell unit={u} role="player" />
+              else if (u?.side === 'enemy') inner = <BattleUnitCell unit={u} role="enemy" />
               return (
                 <button
                   key={k}
@@ -214,7 +269,7 @@ export function BattleScreen() {
                     width: CELL_PX,
                     height: CELL_PX,
                     padding: wall ? 0 : 2,
-                    fontSize: wall ? 14 : 12,
+                    fontSize: wall ? undefined : 12,
                     cursor: wall ? 'default' : 'pointer',
                     background: wall ? '#333' : '#f5f5f5',
                     color: wall ? '#fff' : '#000',
@@ -261,6 +316,9 @@ export function BattleScreen() {
           ))}
         </Space>
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          <span style={{ fontSize: 28, lineHeight: 1, verticalAlign: '-0.18em' }} aria-hidden>
+            🃏
+          </span>{' '}
           Карты:{' '}
           {battle.playerCards
             .map(

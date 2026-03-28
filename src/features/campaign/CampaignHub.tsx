@@ -1,3 +1,4 @@
+import { FlagOutlined, PlayCircleOutlined } from '@ant-design/icons'
 import { Button, Card, Space, Typography } from 'antd'
 import { SCENARIOS } from '../../game/campaign/scenarios'
 import { useGameStore } from '../../store/gameStore'
@@ -9,7 +10,14 @@ export function CampaignHub() {
   const scenario = SCENARIOS[campaign.scenarioIndex]
 
   return (
-    <Card title="Gen — кампания">
+    <Card
+      title={
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <FlagOutlined aria-hidden />
+          Gen — кампания
+        </span>
+      }
+    >
       <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
         <Typography.Text>
           Сценарий:{' '}
@@ -18,10 +26,18 @@ export function CampaignHub() {
             : `${campaign.scenarioIndex + 1} / ${SCENARIOS.length}`}
           {scenario ? ` — ${scenario.id}` : ''}
         </Typography.Text>
-        <Typography.Text>worldPower: {campaign.worldPower}</Typography.Text>
+        <Typography.Text>
+          <span style={{ fontSize: 28, lineHeight: 1, verticalAlign: '-0.18em' }} aria-hidden>
+            ⚡
+          </span>{' '}
+          worldPower: {campaign.worldPower}
+        </Typography.Text>
         <Typography.Text>Уровень героя: {campaign.playerUnitLevel}</Typography.Text>
         <div>
           <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+            <span style={{ fontSize: 28, lineHeight: 1, verticalAlign: '-0.18em' }} aria-hidden>
+              🃏
+            </span>{' '}
             Карточки
           </Typography.Text>
           <ul style={{ margin: 0, paddingLeft: 20 }}>
@@ -39,6 +55,7 @@ export function CampaignHub() {
         <Button
           type="primary"
           disabled={done || campaign.battle !== null}
+          icon={done ? undefined : <PlayCircleOutlined />}
           onClick={() => dispatchRun({ type: 'START_OR_CONTINUE_BATTLE' })}
         >
           {done ? 'Все бои пройдены' : 'Начать / продолжить бой'}
