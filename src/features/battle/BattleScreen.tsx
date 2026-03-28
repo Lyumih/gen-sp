@@ -3,9 +3,10 @@ import { Alert, App, Button, Card, Radio, Space, Typography } from 'antd'
 import { useGameStore } from '../../store/gameStore'
 import { getCurrentActorId } from '../../game/battle/reducer'
 import { cellKey } from '../../game/battle/grid'
+import { randomInt1to100 } from '../../game/rng'
 import { pickEnemyAiAction } from './enemyAi'
 
-type ActionMode = 'move' | 'melee' | 'ranged'
+type ActionMode = 'move' | 'melee' | 'ranged' | 'card'
 
 export function BattleScreen() {
   const { message } = App.useApp()
@@ -78,6 +79,20 @@ export function BattleScreen() {
       })
       return
     }
+    if (mode === 'card') {
+      const card = battle.playerCards[0]
+      if (!card) {
+        message.warning('Нет карт в бою')
+        return
+      }
+      dispatchRun({
+        type: 'USE_CARD_ATTACK',
+        cardId: card.id,
+        targetId: target.id,
+        randomInt1to100: randomInt1to100(),
+      })
+      return
+    }
     dispatchBattle({
       type: 'attack',
       attackerId: hero.id,
@@ -124,6 +139,7 @@ export function BattleScreen() {
             <Radio.Button value="move">Ход</Radio.Button>
             <Radio.Button value="melee">Удар (1 кл.)</Radio.Button>
             <Radio.Button value="ranged">Выстрел (≤6)</Radio.Button>
+            <Radio.Button value="card">Карта (strike, %%)</Radio.Button>
           </Radio.Group>
         </div>
         <div
@@ -174,7 +190,10 @@ export function BattleScreen() {
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
           Карты:{' '}
           {battle.playerCards
-            .map((c) => `${c.templateId} L${c.global_level}`)
+            .map(
+              (c) =>
+                `${c.templateId} L${c.global_level} · использ. ${c.uses_count}`,
+            )
             .join(', ') || '—'}
         </Typography.Text>
       </Space>
