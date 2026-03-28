@@ -5,6 +5,7 @@ import type { CardAttackTemplate } from './cardTemplates'
 describe('computeCardAttackDamage', () => {
   it('uses resolvePercentValue for token 40%% at L=100', () => {
     const t: CardAttackTemplate = {
+      label: 'T',
       kind: 'melee',
       maxRange: 1,
       damageToken: '40%%',
@@ -15,6 +16,7 @@ describe('computeCardAttackDamage', () => {
 
   it('uses fallback when no token', () => {
     const t: CardAttackTemplate = {
+      label: 'T',
       kind: 'melee',
       maxRange: 1,
       fallbackDamage: 7,
