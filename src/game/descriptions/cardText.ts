@@ -1,6 +1,7 @@
 import { computeCardAttackDamage } from '../content/cardAttackDamage'
 import { getCardAttackTemplate } from '../content/cardTemplates'
 import type { CardInstance } from '../types'
+import { UI_CELL, UI_DAMAGE, UI_LEVEL } from '../ui/labels'
 
 export function getCardDisplayLabel(templateId: string): string {
   const tmpl = getCardAttackTemplate(templateId)
@@ -33,15 +34,15 @@ export function describeCardCombatStats(
   const kindRu = tmpl.kind === 'melee' ? 'Ближний бой' : 'Дальний бой'
   const tokenLine =
     tmpl.damageToken !== undefined
-      ? `Токен урона: ${tmpl.damageToken}`
-      : `Без токена (запасной урон ${tmpl.fallbackDamage})`
+      ? `Токен ${UI_DAMAGE}: ${tmpl.damageToken}`
+      : `Без токена (запасной ${UI_DAMAGE} ${tmpl.fallbackDamage})`
 
   const lines = [
-    `${kindRu}, дальность ${tmpl.maxRange}`,
+    `${kindRu}, дальность ${tmpl.maxRange} ${UI_CELL}`,
     tokenLine,
-    `Уровень карты: ${card.global_level}, бонус экипировки к урону: +${gearCardLevelBonus}`,
-    `Эффективный уровень для урона: ${levelForDamage}`,
-    `Ожидаемый урон сейчас: ${expectedDamage}`,
+    `${UI_LEVEL} карты: ${card.global_level}, бонус экипировки к ${UI_DAMAGE}: +${gearCardLevelBonus}`,
+    `Эффективный ${UI_LEVEL} для ${UI_DAMAGE}: ${levelForDamage}`,
+    `Ожидаемый ${UI_DAMAGE} сейчас: ${expectedDamage}`,
   ]
 
   return { displayLabel, lines, expectedDamage }

@@ -18,6 +18,7 @@ import {
   HERO_BASIC_RANGED_MAX_RANGE,
 } from '../../game/battle/combat'
 import { describeCardCombatStats, getCardDisplayLabel } from '../../game/descriptions/cardText'
+import { UI_CELL, UI_DAMAGE, UI_HEART, UI_LEVEL } from '../../game/ui/labels'
 import { HeroProfileModal } from '../profile/HeroProfileModal'
 import type { Unit } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
@@ -55,8 +56,12 @@ function BattleUnitCell({ unit, role }: { unit: Unit; role: 'player' | 'enemy' }
       <span style={unitCellEmojiStyle} aria-hidden>
         {glyph}
       </span>
-      <span>L{unit.unitLevel}</span>
       <span>
+        {UI_LEVEL}
+        {unit.unitLevel}
+      </span>
+      <span>
+        {UI_HEART}
         {unit.hp}/{unit.maxHp}
       </span>
     </span>
@@ -292,20 +297,20 @@ export function BattleScreen() {
             <Radio.Button value="melee">
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <ThunderboltOutlined aria-hidden />
-                Удар (1 кл.) — {HERO_BASIC_MELEE_DAMAGE} ур.
+                {`Удар (1${UI_CELL}) — ${HERO_BASIC_MELEE_DAMAGE}${UI_DAMAGE}`}
               </span>
             </Radio.Button>
             <Radio.Button value="ranged">
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <AimOutlined aria-hidden />
-                Выстрел (≤{HERO_BASIC_RANGED_MAX_RANGE}) — {HERO_BASIC_RANGED_DAMAGE} ур.
+                {`Выстрел (≤${HERO_BASIC_RANGED_MAX_RANGE}${UI_CELL}) — ${HERO_BASIC_RANGED_DAMAGE}${UI_DAMAGE}`}
               </span>
             </Radio.Button>
             <Radio.Button value="card">
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <CreditCardOutlined aria-hidden />
                 {primaryBattleCard && primaryCardDamage !== null
-                  ? `${getCardDisplayLabel(primaryBattleCard.templateId)} — ${primaryCardDamage} ур.`
+                  ? `${getCardDisplayLabel(primaryBattleCard.templateId)} — ${String(primaryCardDamage)}${UI_DAMAGE}`
                   : 'Карта'}
               </span>
             </Radio.Button>
@@ -383,7 +388,7 @@ export function BattleScreen() {
         <Space wrap>
           {battle.units.map((u) => (
             <Typography.Text key={u.id}>
-              {u.id}: HP {u.hp}/{u.maxHp}
+              {u.id}: {UI_HEART} {u.hp}/{u.maxHp}
             </Typography.Text>
           ))}
         </Space>
@@ -413,8 +418,9 @@ export function BattleScreen() {
                   key: c.id,
                   label: (
                     <span style={{ fontSize: 13 }}>
-                      {getCardDisplayLabel(c.templateId)} L{c.global_level} · использ. {c.uses_count}
-                      {dmg !== null ? ` · ${dmg} ур.` : ''}
+                      {getCardDisplayLabel(c.templateId)} {UI_LEVEL}
+                      {c.global_level} · использ. {c.uses_count}
+                      {dmg !== null ? ` · ${String(dmg)}${UI_DAMAGE}` : ''}
                     </span>
                   ),
                   children: (

@@ -12,20 +12,20 @@ describe('itemPerLevelBonusesLines', () => {
   it('wooden_sword: only card level', () => {
     const t = ITEM_TEMPLATES.wooden_sword!
     expect(itemPerLevelBonusesLines(t)).toEqual([
-      '+1 к уровню для урона карт за уровень предмета',
+      '+1 к ⭐ для 💥 карт за ⭐ предмета',
     ])
   })
 
   it('leather_armor: only hp', () => {
     const t = ITEM_TEMPLATES.leather_armor!
-    expect(itemPerLevelBonusesLines(t)).toEqual(['+2 к max HP за уровень предмета'])
+    expect(itemPerLevelBonusesLines(t)).toEqual(['+2 к max ❤️ за ⭐ предмета'])
   })
 
   it('copper_ring: both', () => {
     const t = ITEM_TEMPLATES.copper_ring!
     expect(itemPerLevelBonusesLines(t)).toEqual([
-      '+1 к max HP за уровень предмета',
-      '+1 к уровню для урона карт за уровень предмета',
+      '+1 к max ❤️ за ⭐ предмета',
+      '+1 к ⭐ для 💥 карт за ⭐ предмета',
     ])
   })
 })
@@ -45,9 +45,7 @@ describe('itemTotalBonusesAtLevel', () => {
 describe('itemSelectShortLabel', () => {
   it('includes totals for copper_ring level 1', () => {
     const t = ITEM_TEMPLATES.copper_ring!
-    expect(itemSelectShortLabel(t, 1)).toBe(
-      'Медное кольцо · ур. 1 · HP +1 · урон карт +1',
-    )
+    expect(itemSelectShortLabel(t, 1)).toBe('Медное кольцо · ⭐1 · ❤️ +1 · ⭐→💥 +1')
   })
 })
 

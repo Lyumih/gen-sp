@@ -11,6 +11,7 @@ import { getItemTemplate } from '../../game/content/itemTemplates'
 import { aggregateGearCardLevelBonus, aggregateGearHpBonus } from '../../game/equipment/aggregates'
 import { EQUIPMENT_ROLL_ORDER } from '../../game/equipment/equipmentOrder'
 import type { BattleState, CampaignState } from '../../game/types'
+import { UI_DAMAGE, UI_HEART, UI_LEVEL } from '../../game/ui/labels'
 
 export type HeroProfileModalProps = {
   open: boolean
@@ -56,7 +57,8 @@ export function HeroProfileModal({
       destroyOnClose
     >
       <Typography.Paragraph style={{ marginBottom: 8 }}>
-        Уровень героя: <strong>{campaign.playerUnitLevel}</strong>
+        Герой: {UI_LEVEL}
+        <strong>{campaign.playerUnitLevel}</strong>
         <br />
         worldPower: <strong>{campaign.worldPower}</strong>
         <br />
@@ -64,12 +66,12 @@ export function HeroProfileModal({
       </Typography.Paragraph>
 
       <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
-        Бонусы экипировки: +{gearHpHub} к max HP, +{gearCardHub} к уровню для урона карт
+        Бонусы экипировки: +{gearHpHub} к max {UI_HEART}, +{gearCardHub} к {UI_LEVEL} для {UI_DAMAGE} карт
         {mode === 'battle' && battle ? (
           <>
             <br />
             <span>
-              (в этом бою снимок бонуса к урону карт: <strong>{gearCardBattle}</strong>)
+              (в этом бою снимок бонуса к {UI_DAMAGE} карт: <strong>{gearCardBattle}</strong>)
             </span>
           </>
         ) : null}
@@ -77,7 +79,7 @@ export function HeroProfileModal({
 
       {mode === 'battle' && heroUnit ? (
         <Typography.Paragraph>
-          HP в бою:{' '}
+          {UI_HEART} в бою:{' '}
           <strong>
             {heroUnit.hp}/{heroUnit.maxHp}
           </strong>
@@ -86,12 +88,14 @@ export function HeroProfileModal({
 
       {mode === 'hub' && expectedMaxHpHub !== null ? (
         <Typography.Paragraph>
-          Ожидаемый max HP в следующем бою: <strong>{expectedMaxHpHub}</strong>
+          Ожидаемый max {UI_HEART} в следующем бою: <strong>{expectedMaxHpHub}</strong>
         </Typography.Paragraph>
       ) : null}
 
       {mode === 'hub' && hubScenario === undefined ? (
-        <Typography.Paragraph type="secondary">Сценариев для отображения ожидаемого HP нет.</Typography.Paragraph>
+        <Typography.Paragraph type="secondary">
+          Сценариев для отображения ожидаемого {UI_HEART} нет.
+        </Typography.Paragraph>
       ) : null}
 
       <Divider plain>Экипировка</Divider>
@@ -140,8 +144,8 @@ export function HeroProfileModal({
             key: c.id,
             label: (
               <span>
-                {getCardDisplayLabel(c.templateId)} — глоб. ур. {c.global_level}, использ.{' '}
-                {c.uses_count}
+                {getCardDisplayLabel(c.templateId)} — глоб. {UI_LEVEL}
+                {c.global_level}, использ. {c.uses_count}
               </span>
             ),
             children: (

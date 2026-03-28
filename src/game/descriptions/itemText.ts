@@ -1,5 +1,6 @@
 import type { ItemTemplate } from '../content/itemTemplates'
 import type { EquipmentSlot, ItemInstance } from '../types'
+import { UI_DAMAGE, UI_HEART, UI_LEVEL } from '../ui/labels'
 
 const SLOT_LABEL_RU: Record<EquipmentSlot, string> = {
   weapon: 'Оружие',
@@ -15,15 +16,15 @@ export function equipmentSlotLabelRu(slot: EquipmentSlot): string {
 export function itemPerLevelBonusesLines(t: ItemTemplate): string[] {
   const out: string[] = []
   if (t.hpBonusPerItemLevel > 0) {
-    out.push(`+${t.hpBonusPerItemLevel} к max HP за уровень предмета`)
+    out.push(`+${t.hpBonusPerItemLevel} к max ${UI_HEART} за ${UI_LEVEL} предмета`)
   }
   if (t.cardLevelBonusPerItemLevel > 0) {
     out.push(
-      `+${t.cardLevelBonusPerItemLevel} к уровню для урона карт за уровень предмета`,
+      `+${t.cardLevelBonusPerItemLevel} к ${UI_LEVEL} для ${UI_DAMAGE} карт за ${UI_LEVEL} предмета`,
     )
   }
   if (out.length === 0) {
-    out.push('Нет бонусов за уровень предмета')
+    out.push(`Нет бонусов за ${UI_LEVEL} предмета`)
   }
   return out
 }
@@ -59,9 +60,9 @@ export function itemShopSummaryLine(t: ItemTemplate): string {
  */
 export function itemSelectShortLabel(inst: ItemTemplate, itemLevel: number): string {
   const { hp, cardLevel } = itemTotalBonusesAtLevel(inst, itemLevel)
-  const parts: string[] = [`${inst.label} · ур. ${itemLevel}`]
-  if (hp > 0) parts.push(`HP +${hp}`)
-  if (cardLevel > 0) parts.push(`урон карт +${cardLevel}`)
+  const parts: string[] = [`${inst.label} · ${UI_LEVEL}${itemLevel}`]
+  if (hp > 0) parts.push(`${UI_HEART} +${hp}`)
+  if (cardLevel > 0) parts.push(`${UI_LEVEL}→${UI_DAMAGE} +${cardLevel}`)
   return parts.join(' · ')
 }
 
@@ -72,17 +73,17 @@ export function itemInstanceDescriptionLines(
 ): string[] {
   const { hp, cardLevel } = itemTotalBonusesAtLevel(t, itemLevel)
   const lines: string[] = [
-    `${t.label} (${equipmentSlotLabelRu(t.slot)}), уровень предмета ${itemLevel}`,
+    `${t.label} (${equipmentSlotLabelRu(t.slot)}), ${UI_LEVEL} предмета ${itemLevel}`,
   ]
   if (hp > 0) {
-    lines.push(`Сейчас: +${hp} к max HP`)
+    lines.push(`Сейчас: +${hp} к max ${UI_HEART}`)
   } else {
-    lines.push('Сейчас: нет бонуса к max HP')
+    lines.push(`Сейчас: нет бонуса к max ${UI_HEART}`)
   }
   if (cardLevel > 0) {
-    lines.push(`Сейчас: +${cardLevel} к уровню для урона карт`)
+    lines.push(`Сейчас: +${cardLevel} к ${UI_LEVEL} для ${UI_DAMAGE} карт`)
   } else {
-    lines.push('Сейчас: нет бонуса к урону карт')
+    lines.push(`Сейчас: нет бонуса к ${UI_LEVEL} для ${UI_DAMAGE} карт`)
   }
   lines.push(...itemPerLevelBonusesLines(t).map((s) => `За уровень: ${s}`))
   return lines
@@ -94,7 +95,7 @@ export function itemInstanceDescriptionLinesFromInstance(
 ): string[] {
   const t = getTemplate(inst.templateId)
   if (!t) {
-    return [`Неизвестный предмет: ${inst.templateId}, ур. ${inst.itemLevel}`]
+    return [`Неизвестный предмет: ${inst.templateId}, ${UI_LEVEL}${inst.itemLevel}`]
   }
   return itemInstanceDescriptionLines(t, inst.itemLevel)
 }

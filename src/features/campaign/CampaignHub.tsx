@@ -12,6 +12,7 @@ import {
 import { getCardDisplayLabel } from '../../game/descriptions/cardText'
 import { ITEM_TEMPLATES, SHOP_TEMPLATE_IDS, getItemTemplate } from '../../game/content/itemTemplates'
 import { aggregateGearCardLevelBonus } from '../../game/equipment/aggregates'
+import { UI_DAMAGE, UI_LEVEL } from '../../game/ui/labels'
 import { EQUIPMENT_ROLL_ORDER } from '../../game/equipment/equipmentOrder'
 import type { CampaignState, EquipmentSlot, ItemInstance } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
@@ -162,7 +163,7 @@ export function CampaignHub() {
             : stash
                 .map((i) => {
                   const tmpl = getItemTemplate(i.templateId)
-                  if (!tmpl) return `${i.templateId} (ур. ${i.itemLevel})`
+                  if (!tmpl) return `${i.templateId} (${UI_LEVEL}${i.itemLevel})`
                   return itemSelectShortLabel(tmpl, i.itemLevel)
                 })
                 .join(' · ')}
@@ -202,7 +203,7 @@ export function CampaignHub() {
                     const tmpl = getItemTemplate(i.templateId)
                     const label = tmpl
                       ? itemSelectShortLabel(tmpl, i.itemLevel)
-                      : `${i.templateId} (ур. ${i.itemLevel})`
+                      : `${i.templateId} (${UI_LEVEL}${i.itemLevel})`
                     return { value: i.id, label }
                   })}
                   onChange={(v) => {
@@ -235,14 +236,14 @@ export function CampaignHub() {
           <ul style={{ margin: 0, paddingLeft: 20 }}>
             {campaign.cards.map((c) => (
               <li key={c.id}>
-                {getCardDisplayLabel(c.templateId)} — глоб. ур. {c.global_level}, использований{' '}
-                {c.uses_count}
+                {getCardDisplayLabel(c.templateId)} — глоб. {UI_LEVEL}
+                {c.global_level}, использований {c.uses_count}
                 {c.modifications.length > 0
                   ? `, мод1: ${c.modifications[0]?.level ?? 0}`
                   : ''}
                 <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
-                  Урон в следующем бою: эфф. ур. для урона ≈ {c.global_level + gearCardPreview} (карта +
-                  экипировка)
+                  {UI_DAMAGE} в следующем бою: эфф. {UI_LEVEL} для {UI_DAMAGE} ≈{' '}
+                  {c.global_level + gearCardPreview} (карта + экипировка)
                 </Typography.Text>
               </li>
             ))}
@@ -257,7 +258,7 @@ export function CampaignHub() {
         </Typography.Title>
         <Divider style={{ margin: '8px 0 16px' }} />
         <Typography.Paragraph type="secondary" style={{ marginBottom: 8, fontSize: 12 }}>
-          Новый предмет стартует с уровня 1; уровень может расти после побед в сценарии (Memento).
+          Новый предмет стартует с {UI_LEVEL}1; {UI_LEVEL} может расти после побед в сценарии (Memento).
         </Typography.Paragraph>
         <Space wrap size="middle">
           {SHOP_TEMPLATE_IDS.map((tid) => {
@@ -271,7 +272,7 @@ export function CampaignHub() {
                     {equipmentSlotLabelRu(t.slot)} · {t.shopPrice} зол.
                   </Typography.Text>
                   <Typography.Text style={{ fontSize: 12 }}>
-                    На ур. 1:{' '}
+                    На {UI_LEVEL}1:{' '}
                     {itemPerLevelBonusesLines(t)
                       .filter((line) => !line.startsWith('Нет бонусов'))
                       .join(' · ') || 'нет бонусов'}
