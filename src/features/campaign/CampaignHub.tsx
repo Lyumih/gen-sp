@@ -1,9 +1,17 @@
 import { useState } from 'react'
 import { FlagOutlined, IdcardOutlined, PlayCircleOutlined, ShoppingOutlined } from '@ant-design/icons'
-import { App, Button, Card, Divider, Select, Space, Typography } from 'antd'
+import { App, Button, Card, Divider, Popover, Select, Space, Typography } from 'antd'
 import { HeroProfileModal } from '../profile/HeroProfileModal'
 import { SCENARIOS } from '../../game/campaign/scenarios'
+import {
+  equipmentSlotLabelRu,
+  itemInstanceDescriptionLinesFromInstance,
+  itemPerLevelBonusesLines,
+  itemSelectShortLabel,
+} from '../../game/descriptions/itemText'
+import { getCardDisplayLabel } from '../../game/descriptions/cardText'
 import { ITEM_TEMPLATES, SHOP_TEMPLATE_IDS, getItemTemplate } from '../../game/content/itemTemplates'
+import { aggregateGearCardLevelBonus } from '../../game/equipment/aggregates'
 import { EQUIPMENT_ROLL_ORDER } from '../../game/equipment/equipmentOrder'
 import type { CampaignState, EquipmentSlot, ItemInstance } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
@@ -44,6 +52,11 @@ export function CampaignHub() {
     ),
   )
   const stash = campaign.items.filter((i) => !equippedIds.has(i.id))
+  const gearCardPreview = aggregateGearCardLevelBonus(
+    campaign.items,
+    campaign.equipment,
+    getItemTemplate,
+  )
 
   const buy = (templateId: string) => {
     const t = getItemTemplate(templateId)
@@ -103,14 +116,31 @@ export function CampaignHub() {
           </span>
         </Typography.Title>
         <Divider style={{ margin: '8px 0 16px' }} />
-        <Space wrap>
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 8, fontSize: 12 }}>
+          Новый предмет стартует с уровня 1; уровень может расти после побед в сценарии (Memento).
+        </Typography.Paragraph>
+        <Space wrap size="middle">
           {SHOP_TEMPLATE_IDS.map((tid) => {
             const t = ITEM_TEMPLATES[tid]!
             const can = campaign.gold >= t.shopPrice && !inBattle
             return (
-              <Button key={tid} type="default" disabled={!can} onClick={() => buy(tid)}>
-                {t.label} — {t.shopPrice} зол.
-              </Button>
+              <Card key={tid} size="small" style={{ maxWidth: 280 }}>
+                <Space orientation="vertical" size="small" style={{ width: '100%' }}>
+                  <Typography.Text strong>{t.label}</Typography.Text>
+                  <Typography.Text type="secondary">
+                    {equipmentSlotLabelRu(t.slot)} · {t.shopPrice} зол.
+                  </Typography.Text>
+                  <Typography.Text style={{ fontSize: 12 }}>
+                    На ур. 1:{' '}
+                    {itemPerLevelBonusesLines(t)
+                      .filter((line) => !line.startsWith('Нет бонусов'))
+                      .join(' · ') || 'нет бонусов'}
+                  </Typography.Text>
+                  <Button type="primary" disabled={!can} block onClick={() => buy(tid)}>
+                    Купить
+                  </Button>
+                </Space>
+              </Card>
             )
           })}
         </Space>
@@ -125,27 +155,49 @@ export function CampaignHub() {
             ? 'пусто'
             : stash
                 .map((i) => {
-                  const lab = getItemTemplate(i.templateId)?.label ?? i.templateId
-                  return `${lab} (ур. ${i.itemLevel})`
+                  const tmpl = getItemTemplate(i.templateId)
+                  if (!tmpl) return `${i.templateId} (ур. ${i.itemLevel})`
+                  return itemSelectShortLabel(tmpl, i.itemLevel)
                 })
-                .join(', ')}
+                .join(' · ')}
         </Typography.Text>
         <Space orientation="vertical" style={{ width: '100%' }} size="small">
           {EQUIPMENT_ROLL_ORDER.map((slot) => {
             const choices = itemsSelectableForSlot(campaign, slot)
+            const equippedId = campaign.equipment[slot]
+            const equippedInst =
+              equippedId !== null ? campaign.items.find((x) => x.id === equippedId) : undefined
+            const equippedTmpl =
+              equippedInst !== undefined ? getItemTemplate(equippedInst.templateId) : undefined
+            const popoverContent =
+              equippedInst && equippedTmpl ? (
+                <ul style={{ margin: 0, paddingLeft: 16, maxWidth: 320 }}>
+                  {itemInstanceDescriptionLinesFromInstance(equippedInst, getItemTemplate).map(
+                    (line, idx) => (
+                      <li key={idx}>
+                        <Typography.Text style={{ fontSize: 12 }}>{line}</Typography.Text>
+                      </li>
+                    ),
+                  )}
+                </ul>
+              ) : null
+
             return (
               <div key={slot}>
                 <Typography.Text style={{ marginRight: 8 }}>{SLOT_LABEL[slot]}:</Typography.Text>
                 <Select
                   aria-label={`Экипировка: ${SLOT_LABEL[slot]}`}
-                  style={{ minWidth: 220 }}
+                  style={{ minWidth: 260 }}
                   disabled={inBattle}
                   allowClear
                   placeholder="—"
                   value={campaign.equipment[slot] ?? undefined}
                   options={choices.map((i) => {
-                    const lab = getItemTemplate(i.templateId)?.label ?? i.templateId
-                    return { value: i.id, label: `${lab} (ур. ${i.itemLevel})` }
+                    const tmpl = getItemTemplate(i.templateId)
+                    const label = tmpl
+                      ? itemSelectShortLabel(tmpl, i.itemLevel)
+                      : `${i.templateId} (ур. ${i.itemLevel})`
+                    return { value: i.id, label }
                   })}
                   onChange={(v) => {
                     if (v == null || v === '') {
@@ -155,6 +207,13 @@ export function CampaignHub() {
                     }
                   }}
                 />
+                {popoverContent ? (
+                  <Popover title="Предмет в слоте" content={popoverContent}>
+                    <Button type="link" size="small" style={{ paddingLeft: 8 }}>
+                      Подробнее
+                    </Button>
+                  </Popover>
+                ) : null}
               </div>
             )
           })}
@@ -170,11 +229,15 @@ export function CampaignHub() {
           <ul style={{ margin: 0, paddingLeft: 20 }}>
             {campaign.cards.map((c) => (
               <li key={c.id}>
-                {c.templateId} — глоб. ур. {c.global_level}, использований{' '}
+                {getCardDisplayLabel(c.templateId)} — глоб. ур. {c.global_level}, использований{' '}
                 {c.uses_count}
                 {c.modifications.length > 0
                   ? `, мод1: ${c.modifications[0]?.level ?? 0}`
                   : ''}
+                <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
+                  Урон в следующем бою: эфф. ур. для урона ≈ {c.global_level + gearCardPreview} (карта +
+                  экипировка)
+                </Typography.Text>
               </li>
             ))}
           </ul>

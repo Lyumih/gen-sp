@@ -9,7 +9,8 @@ import {
   RedoOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons'
-import { Alert, App, Button, Card, Radio, Space, Typography } from 'antd'
+import { Alert, App, Button, Card, Collapse, Radio, Space, Typography } from 'antd'
+import { describeCardCombatStats, getCardDisplayLabel } from '../../game/descriptions/cardText'
 import { HeroProfileModal } from '../profile/HeroProfileModal'
 import type { Unit } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
@@ -368,18 +369,41 @@ export function BattleScreen() {
             </Typography.Text>
           ))}
         </Space>
-        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-          <span style={{ fontSize: 28, lineHeight: 1, verticalAlign: '-0.18em' }} aria-hidden>
-            🃏
-          </span>{' '}
-          Карты:{' '}
-          {battle.playerCards
-            .map(
-              (c) =>
-                `${c.templateId} L${c.global_level} · использ. ${c.uses_count}`,
-            )
-            .join(', ') || '—'}
-        </Typography.Text>
+        <div>
+          <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>
+            <span style={{ fontSize: 28, lineHeight: 1, verticalAlign: '-0.18em' }} aria-hidden>
+              🃏
+            </span>{' '}
+            Карты
+          </Typography.Text>
+          {battle.playerCards.length === 0 ? (
+            <Typography.Text type="secondary">—</Typography.Text>
+          ) : (
+            <Collapse
+              size="small"
+              items={battle.playerCards.map((c) => {
+                const desc = describeCardCombatStats(c, battle.gearCardLevelBonus)
+                return {
+                  key: c.id,
+                  label: (
+                    <span style={{ fontSize: 13 }}>
+                      {getCardDisplayLabel(c.templateId)} L{c.global_level} · использ. {c.uses_count}
+                    </span>
+                  ),
+                  children: (
+                    <ul style={{ margin: 0, paddingLeft: 18 }}>
+                      {desc.lines.map((line, i) => (
+                        <li key={i}>
+                          <Typography.Text style={{ fontSize: 12 }}>{line}</Typography.Text>
+                        </li>
+                      ))}
+                    </ul>
+                  ),
+                }
+              })}
+            />
+          )}
+        </div>
       </Space>
       <HeroProfileModal
         open={profileOpen}
