@@ -1,3 +1,4 @@
+import { Analytics } from '@vercel/analytics/react'
 import { App as AntdApp } from 'antd'
 import { BattleScreen } from './features/battle/BattleScreen'
 import { CampaignHub } from './features/campaign/CampaignHub'
@@ -15,6 +16,7 @@ function App() {
       <div style={{ maxWidth: 720, margin: '24px auto', padding: 16 }}>
         <AppContent />
       </div>
+      <Analytics />
     </AntdApp>
   )
 }
