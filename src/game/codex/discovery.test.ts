@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { initialCampaignState } from '../campaign/runReducer'
-import type { BattleState, CardInstance, Unit } from '../types'
+import type { BattlePlayerCard, BattleState, CardInstance, Unit } from '../types'
 import { codexEntriesByCategory } from './registry'
 import {
   codexEntryId,
@@ -14,6 +14,10 @@ import {
 
 function unit(partial: Unit): Unit {
   return partial
+}
+
+function battleCard(card: CardInstance): BattlePlayerCard {
+  return { ...card, cooldownRemaining: 0 }
 }
 
 function battle(overrides: Partial<BattleState> = {}): BattleState {
@@ -145,9 +149,9 @@ describe('mergeBattleCodexDiscoveries', () => {
       uses_count: 0,
       modifications: [{ templateId: 'kill_reward', level: 0 }],
     }
-    const prev = battle({ playerCards: [card] })
+    const prev = battle({ playerCards: [battleCard(card)] })
     const next = battle({
-      playerCards: [{ ...card, modifications: [{ templateId: 'kill_reward', level: 1 }] }],
+      playerCards: [battleCard({ ...card, modifications: [{ templateId: 'kill_reward', level: 1 }] })],
     })
     expect(mergeBattleCodexDiscoveries(prev, next, [])).toEqual([
       codexEntryId('mod', 'kill_reward'),

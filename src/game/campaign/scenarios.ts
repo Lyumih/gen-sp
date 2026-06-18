@@ -2,6 +2,7 @@ import { computeUnitStat } from '../balance'
 import { getItemTemplate } from '../content/itemTemplates'
 import { aggregateGearCardLevelBonus } from '../equipment/aggregates'
 import { computeHeroMaxHpForScenario } from './heroMaxHp'
+import { playerCardsFromLoadout } from './playerCardsFromLoadout'
 import type { BattleAttemptSnapshot, BattleState, Unit } from '../types'
 import { cellKey } from '../battle/grid'
 
@@ -118,10 +119,7 @@ export function battleStateFromScenario(
     currentTurnIndex: 0,
     phase: 'ongoing',
     worldPower: snapshot.worldPower,
-    playerCards: snapshot.cards.map((c) => ({
-      ...c,
-      modifications: c.modifications.map((m) => ({ ...m })),
-    })),
+    playerCards: playerCardsFromLoadout(snapshot.cards, snapshot.battleLoadout),
     modKillTargetCardId: snapshot.modKillTargetCardId,
     battleLog: [],
     gearCardLevelBonus: aggregateGearCardLevelBonus(

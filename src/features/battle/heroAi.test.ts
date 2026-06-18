@@ -1,17 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import type { BattleState, CardInstance, Unit } from '../../game/types'
+import type { BattlePlayerCard, BattleState, Unit } from '../../game/types'
 import { pickHeroAiAction } from './heroAi'
 
 function unit(partial: Unit): Unit {
   return partial
 }
 
-function card(partial: Partial<CardInstance> & Pick<CardInstance, 'id'>): CardInstance {
+function card(partial: Partial<BattlePlayerCard> & Pick<BattlePlayerCard, 'id'>): BattlePlayerCard {
   return {
     templateId: 'strike',
     global_level: 1,
     uses_count: 0,
     modifications: [],
+    cooldownRemaining: 0,
     ...partial,
   }
 }
@@ -135,5 +136,18 @@ describe('pickHeroAiAction', () => {
       targetX: 2,
       targetY: 0,
     })
+  })
+
+  it('heals self when below 50% hp and no attack available', () => {
+    const s = battle({
+      width: 10,
+      units: [
+        unit({ id: 'hero', side: 'player', x: 0, y: 0, hp: 4, maxHp: 10, unitLevel: 1 }),
+        unit({ id: 'e1', side: 'enemy', x: 9, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
+      ],
+      playerCards: [card({ id: 'c3', templateId: 'heal' })],
+    })
+    const d = pickHeroAiAction(s)
+    expect(d).toEqual({ kind: 'card_heal', cardId: 'c3', targetId: 'hero' })
   })
 })

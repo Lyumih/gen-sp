@@ -8,6 +8,7 @@ function minimalSnapshot(over: Partial<BattleAttemptSnapshot> = {}): BattleAttem
   return {
     worldPower: 0,
     cards: [],
+    battleLoadout: ['c1', 'c2'],
     playerUnitLevel: 1,
     modKillTargetCardId: null,
     scenarioSlotIndex: 0,

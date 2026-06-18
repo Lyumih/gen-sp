@@ -1,17 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import type { BattleState, CardInstance, Unit } from '../types'
+import type { BattlePlayerCard, BattleState, Unit } from '../types'
 import { applyAction, WORLD_POWER_PER_ENEMY_KILL } from './reducer'
 
 function unit(partial: Unit): Unit {
   return partial
 }
 
-const defaultCard = (id: string): CardInstance => ({
+const defaultCard = (id: string): BattlePlayerCard => ({
   id,
   templateId: 't1',
   global_level: 75,
   uses_count: 0,
   modifications: [{ templateId: 'kill_reward', level: 0 }],
+  cooldownRemaining: 0,
 })
 
 function battle(overrides: Partial<BattleState> = {}): BattleState {

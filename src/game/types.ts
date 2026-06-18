@@ -35,6 +35,11 @@ export type CardInstance = {
 /** Поля карточки, участвующие в прогрессе за использование. */
 export type CardProgressSlice = Pick<CardInstance, 'global_level' | 'uses_count'>
 
+/** Карта в бою: прогресс + перезарядка (не сохраняется в кампании). */
+export type BattlePlayerCard = CardInstance & { cooldownRemaining: number }
+
+export type BattleLoadout = [string | null, string | null]
+
 export type BattlePhase = 'ongoing' | 'victory' | 'defeat'
 
 export type BattleLogEntry =
@@ -63,6 +68,13 @@ export type BattleLogEntry =
       toLevel: number
       roll: number
     }
+  | {
+      type: 'heal'
+      healerId: string
+      targetId: string
+      amount: number
+      fromCard?: { cardId: string; templateId: string }
+    }
 
 /**
  * Тактический бой: сетка, стены как ключи "x,y", очередь ходов по id.
@@ -80,7 +92,9 @@ export type BattleState = {
   /** Сила мира кампании; в бою может расти при смерти врага (§6). */
   worldPower: number
   /** Карты героя на поле боя — для начисления модификаций за kill (MVP). */
-  playerCards: readonly CardInstance[]
+  playerCards: readonly BattlePlayerCard[]
+  /** Пропустить тик CD в конце текущего хода героя (ход применения карты с CD). */
+  skipHeroCooldownTick?: boolean
   /** id карточки, на которую копятся очки за убийство врага в этом бою. */
   modKillTargetCardId: string | null
   /** События текущего боя; не влияют на геймплей, только отображение. */
@@ -117,6 +131,13 @@ export type BattleAction =
       aoeSize: number
       fromCard?: { cardId: string; templateId: string }
     }
+  | {
+      type: 'heal'
+      healerId: string
+      targetId: string
+      amount: number
+      fromCard?: { cardId: string; templateId: string }
+    }
 
 export type RunPhase = 'hub' | 'battle' | 'victory' | 'defeat'
 
@@ -131,6 +152,7 @@ export type BattleAttemptSnapshot = {
   gold: number
   items: ItemInstance[]
   equipment: Record<EquipmentSlot, string | null>
+  battleLoadout: BattleLoadout
 }
 
 /** Снимок кампании: цепочка сценариев и мета-прогресс. */
@@ -139,6 +161,8 @@ export type CampaignState = {
   worldPower: number
   playerUnitLevel: number
   cards: CardInstance[]
+  /** Две карты, активные в следующем бою. */
+  battleLoadout: BattleLoadout
   modKillTargetCardId: string | null
   gold: number
   items: ItemInstance[]

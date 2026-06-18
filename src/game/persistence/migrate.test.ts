@@ -52,6 +52,7 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
       battleAttemptSnapshot: {
         worldPower: 0,
         cards: initialCampaignState().cards,
+        battleLoadout: ['c1', 'c2'] as [string | null, string | null],
         playerUnitLevel: 1,
         modKillTargetCardId: 'c1',
         scenarioSlotIndex: 2,
@@ -81,8 +82,10 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
       cards: strikeOnly,
     }
     const out = normalizeLoadedCampaign(c)
-    expect(out.cards.map((card) => card.id)).toEqual(['c1', 'c2'])
+    expect(out.cards.map((card) => card.id)).toEqual(['c1', 'c2', 'c3'])
     expect(out.cards.find((card) => card.id === 'c2')?.templateId).toBe('fireball')
+    expect(out.cards.find((card) => card.id === 'c3')?.templateId).toBe('heal')
+    expect(out.battleLoadout).toEqual(['c1', 'c2'])
   })
 
   it('adds missing starter cards to active battle playerCards', () => {
@@ -93,6 +96,12 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
     )
     const out = normalizeLoadedCampaign(withBattle)
     expect(out.battle?.playerCards.map((card) => card.id)).toEqual(['c1', 'c2'])
+  })
+
+  it('adds battleLoadout default when missing', () => {
+    const legacy = { ...initialCampaignState(), battleLoadout: undefined } as unknown as CampaignState
+    const out = normalizeLoadedCampaign(legacy)
+    expect(out.battleLoadout).toEqual(['c1', 'c2'])
   })
 })
 

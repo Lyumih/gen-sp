@@ -1,6 +1,8 @@
 import type { SaveEnvelopeV1 } from './schema'
 import type {
   BattleAttemptSnapshot,
+  BattleLoadout,
+  BattlePlayerCard,
   CampaignState,
   CardInstance,
   EquipmentSlot,
@@ -8,6 +10,7 @@ import type {
   ModificationInstance,
 } from '../types'
 import { cloneCards } from '../campaign/battleSnapshot'
+import { playerCardsFromLoadout } from '../campaign/playerCardsFromLoadout'
 import { STARTER_CARDS } from '../campaign/runReducer'
 import { SCENARIOS } from '../campaign/scenarios'
 import { DEFAULT_MOD_KILL_TEMPLATE_ID } from '../content/modTemplates'
@@ -95,18 +98,76 @@ function mergeMissingStarterCards(cards: readonly CardInstance[]): CardInstance[
   return [...cards, ...cloneCards(missing)]
 }
 
+function withDefaultBattleLoadout(c: CampaignState): CampaignState {
+  const raw = c.battleLoadout as unknown
+  if (
+    Array.isArray(raw) &&
+    raw.length === 2 &&
+    (raw[0] === null || typeof raw[0] === 'string') &&
+    (raw[1] === null || typeof raw[1] === 'string')
+  ) {
+    return { ...c, battleLoadout: [raw[0], raw[1]] as BattleLoadout }
+  }
+  return { ...c, battleLoadout: ['c1', 'c2'] }
+}
+
+function normalizeBattlePlayerCards(c: CampaignState): CampaignState {
+  if (!c.battle) return c
+  const playerCards: BattlePlayerCard[] = c.battle.playerCards.map((card) => ({
+    ...card,
+    modifications: card.modifications.map((m) => ({ ...m })),
+    cooldownRemaining:
+      typeof (card as BattlePlayerCard).cooldownRemaining === 'number'
+        ? (card as BattlePlayerCard).cooldownRemaining
+        : 0,
+  }))
+  const changed =
+    playerCards.length !== c.battle.playerCards.length ||
+    playerCards.some((card, i) => card !== c.battle!.playerCards[i])
+  if (!changed) return c
+  return { ...c, battle: { ...c.battle, playerCards } }
+}
+
+function withSnapshotBattleLoadout(c: CampaignState): CampaignState {
+  const snap = c.battleAttemptSnapshot
+  if (!snap) return c
+  const raw = snap.battleLoadout as unknown
+  if (
+    Array.isArray(raw) &&
+    raw.length === 2 &&
+    (raw[0] === null || typeof raw[0] === 'string') &&
+    (raw[1] === null || typeof raw[1] === 'string')
+  ) {
+    return c
+  }
+  return {
+    ...c,
+    battleAttemptSnapshot: { ...snap, battleLoadout: ['c1', 'c2'] },
+  }
+}
+
+function normalizeBattleFromLoadout(c: CampaignState): CampaignState {
+  if (!c.battle) return c
+  const loadout = c.battleLoadout
+  const playerCards = playerCardsFromLoadout(c.cards, loadout)
+  const same =
+    playerCards.length === c.battle.playerCards.length &&
+    playerCards.every(
+      (card, i) =>
+        card.id === c.battle!.playerCards[i]?.id &&
+        card.cooldownRemaining === (c.battle!.playerCards[i]?.cooldownRemaining ?? 0),
+    )
+  if (same) return c
+  return { ...c, battle: { ...c.battle, playerCards } }
+}
+
 /** Старые сохранения без новых стартовых карт — дополняем из STARTER_CARDS. */
 function withMissingStarterCards(c: CampaignState): CampaignState {
   const cards = mergeMissingStarterCards(c.cards)
   const cardsChanged = cards.length !== c.cards.length
 
   let battle = c.battle
-  if (c.battle) {
-    const playerCards = mergeMissingStarterCards(c.battle.playerCards)
-    if (playerCards.length !== c.battle.playerCards.length) {
-      battle = { ...c.battle, playerCards }
-    }
-  }
+  // playerCards в бою — только loadout; не дополняем коллекционными стартовыми картами.
 
   let battleAttemptSnapshot = c.battleAttemptSnapshot
   if (c.battleAttemptSnapshot) {
@@ -151,7 +212,10 @@ function withLegacyCardModTemplateIds(c: CampaignState): CampaignState {
 
   let battle = c.battle
   if (c.battle) {
-    const playerCards = c.battle.playerCards.map(normalizeCardModifications)
+    const playerCards: BattlePlayerCard[] = c.battle.playerCards.map((card) => ({
+      ...normalizeCardModifications(card),
+      cooldownRemaining: card.cooldownRemaining ?? 0,
+    }))
     const battleCardsChanged = playerCards.some((card, i) => card !== c.battle!.playerCards[i])
     if (battleCardsChanged) {
       battle = { ...c.battle, playerCards }
@@ -198,8 +262,12 @@ export function normalizeLoadedCampaign(c: CampaignState): CampaignState {
     }
   }
   out = withDefaultScenarioSlotIndex(out)
+  out = withDefaultBattleLoadout(out)
+  out = withSnapshotBattleLoadout(out)
   out = normalizeCampaignEconomy(out)
   out = withMissingStarterCards(out)
+  out = normalizeBattleFromLoadout(out)
+  out = normalizeBattlePlayerCards(out)
   out = withLegacyCodexFields(out)
   out = withLegacyCardModTemplateIds(out)
   return out

@@ -39,3 +39,7 @@ export function withDamage(unit: Unit, damage: number): Unit {
   const hp = Math.max(0, unit.hp - damage)
   return { ...unit, hp }
 }
+
+export function withHeal(unit: Unit, amount: number): Unit {
+  return { ...unit, hp: Math.min(unit.maxHp, unit.hp + amount) }
+}

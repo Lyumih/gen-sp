@@ -1,13 +1,16 @@
 export type CardAttackTemplate = {
   /** Отображаемое имя умения для UI. */
   label: string
-  kind: 'melee' | 'ranged' | 'aoe'
-  /** Для дальнего боя — лимит манхэттена; для ближнего в бою не используется. */
+  kind: 'melee' | 'ranged' | 'aoe' | 'heal'
+  /** Для дальнего боя / лечения — лимит манхэттена; для ближнего в бою не используется. */
   maxRange: number
   /** Только для kind === 'aoe': размер квадрата области (3 → 3×3). */
   aoeSize?: number
   damageToken?: string
-  fallbackDamage: number
+  fallbackDamage?: number
+  healToken?: string
+  fallbackHeal?: number
+  cooldownTurns?: number
   emoji?: string
 }
 
@@ -27,10 +30,24 @@ export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>>
     aoeSize: 3,
     damageToken: '50%%',
     fallbackDamage: 8,
+    cooldownTurns: 3,
     emoji: '🔥',
+  },
+  heal: {
+    label: 'Исцеление',
+    kind: 'heal',
+    maxRange: 2,
+    healToken: '25%%',
+    fallbackHeal: 6,
+    cooldownTurns: 4,
+    emoji: '💚',
   },
 }
 
 export function getCardAttackTemplate(templateId: string): CardAttackTemplate | undefined {
   return CARD_ATTACK_TEMPLATES[templateId]
+}
+
+export function getTemplateCooldownTurns(templateId: string): number {
+  return getCardAttackTemplate(templateId)?.cooldownTurns ?? 0
 }

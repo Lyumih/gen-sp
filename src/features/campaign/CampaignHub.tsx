@@ -72,6 +72,10 @@ export function CampaignHub() {
     dispatchRun({ type: 'SET_MOD_KILL_TARGET', cardId })
   }
 
+  const setBattleLoadout = (slotIndex: 0 | 1, cardId: string | null) => {
+    dispatchRun({ type: 'SET_BATTLE_LOADOUT', slotIndex, cardId })
+  }
+
   return (
     <Card
       title={
@@ -118,6 +122,7 @@ export function CampaignHub() {
             onReorderStash={reorderStash}
             onReorderCards={reorderCards}
             onSetModKillTarget={setModKillTarget}
+            onSetBattleLoadout={setBattleLoadout}
             onInvalidSlot={() => message.warning('Не подходит к этому слоту')}
           />
         ) : null}

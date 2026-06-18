@@ -1,8 +1,10 @@
 import { applyAction, getCurrentActorId } from '../battle/reducer'
+import { heroTurnAdvanced, tickHeroCardCooldowns } from '../battle/cardCooldown'
 import { canMeleeAttack, canRangedAttack } from '../battle/combat'
 import { cellKey, inBounds, wallSet } from '../battle/grid'
-import { canCastAoEAt } from '../battle/rangeOverlay'
+import { canCastAoEAt, canHealTarget } from '../battle/rangeOverlay'
 import { computeCardAttackDamage } from '../content/cardAttackDamage'
+import { computeCardHealAmount } from '../content/cardHealAmount'
 import { getCardAttackTemplate } from '../content/cardTemplates'
 import {
   codexEntryId,
@@ -26,6 +28,7 @@ import { applyCardUse } from '../memento/cardProgress'
 import { rollMementoLevelUp } from '../memento/rollMementoLevelUp'
 import type {
   BattleAction,
+  BattlePlayerCard,
   BattleState,
   CampaignState,
   CardInstance,
@@ -38,6 +41,7 @@ import {
   cloneItems,
   copyBattleAttemptSnapshot,
 } from './battleSnapshot'
+import { mergeBattleCardsIntoCollection } from './mergeBattleCards'
 import { goldForScenarioVictory } from './scenarioRewards'
 import { SCENARIOS, battleStateFromScenario } from './scenarios'
 
@@ -58,6 +62,13 @@ export type RunAction =
       targetY: number
       randomInt1to100: number
     }
+  | {
+      type: 'USE_CARD_HEAL'
+      cardId: string
+      targetId: string
+      randomInt1to100: number
+    }
+  | { type: 'SET_BATTLE_LOADOUT'; slotIndex: 0 | 1; cardId: string | null }
   | { type: 'RETRY_CURRENT_BATTLE' }
   | { type: 'ABANDON_BATTLE' }
   | { type: 'FINALIZE_VICTORY'; itemLevelRolls: number[]; playerUnitLevelRoll: number }
@@ -147,7 +158,7 @@ function finalizeVictory(
   return {
     ...state,
     worldPower: b.worldPower,
-    cards: cloneCards(b.playerCards),
+    cards: mergeBattleCardsIntoCollection(state.cards, b.playerCards),
     scenarioIndex: nextScenarioIndex,
     battle: null,
     phase: 'hub',
@@ -163,16 +174,47 @@ function applyBattleOutcome(
   prevBattle: BattleState,
   nextBattle: BattleState,
 ): CampaignState {
+  let battle = nextBattle
+  if (heroTurnAdvanced(prevBattle, nextBattle)) {
+    battle = tickHeroCardCooldowns(battle)
+  }
   const nextState = withCodexDiscoveries(state, [
-    ...mergeBattleCodexDiscoveries(prevBattle, nextBattle, state.codexDiscovered),
+    ...mergeBattleCodexDiscoveries(prevBattle, battle, state.codexDiscovered),
   ].filter((id) => !state.codexDiscovered.includes(id)))
-  if (nextBattle.phase === 'victory') {
-    return { ...nextState, battle: nextBattle, phase: 'victory' }
+  if (battle.phase === 'victory') {
+    return { ...nextState, battle, phase: 'victory' }
   }
-  if (nextBattle.phase === 'defeat') {
-    return { ...nextState, battle: nextBattle, phase: 'defeat' }
+  if (battle.phase === 'defeat') {
+    return { ...nextState, battle, phase: 'defeat' }
   }
-  return { ...nextState, battle: nextBattle, phase: 'battle' }
+  return { ...nextState, battle, phase: 'battle' }
+}
+
+function appendCardLevelUpLog(
+  battle: BattleState,
+  card: BattlePlayerCard,
+  used: CardInstance,
+  roll: number,
+): BattleState {
+  return {
+    ...battle,
+    battleLog: [
+      ...battle.battleLog,
+      {
+        type: 'card_level_up',
+        cardId: card.id,
+        templateId: card.templateId,
+        fromLevel: card.global_level,
+        toLevel: used.global_level,
+        roll,
+      },
+    ],
+  }
+}
+
+function withCardCooldownSkip(battle: BattleState, cooldownTurns: number): BattleState {
+  if (cooldownTurns <= 0) return battle
+  return { ...battle, skipHeroCooldownTick: true }
 }
 
 function tryUseCardAttack(
@@ -191,6 +233,7 @@ function tryUseCardAttack(
 
   const card = b.playerCards.find((c) => c.id === action.cardId)
   if (!card) return state
+  if ((card.cooldownRemaining ?? 0) > 0) return state
 
   const tmpl = getCardAttackTemplate(card.templateId)
   if (!tmpl) return state
@@ -200,15 +243,17 @@ function tryUseCardAttack(
   if (tmpl.kind === 'ranged' && !canRangedAttack(hero, target, tmpl.maxRange, walls)) {
     return state
   }
-  if (tmpl.kind === 'aoe') return state
+  if (tmpl.kind === 'aoe' || tmpl.kind === 'heal') return state
 
   const used = applyCardUse(card, action.randomInt1to100)
-  const nextCard: CardInstance = {
+  const cd = tmpl.cooldownTurns ?? 0
+  const nextCard: BattlePlayerCard = {
     id: used.id,
     templateId: used.templateId,
     global_level: used.global_level,
     uses_count: used.uses_count,
     modifications: used.modifications,
+    cooldownRemaining: cd,
   }
   const levelForDamage = card.global_level + b.gearCardLevelBonus
   const damage = computeCardAttackDamage(tmpl, levelForDamage)
@@ -238,21 +283,9 @@ function tryUseCardAttack(
 
   let nextBattle = applyAction(bWithCards, battleAction)
   if (used.leveledUp) {
-    nextBattle = {
-      ...nextBattle,
-      battleLog: [
-        ...nextBattle.battleLog,
-        {
-          type: 'card_level_up',
-          cardId: card.id,
-          templateId: card.templateId,
-          fromLevel: card.global_level,
-          toLevel: used.global_level,
-          roll: action.randomInt1to100,
-        },
-      ],
-    }
+    nextBattle = appendCardLevelUpLog(nextBattle, card, used, action.randomInt1to100)
   }
+  nextBattle = withCardCooldownSkip(nextBattle, cd)
   return applyBattleOutcome(state, b, nextBattle)
 }
 
@@ -269,6 +302,7 @@ function tryUseCardAoE(
 
   const card = b.playerCards.find((c) => c.id === action.cardId)
   if (!card) return state
+  if ((card.cooldownRemaining ?? 0) > 0) return state
 
   const tmpl = getCardAttackTemplate(card.templateId)
   if (!tmpl || tmpl.kind !== 'aoe' || tmpl.aoeSize === undefined) return state
@@ -280,12 +314,14 @@ function tryUseCardAoE(
   if (!canCastAoEAt(hero, targetX, targetY, tmpl.maxRange, walls)) return state
 
   const used = applyCardUse(card, action.randomInt1to100)
-  const nextCard: CardInstance = {
+  const cd = tmpl.cooldownTurns ?? 0
+  const nextCard: BattlePlayerCard = {
     id: used.id,
     templateId: used.templateId,
     global_level: used.global_level,
     uses_count: used.uses_count,
     modifications: used.modifications,
+    cooldownRemaining: cd,
   }
   const levelForDamage = card.global_level + b.gearCardLevelBonus
   const damage = computeCardAttackDamage(tmpl, levelForDamage)
@@ -303,21 +339,63 @@ function tryUseCardAoE(
     fromCard,
   })
   if (used.leveledUp) {
-    nextBattle = {
-      ...nextBattle,
-      battleLog: [
-        ...nextBattle.battleLog,
-        {
-          type: 'card_level_up',
-          cardId: card.id,
-          templateId: card.templateId,
-          fromLevel: card.global_level,
-          toLevel: used.global_level,
-          roll: action.randomInt1to100,
-        },
-      ],
-    }
+    nextBattle = appendCardLevelUpLog(nextBattle, card, used, action.randomInt1to100)
   }
+  nextBattle = withCardCooldownSkip(nextBattle, cd)
+  return applyBattleOutcome(state, b, nextBattle)
+}
+
+function tryUseCardHeal(
+  state: CampaignState,
+  action: Extract<RunAction, { type: 'USE_CARD_HEAL' }>,
+): CampaignState {
+  if (!state.battle || state.battle.phase !== 'ongoing') return state
+  const b = state.battle
+  if (getCurrentActorId(b) !== 'hero') return state
+
+  const hero = b.units.find((u) => u.id === 'hero' && u.hp > 0)
+  const target = b.units.find(
+    (u) => u.id === action.targetId && u.side === 'player' && u.hp > 0,
+  )
+  if (!hero || !target) return state
+
+  const card = b.playerCards.find((c) => c.id === action.cardId)
+  if (!card) return state
+  if ((card.cooldownRemaining ?? 0) > 0) return state
+
+  const tmpl = getCardAttackTemplate(card.templateId)
+  if (!tmpl || tmpl.kind !== 'heal') return state
+
+  const walls = wallSet(b.walls)
+  if (!canHealTarget(hero, target, tmpl.maxRange, walls)) return state
+
+  const used = applyCardUse(card, action.randomInt1to100)
+  const cd = tmpl.cooldownTurns ?? 0
+  const nextCard: BattlePlayerCard = {
+    id: used.id,
+    templateId: used.templateId,
+    global_level: used.global_level,
+    uses_count: used.uses_count,
+    modifications: used.modifications,
+    cooldownRemaining: cd,
+  }
+  const levelForHeal = card.global_level + b.gearCardLevelBonus
+  const amount = computeCardHealAmount(tmpl, levelForHeal)
+  const playerCards = b.playerCards.map((c) => (c.id === card.id ? nextCard : c))
+  const bWithCards = { ...b, playerCards }
+  const fromCard = { cardId: card.id, templateId: card.templateId }
+
+  let nextBattle = applyAction(bWithCards, {
+    type: 'heal',
+    healerId: 'hero',
+    targetId: target.id,
+    amount,
+    fromCard,
+  })
+  if (used.leveledUp) {
+    nextBattle = appendCardLevelUpLog(nextBattle, card, used, action.randomInt1to100)
+  }
+  nextBattle = withCardCooldownSkip(nextBattle, cd)
   return applyBattleOutcome(state, b, nextBattle)
 }
 
@@ -355,6 +433,22 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       return tryUseCardAttack(state, action)
     case 'USE_CARD_AOE':
       return tryUseCardAoE(state, action)
+    case 'USE_CARD_HEAL':
+      return tryUseCardHeal(state, action)
+    case 'SET_BATTLE_LOADOUT': {
+      if (!inHub(state)) return state
+      const { slotIndex, cardId } = action
+      if (slotIndex !== 0 && slotIndex !== 1) return state
+      if (cardId !== null && !state.cards.some((c) => c.id === cardId)) return state
+      const next: CampaignState['battleLoadout'] = [...state.battleLoadout]
+      if (cardId !== null) {
+        for (let i = 0; i < 2; i++) {
+          if (i !== slotIndex && next[i] === cardId) next[i] = null
+        }
+      }
+      next[slotIndex] = cardId
+      return { ...state, battleLoadout: next }
+    }
     case 'BUY_ITEM': {
       const tmpl = getItemTemplate(action.templateId)
       if (!tmpl) return state
@@ -449,6 +543,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         ...state,
         worldPower: snap.worldPower,
         cards: cloneCards(snap.cards),
+        battleLoadout: [...snap.battleLoadout],
         playerUnitLevel: snap.playerUnitLevel,
         modKillTargetCardId: snap.modKillTargetCardId,
         gold: snap.gold,
@@ -500,6 +595,13 @@ export const STARTER_CARDS: CardInstance[] = [
     uses_count: 0,
     modifications: [],
   },
+  {
+    id: 'c3',
+    templateId: 'heal',
+    global_level: 1,
+    uses_count: 0,
+    modifications: [],
+  },
 ]
 
 export function initialCampaignState(): CampaignState {
@@ -508,6 +610,7 @@ export function initialCampaignState(): CampaignState {
     worldPower: 0,
     playerUnitLevel: 1,
     cards: cloneCards(STARTER_CARDS),
+    battleLoadout: ['c1', 'c2'],
     modKillTargetCardId: 'c1',
     gold: 0,
     items: [],

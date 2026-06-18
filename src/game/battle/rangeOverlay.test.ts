@@ -8,6 +8,7 @@ import {
   cellsInManhattanRange,
   enemyThreatCells,
   reachableMoveCells,
+  validHealTargetCells,
 } from './rangeOverlay'
 
 function unit(partial: Unit): Unit {
@@ -125,5 +126,21 @@ describe('canCastAoEAt', () => {
     })
     expect(canCastAoEAt(hero, 2, 3, 3)).toBe(true)
     expect(canCastAoEAt(hero, 0, 0, 3)).toBe(false)
+  })
+})
+
+describe('validHealTargetCells', () => {
+  it('includes injured ally in range', () => {
+    const hero = unit({ id: 'hero', side: 'player', x: 0, y: 0, hp: 5, maxHp: 10, unitLevel: 1 })
+    const s = battle({ units: [hero] })
+    const cells = validHealTargetCells(s, hero, 2)
+    expect(cells.has(cellKey(0, 0))).toBe(true)
+  })
+
+  it('excludes full hp ally', () => {
+    const hero = unit({ id: 'hero', side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 })
+    const s = battle({ units: [hero] })
+    const cells = validHealTargetCells(s, hero, 2)
+    expect(cells.size).toBe(0)
   })
 })

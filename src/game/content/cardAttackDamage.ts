@@ -13,5 +13,5 @@ export function computeCardAttackDamage(
     const v = resolvePercentValue(levelForDamage, template.damageToken)
     if (v !== null) return v
   }
-  return template.fallbackDamage
+  return template.fallbackDamage ?? 0
 }

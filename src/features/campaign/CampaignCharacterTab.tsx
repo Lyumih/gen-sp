@@ -15,6 +15,7 @@ type CampaignCharacterTabProps = {
   onReorderStash: (itemIds: string[]) => void
   onReorderCards: (cardIds: string[]) => void
   onSetModKillTarget: (cardId: string) => void
+  onSetBattleLoadout: (slotIndex: 0 | 1, cardId: string | null) => void
   onInvalidSlot: () => void
 }
 
@@ -26,6 +27,7 @@ export function CampaignCharacterTab({
   onReorderStash,
   onReorderCards,
   onSetModKillTarget,
+  onSetBattleLoadout,
   onInvalidSlot,
 }: CampaignCharacterTabProps) {
   const gearCardPreview = aggregateGearCardLevelBonus(
@@ -72,6 +74,7 @@ export function CampaignCharacterTab({
           gearCardLevelBonus={gearCardPreview}
           onReorderCards={onReorderCards}
           onSetModKillTarget={onSetModKillTarget}
+          onSetBattleLoadout={onSetBattleLoadout}
         />
       </div>
     </Space>

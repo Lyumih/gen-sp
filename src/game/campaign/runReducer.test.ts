@@ -49,6 +49,7 @@ function makeBattle(overrides: Partial<BattleState> = {}): BattleState {
         global_level: 50,
         uses_count: 0,
         modifications: [],
+        cooldownRemaining: 0,
       },
     ],
     modKillTargetCardId: 'c1',
@@ -67,6 +68,7 @@ function campaignWithBattle(b: BattleState): CampaignState {
     battleAttemptSnapshot: {
       worldPower: b.worldPower,
       cards: cloneCards(b.playerCards),
+      battleLoadout: ['c1', 'c2'],
       playerUnitLevel: 1,
       modKillTargetCardId: 'c1',
       scenarioSlotIndex: 0,
@@ -367,6 +369,7 @@ describe('USE_CARD_ATTACK', () => {
           global_level: 1,
           uses_count: 0,
           modifications: [],
+          cooldownRemaining: 0,
         },
       ],
     })
@@ -435,6 +438,7 @@ describe('USE_CARD_AOE', () => {
           global_level: 50,
           uses_count: 0,
           modifications: [],
+          cooldownRemaining: 0,
         },
       ],
     })
@@ -479,6 +483,7 @@ describe('USE_CARD_AOE', () => {
           global_level: 50,
           uses_count: 0,
           modifications: [],
+          cooldownRemaining: 0,
         },
       ],
     })
@@ -511,6 +516,7 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
     const snap = {
       worldPower: 0,
       cards: cloneCards(init.cards),
+      battleLoadout: ['c1', 'c2'] as [string | null, string | null],
       playerUnitLevel: 1,
       modKillTargetCardId: 'c1' as const,
       scenarioSlotIndex: 0,
@@ -547,6 +553,7 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
     const snap = {
       worldPower: 0,
       cards: cloneCards(init.cards),
+      battleLoadout: ['c1', 'c2'] as [string | null, string | null],
       playerUnitLevel: 1,
       modKillTargetCardId: 'c1' as const,
       scenarioSlotIndex: 0,
@@ -586,6 +593,7 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
       battleAttemptSnapshot: {
         worldPower: 0,
         cards: cloneCards(init.cards),
+        battleLoadout: ['c1', 'c2'],
         playerUnitLevel: 50,
         modKillTargetCardId: 'c1',
         scenarioSlotIndex: 0,
@@ -701,8 +709,8 @@ describe('inventory grid actions', () => {
 
   it('REORDER_CARDS changes card order when multiple cards', () => {
     let s = initialCampaignState()
-    s = applyRunAction(s, { type: 'REORDER_CARDS', cardIds: ['c2', 'c1'] })
-    expect(s.cards.map((c) => c.id)).toEqual(['c2', 'c1'])
+    s = applyRunAction(s, { type: 'REORDER_CARDS', cardIds: ['c2', 'c1', 'c3'] })
+    expect(s.cards.map((c) => c.id)).toEqual(['c2', 'c1', 'c3'])
   })
 
   it('SET_MOD_KILL_TARGET updates target', () => {

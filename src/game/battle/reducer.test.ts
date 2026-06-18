@@ -305,6 +305,27 @@ describe('battle end', () => {
   })
 })
 
+describe('applyAction heal', () => {
+  it('heals ally up to maxHp and advances turn', () => {
+    const s = battle({
+      units: [
+        unit({ id: 'hero', side: 'player', x: 0, y: 0, hp: 10, maxHp: 30, unitLevel: 1 }),
+        unit({ id: 'e1', side: 'enemy', x: 5, y: 0, hp: 5, maxHp: 5, unitLevel: 1 }),
+      ],
+    })
+    const next = applyAction(s, {
+      type: 'heal',
+      healerId: 'hero',
+      targetId: 'hero',
+      amount: 6,
+      fromCard: { cardId: 'c3', templateId: 'heal' },
+    })
+    expect(next.units.find((u) => u.id === 'hero')!.hp).toBe(16)
+    expect(next.battleLog.at(-1)).toMatchObject({ type: 'heal', amount: 6 })
+    expect(next.currentTurnIndex).toBe(1)
+  })
+})
+
 describe('applyAction aoe_strike', () => {
   it('damages all units in 3x3 and advances turn once', () => {
     const s = battle({

@@ -11,15 +11,17 @@ import { getCurrentActorId } from '../../game/battle/reducer'
 import { cellKey, manhattan, wallSet } from '../../game/battle/grid'
 import {
   aoeCastTargetCells,
+  canHealTarget,
   cellsInAoE,
   reachableMoveCells,
 } from '../../game/battle/rangeOverlay'
-import type { BattleAction, BattleState, CardInstance, Unit } from '../../game/types'
+import type { BattleAction, BattlePlayerCard, BattleState, Unit } from '../../game/types'
 
 export type HeroAiDecision =
   | { kind: 'battle'; action: BattleAction }
   | { kind: 'card'; cardId: string; targetId: string }
   | { kind: 'card_aoe'; cardId: string; targetX: number; targetY: number }
+  | { kind: 'card_heal'; cardId: string; targetId: string }
   | null
 
 function aliveEnemies(state: BattleState): Unit[] {
@@ -41,7 +43,11 @@ function cardInRange(
   return canRangedAttack(hero, target, tmpl.maxRange, wallsOf(state))
 }
 
-function cardDamage(card: CardInstance, state: BattleState): number {
+function cardReady(c: BattlePlayerCard): boolean {
+  return (c.cooldownRemaining ?? 0) <= 0
+}
+
+function cardDamage(card: BattlePlayerCard, state: BattleState): number {
   const tmpl = getCardAttackTemplate(card.templateId)
   if (!tmpl) return 0
   return computeCardAttackDamage(tmpl, card.global_level + state.gearCardLevelBonus)
@@ -50,6 +56,7 @@ function cardDamage(card: CardInstance, state: BattleState): number {
 function maxAvailableDamage(hero: Unit, enemy: Unit, state: BattleState): number {
   let best = 0
   for (const c of state.playerCards) {
+    if (!cardReady(c)) continue
     const tmpl = getCardAttackTemplate(c.templateId)
     if (!tmpl) continue
     if (tmpl.kind === 'aoe') {
@@ -87,12 +94,13 @@ function pickTarget(hero: Unit, enemies: Unit[], state: BattleState): Unit {
   return pool.reduce((best, e) => (compareTargets(e, best, hero) < 0 ? e : best))
 }
 
-function pickBestCard(hero: Unit, target: Unit, state: BattleState): CardInstance | null {
-  let best: CardInstance | null = null
+function pickBestCard(hero: Unit, target: Unit, state: BattleState): BattlePlayerCard | null {
+  let best: BattlePlayerCard | null = null
   let bestDmg = -1
   for (const c of state.playerCards) {
+    if (!cardReady(c)) continue
     const tmpl = getCardAttackTemplate(c.templateId)
-    if (!tmpl || !cardInRange(hero, target, tmpl, state)) continue
+    if (!tmpl || tmpl.kind === 'heal' || !cardInRange(hero, target, tmpl, state)) continue
     const dmg = cardDamage(c, state)
     if (dmg > bestDmg) {
       best = c
@@ -135,6 +143,7 @@ function pickBestAoEAction(
   let best: { cardId: string; targetX: number; targetY: number; score: number } | null = null
 
   for (const c of state.playerCards) {
+    if (!cardReady(c)) continue
     const tmpl = getCardAttackTemplate(c.templateId)
     if (!tmpl || tmpl.kind !== 'aoe' || tmpl.aoeSize === undefined) continue
     const dmg = cardDamage(c, state)
@@ -172,6 +181,21 @@ function pickMoveStep(hero: Unit, target: Unit, state: BattleState): BattleActio
   return { type: 'move', unitId: hero.id, toX: best.x, toY: best.y }
 }
 
+function pickHealSelf(hero: Unit, state: BattleState): { cardId: string; targetId: string } | null {
+  if (hero.hp >= hero.maxHp * 0.5) return null
+  if (hero.hp >= hero.maxHp) return null
+  const walls = wallsOf(state)
+  for (const c of state.playerCards) {
+    if (!cardReady(c)) continue
+    const tmpl = getCardAttackTemplate(c.templateId)
+    if (!tmpl || tmpl.kind !== 'heal') continue
+    if (canHealTarget(hero, hero, tmpl.maxRange, walls)) {
+      return { cardId: c.id, targetId: hero.id }
+    }
+  }
+  return null
+}
+
 export function pickHeroAiAction(state: BattleState): HeroAiDecision {
   if (state.phase !== 'ongoing') return null
   if (getCurrentActorId(state) !== 'hero') return null
@@ -190,6 +214,7 @@ export function pickHeroAiAction(state: BattleState): HeroAiDecision {
   }
 
   const aoeCards = state.playerCards.filter((c) => {
+    if (!cardReady(c)) return false
     const t = getCardAttackTemplate(c.templateId)
     return t?.kind === 'aoe'
   })
@@ -256,6 +281,10 @@ export function pickHeroAiAction(state: BattleState): HeroAiDecision {
   }
 
   const move = pickMoveStep(hero, target, state)
-  if (move) return { kind: 'battle', action: move }
+  if (move) {
+    const heal = pickHealSelf(hero, state)
+    if (heal) return { kind: 'card_heal', ...heal }
+    return { kind: 'battle', action: move }
+  }
   return null
 }

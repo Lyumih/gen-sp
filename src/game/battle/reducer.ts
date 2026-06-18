@@ -1,7 +1,8 @@
 import type { BattleAction, BattleLogEntry, BattleState, Unit } from '../types'
 import { applyModKillReward } from '../memento/modifications'
-import { canMeleeAttack, canRangedAttack, withDamage } from './combat'
-import { cellKey, wallSet } from './grid'
+import { canMeleeAttack, canRangedAttack, withDamage, withHeal } from './combat'
+import { cellKey, manhattan, wallSet } from './grid'
+import { hasLineOfSight } from './lineOfSight'
 import { cellsInAoE, reachableMoveCells } from './rangeOverlay'
 
 /** Приращение worldPower за смерть врага (MVP-заглушка §6). */
@@ -68,7 +69,10 @@ function applyEnemyKillRewards(state: BattleState, killedEnemy: Unit): BattleSta
     if (targetId !== null) {
       playerCards = playerCards.map((c) =>
         c.id === targetId
-          ? applyModKillReward(c, MOD_POINTS_PER_ENEMY_KILL)
+          ? {
+              ...applyModKillReward(c, MOD_POINTS_PER_ENEMY_KILL),
+              cooldownRemaining: c.cooldownRemaining,
+            }
           : c,
       )
     }
@@ -233,6 +237,40 @@ function tryAoEStrike(
   return advanceTurnFrom(next, ptr)
 }
 
+function tryHeal(state: BattleState, action: Extract<BattleAction, { type: 'heal' }>): BattleState {
+  const ptr = resolveActorPointer(state)
+  const actorId = actorIdAtPointer(state, ptr)
+  if (actorId === undefined || action.healerId !== actorId) return state
+
+  const healer = getUnit(state, action.healerId)
+  const target = getUnit(state, action.targetId)
+  if (!isAliveUnit(healer) || !isAliveUnit(target)) return state
+  if (target.side !== 'player' || target.hp >= target.maxHp) return state
+
+  const walls = wallSet(state.walls)
+  const d = manhattan(healer.x, healer.y, target.x, target.y)
+  if (d > 2) return state
+  if (d > 0 && !hasLineOfSight(healer.x, healer.y, target.x, target.y, walls)) return state
+
+  const updated = withHeal(target, action.amount)
+  const units = state.units.map((u) => (u.id === target.id ? updated : u))
+  const healLog: BattleLogEntry = {
+    type: 'heal',
+    healerId: action.healerId,
+    targetId: action.targetId,
+    amount: action.amount,
+    ...(action.fromCard !== undefined ? { fromCard: action.fromCard } : {}),
+  }
+  let next: BattleState = {
+    ...state,
+    units,
+    battleLog: [...state.battleLog, healLog],
+  }
+  next = afterHpChange(next, null)
+  if (next.phase !== 'ongoing') return next
+  return advanceTurnFrom(next, ptr)
+}
+
 export function applyAction(state: BattleState, action: BattleAction): BattleState {
   if (state.phase !== 'ongoing') return state
   switch (action.type) {
@@ -242,6 +280,8 @@ export function applyAction(state: BattleState, action: BattleAction): BattleSta
       return tryAttack(state, action)
     case 'aoe_strike':
       return tryAoEStrike(state, action)
+    case 'heal':
+      return tryHeal(state, action)
   }
 }
 

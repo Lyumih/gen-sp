@@ -12,6 +12,7 @@ import {
 } from '@ant-design/icons'
 import { Alert, App, Button, Card, Collapse, Radio, Space, Switch, Typography } from 'antd'
 import { computeCardAttackDamage } from '../../game/content/cardAttackDamage'
+import { computeCardHealAmount } from '../../game/content/cardHealAmount'
 import { getCardAttackTemplate } from '../../game/content/cardTemplates'
 import {
   HERO_BASIC_MELEE_DAMAGE,
@@ -36,6 +37,7 @@ import {
   cellsInManhattanRange,
   enemyThreatCells,
   reachableMoveCells,
+  validHealTargetCells,
   validSingleTargetCells,
 } from '../../game/battle/rangeOverlay'
 import { occupiedEquipmentSlotsInOrder } from '../../game/equipment/equipmentOrder'
@@ -132,6 +134,13 @@ export function BattleScreen() {
       if (!decision) return
       if (decision.kind === 'battle') {
         store.dispatchBattle(decision.action)
+      } else if (decision.kind === 'card_heal') {
+        store.dispatchRun({
+          type: 'USE_CARD_HEAL',
+          cardId: decision.cardId,
+          targetId: decision.targetId,
+          randomInt1to100: randomInt1to100(),
+        })
       } else if (decision.kind === 'card_aoe') {
         store.dispatchRun({
           type: 'USE_CARD_AOE',
@@ -228,6 +237,9 @@ export function BattleScreen() {
     } else if (mode === 'card' && selectedCardTemplate) {
       if (selectedCardTemplate.kind === 'aoe') {
         actionRangeCells = castRangeCells(battle, hero.x, hero.y, selectedCardTemplate.maxRange)
+      } else if (selectedCardTemplate.kind === 'heal') {
+        actionRangeCells = castRangeCells(battle, hero.x, hero.y, selectedCardTemplate.maxRange)
+        validTargetCells = validHealTargetCells(battle, hero, selectedCardTemplate.maxRange)
       } else if (selectedCardTemplate.kind === 'melee') {
         actionRangeCells = cellsInManhattanRange(
           hero.x,
@@ -401,6 +413,27 @@ export function BattleScreen() {
         }
         setPendingAoeCell({ x, y })
         message.info('Нажмите ещё раз для подтверждения')
+        return
+      }
+      if (tmpl.kind === 'heal') {
+        if (!target || target.side !== 'player') {
+          message.warning('Выберите союзника')
+          return
+        }
+        if (!overlaySets.validTargetCells.has(cellKey(x, y))) {
+          message.warning('Цель недоступна для лечения')
+          return
+        }
+        if (card.cooldownRemaining > 0) {
+          message.warning('Умение на перезарядке')
+          return
+        }
+        dispatchRun({
+          type: 'USE_CARD_HEAL',
+          cardId: card.id,
+          targetId: target.id,
+          randomInt1to100: randomInt1to100(),
+        })
         return
       }
       if (!target || target.side !== 'enemy') {
@@ -720,22 +753,30 @@ export function BattleScreen() {
                 >
                   {battle.playerCards.map((c) => {
                     const tmpl = getCardAttackTemplate(c.templateId)
-                    const dmg =
-                      tmpl !== undefined
-                        ? computeCardAttackDamage(
-                            tmpl,
-                            c.global_level + battle.gearCardLevelBonus,
-                          )
-                        : null
+                    const level = c.global_level + battle.gearCardLevelBonus
+                    const effect =
+                      tmpl?.kind === 'heal'
+                        ? computeCardHealAmount(tmpl, level)
+                        : tmpl !== undefined
+                          ? computeCardAttackDamage(tmpl, level)
+                          : null
+                    const effectUi = tmpl?.kind === 'heal' ? UI_HEART : UI_DAMAGE
+                    const onCd = c.cooldownRemaining > 0
                     const aoeHint =
                       tmpl?.kind === 'aoe' && tmpl.aoeSize !== undefined
                         ? ` · AoE ${tmpl.aoeSize}×${tmpl.aoeSize}`
                         : ''
+                    const cdHint = onCd ? ` · CD ${c.cooldownRemaining}` : ''
                     return (
-                      <Radio.Button key={c.id} value={c.id}>
+                      <Radio.Button
+                        key={c.id}
+                        value={c.id}
+                        disabled={actionsDisabled || onCd}
+                        style={onCd ? { opacity: 0.5 } : undefined}
+                      >
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                           <CreditCardOutlined aria-hidden />
-                          {`${getCardDisplayLabel(c.templateId)}${dmg !== null ? ` — ${String(dmg)}${UI_DAMAGE}` : ''}${aoeHint}`}
+                          {`${getCardDisplayLabel(c.templateId)}${effect !== null ? ` — ${String(effect)}${effectUi}` : ''}${aoeHint}${cdHint}`}
                         </span>
                       </Radio.Button>
                     )

@@ -18,6 +18,10 @@ export function stashEmptyDragId(index: number): string {
   return `stash-empty:${index}`
 }
 
+export function loadoutDragId(slotIndex: number): string {
+  return `loadout:${slotIndex}`
+}
+
 export function parseDragId(id: string): { kind: string; value: string } | null {
   const idx = id.indexOf(':')
   if (idx < 0) return null

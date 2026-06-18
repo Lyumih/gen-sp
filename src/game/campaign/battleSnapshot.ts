@@ -1,5 +1,6 @@
 import type {
   BattleAttemptSnapshot,
+  BattleLoadout,
   CampaignState,
   CardInstance,
   ItemInstance,
@@ -23,6 +24,7 @@ export function buildBattleAttemptSnapshot(
   return {
     worldPower: state.worldPower,
     cards: cloneCards(state.cards),
+    battleLoadout: [...state.battleLoadout] as BattleLoadout,
     playerUnitLevel: state.playerUnitLevel,
     modKillTargetCardId: state.modKillTargetCardId,
     scenarioSlotIndex,
@@ -36,6 +38,7 @@ export function copyBattleAttemptSnapshot(snap: BattleAttemptSnapshot): BattleAt
   return {
     worldPower: snap.worldPower,
     cards: cloneCards(snap.cards),
+    battleLoadout: [...snap.battleLoadout] as BattleLoadout,
     playerUnitLevel: snap.playerUnitLevel,
     modKillTargetCardId: snap.modKillTargetCardId,
     scenarioSlotIndex: snap.scenarioSlotIndex,

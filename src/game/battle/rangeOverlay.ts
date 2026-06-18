@@ -149,6 +149,32 @@ export function validSingleTargetCells(
   return out
 }
 
+export function canHealTarget(
+  hero: Unit,
+  target: Unit,
+  maxRange: number,
+  walls: ReadonlySet<string>,
+): boolean {
+  if (target.side !== 'player' || target.hp <= 0 || target.hp >= target.maxHp) return false
+  const d = manhattan(hero.x, hero.y, target.x, target.y)
+  if (d > maxRange) return false
+  if (d === 0) return true
+  return hasLineOfSight(hero.x, hero.y, target.x, target.y, walls)
+}
+
+export function validHealTargetCells(
+  state: BattleState,
+  hero: Unit,
+  maxRange: number,
+): Set<string> {
+  const walls = wallSet(state.walls)
+  const out = new Set<string>()
+  for (const u of state.units) {
+    if (canHealTarget(hero, u, maxRange, walls)) out.add(cellKey(u.x, u.y))
+  }
+  return out
+}
+
 export function castRangeCells(
   state: BattleState,
   ox: number,
