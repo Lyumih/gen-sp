@@ -1,14 +1,44 @@
 import { describe, expect, it } from 'vitest'
 import { initialCampaignState } from '../campaign/runReducer'
+import type { BattleState, CardInstance, Unit } from '../types'
 import { codexEntriesByCategory } from './registry'
 import {
   codexEntryId,
   codexProgress,
   discoverCodexEntry,
   markCodexSeen,
+  mergeBattleCodexDiscoveries,
   unreadCodexEntryIds,
   visibleCodexEntries,
 } from './discovery'
+
+function unit(partial: Unit): Unit {
+  return partial
+}
+
+function battle(overrides: Partial<BattleState> = {}): BattleState {
+  const base: BattleState = {
+    width: 4,
+    height: 4,
+    walls: [],
+    units: [],
+    turnOrder: [],
+    currentTurnIndex: 0,
+    phase: 'ongoing',
+    worldPower: 0,
+    playerCards: [],
+    modKillTargetCardId: null,
+    battleLog: [],
+    gearCardLevelBonus: 0,
+  }
+  return {
+    ...base,
+    ...overrides,
+    units: overrides.units ?? base.units,
+    playerCards: overrides.playerCards ?? base.playerCards,
+    battleLog: overrides.battleLog ?? base.battleLog,
+  }
+}
 
 describe('discoverCodexEntry', () => {
   it('is idempotent', () => {
@@ -59,5 +89,78 @@ describe('unreadCodexEntryIds', () => {
     expect(unreadCodexEntryIds(campaign)).toEqual([id])
     const seen = markCodexSeen(campaign)
     expect(unreadCodexEntryIds(seen)).toEqual([])
+  })
+})
+
+describe('mergeBattleCodexDiscoveries', () => {
+  it('discovers enemy when killed', () => {
+    const prev = battle({
+      units: [
+        unit({
+          id: 'e1',
+          side: 'enemy',
+          x: 1,
+          y: 0,
+          hp: 5,
+          maxHp: 5,
+          unitLevel: 1,
+          archetypeId: 'grunt',
+        }),
+      ],
+    })
+    const next = battle({
+      units: [
+        unit({
+          id: 'e1',
+          side: 'enemy',
+          x: 1,
+          y: 0,
+          hp: 0,
+          maxHp: 5,
+          unitLevel: 1,
+          archetypeId: 'grunt',
+        }),
+      ],
+    })
+    expect(mergeBattleCodexDiscoveries(prev, next, [])).toEqual([
+      codexEntryId('enemy', 'grunt'),
+    ])
+  })
+
+  it('discovers mod when level goes from 0 to positive', () => {
+    const card: CardInstance = {
+      id: 'c1',
+      templateId: 'strike',
+      global_level: 1,
+      uses_count: 0,
+      modifications: [{ templateId: 'kill_reward', level: 0 }],
+    }
+    const prev = battle({ playerCards: [card] })
+    const next = battle({
+      playerCards: [{ ...card, modifications: [{ templateId: 'kill_reward', level: 1 }] }],
+    })
+    expect(mergeBattleCodexDiscoveries(prev, next, [])).toEqual([
+      codexEntryId('mod', 'kill_reward'),
+    ])
+  })
+
+  it('discovers card from new strike battleLog entry', () => {
+    const prev = battle({ battleLog: [] })
+    const next = battle({
+      battleLog: [
+        {
+          type: 'strike',
+          attackerId: 'hero',
+          targetId: 'e1',
+          damage: 5,
+          attackKind: 'melee',
+          targetKilled: false,
+          fromCard: { cardId: 'c1', templateId: 'strike' },
+        },
+      ],
+    })
+    expect(mergeBattleCodexDiscoveries(prev, next, [])).toEqual([
+      codexEntryId('card', 'strike'),
+    ])
   })
 })
