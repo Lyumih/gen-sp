@@ -304,3 +304,30 @@ describe('battle end', () => {
     expect(end.phase).toBe('defeat')
   })
 })
+
+describe('applyAction aoe_strike', () => {
+  it('damages all units in 3x3 and advances turn once', () => {
+    const s = battle({
+      units: [
+        unit({ id: 'hero', side: 'player', x: 2, y: 2, hp: 10, maxHp: 10, unitLevel: 1 }),
+        unit({ id: 'e1', side: 'enemy', x: 2, y: 1, hp: 10, maxHp: 10, unitLevel: 1 }),
+        unit({ id: 'e2', side: 'enemy', x: 3, y: 2, hp: 10, maxHp: 10, unitLevel: 1 }),
+      ],
+    })
+    const next = applyAction(s, {
+      type: 'aoe_strike',
+      attackerId: 'hero',
+      centerX: 2,
+      centerY: 2,
+      damage: 8,
+      aoeSize: 3,
+    })
+    expect(next.units.find((u) => u.id === 'e1')!.hp).toBe(2)
+    expect(next.units.find((u) => u.id === 'e2')!.hp).toBe(2)
+    expect(next.units.find((u) => u.id === 'hero')!.hp).toBe(2)
+    expect(next.currentTurnIndex).toBe(1)
+    const strikes = next.battleLog.filter((e) => e.type === 'strike')
+    expect(strikes).toHaveLength(3)
+    expect(strikes.every((e) => e.type === 'strike' && e.attackKind === 'aoe')).toBe(true)
+  })
+})

@@ -2,6 +2,7 @@ import type { BattleAction, BattleLogEntry, BattleState, Unit } from '../types'
 import { applyModKillReward } from '../memento/modifications'
 import { canMeleeAttack, canRangedAttack, withDamage } from './combat'
 import { cellKey, manhattan, wallSet } from './grid'
+import { cellsInAoE } from './rangeOverlay'
 
 /** Приращение worldPower за смерть врага (MVP-заглушка §6). */
 export const WORLD_POWER_PER_ENEMY_KILL = 1
@@ -170,6 +171,66 @@ function tryAttack(state: BattleState, action: Extract<BattleAction, { type: 'at
   return advanceTurnFrom(next, ptr)
 }
 
+function tryAoEStrike(
+  state: BattleState,
+  action: Extract<BattleAction, { type: 'aoe_strike' }>,
+): BattleState {
+  const ptr = resolveActorPointer(state)
+  const actorId = actorIdAtPointer(state, ptr)
+  if (actorId === undefined || action.attackerId !== actorId) return state
+
+  const attacker = getUnit(state, action.attackerId)
+  if (!isAliveUnit(attacker)) return state
+
+  const aoeKeys = cellsInAoE(
+    action.centerX,
+    action.centerY,
+    action.aoeSize,
+    state.width,
+    state.height,
+  )
+  const hitIds = state.units
+    .filter((u) => u.hp > 0 && aoeKeys.has(cellKey(u.x, u.y)))
+    .map((u) => u.id)
+  if (hitIds.length === 0) return state
+
+  let next: BattleState = state
+  const newLog: BattleLogEntry[] = [...state.battleLog]
+  const killedEnemies: Unit[] = []
+
+  for (const id of hitIds) {
+    const target = getUnit(next, id)
+    if (!isAliveUnit(target)) continue
+    const updated = withDamage(target, action.damage)
+    const wasKill = updated.hp <= 0 && target.hp > 0
+    next = {
+      ...next,
+      units: next.units.map((u) => (u.id === id ? updated : u)),
+    }
+    newLog.push({
+      type: 'strike',
+      attackerId: action.attackerId,
+      targetId: id,
+      damage: action.damage,
+      attackKind: 'aoe',
+      targetKilled: wasKill,
+      ...(action.fromCard !== undefined ? { fromCard: action.fromCard } : {}),
+    })
+    if (wasKill && updated.side === 'enemy') killedEnemies.push(updated)
+  }
+
+  next = { ...next, battleLog: newLog }
+  for (const killed of killedEnemies) {
+    next = afterHpChange(next, killed)
+    if (next.phase !== 'ongoing') return next
+  }
+  const playersAlive = next.units.some((u) => u.side === 'player' && u.hp > 0)
+  const enemiesAlive = next.units.some((u) => u.side === 'enemy' && u.hp > 0)
+  if (!playersAlive) return { ...next, phase: 'defeat' }
+  if (!enemiesAlive) return { ...next, phase: 'victory' }
+  return advanceTurnFrom(next, ptr)
+}
+
 export function applyAction(state: BattleState, action: BattleAction): BattleState {
   if (state.phase !== 'ongoing') return state
   switch (action.type) {
@@ -177,6 +238,8 @@ export function applyAction(state: BattleState, action: BattleAction): BattleSta
       return tryMove(state, action)
     case 'attack':
       return tryAttack(state, action)
+    case 'aoe_strike':
+      return tryAoEStrike(state, action)
   }
 }
 

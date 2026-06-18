@@ -49,7 +49,7 @@ export type BattleLogEntry =
       attackerId: string
       targetId: string
       damage: number
-      attackKind: 'melee' | 'ranged'
+      attackKind: 'melee' | 'ranged' | 'aoe'
       targetKilled: boolean
       fromCard?: { cardId: string; templateId: string }
     }
@@ -104,6 +104,15 @@ export type BattleAction =
       damage: number
       kind: 'ranged'
       maxRange: number
+      fromCard?: { cardId: string; templateId: string }
+    }
+  | {
+      type: 'aoe_strike'
+      attackerId: string
+      centerX: number
+      centerY: number
+      damage: number
+      aoeSize: number
       fromCard?: { cardId: string; templateId: string }
     }
 
