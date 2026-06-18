@@ -1,24 +1,28 @@
 # Battle range overlay — implementation plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status: COMPLETE** (v1: `5026ed7`, v2 amendment: `f0865ba`, 118 tests pass)
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Подсветка дальности хода, атаки/каста, AoE и угроз врагов на поле боя; карта «Огненный шар» (cast 3, AoE 3×3) для проверки ground-target AoE.
 
-**Architecture:** Чистая геометрия в `src/game/battle/rangeOverlay.ts`; боевое ядро расширяется `aoe_strike` + `USE_CARD_AOE`; `BattleScreen` рисует слои overlay и per-card выбор; константы врагов в `enemyCombat.ts`.
+**Architecture:** Чистая геометрия в `src/game/battle/rangeOverlay.ts`; боевое ядро расширяется `aoe_strike` + `USE_CARD_AOE`; `BattleScreen` рисует слои overlay и per-card выбор; константы врагов в `enemyCombat.ts`. **v2:** `lineOfSight.ts`, BFS-ход, AoE confirm, autobattle AoE, `battle.css`.
 
 **Tech Stack:** TypeScript strict (`tsconfig.app.json`), Vitest (`npm run test`), React 19 + Ant Design 6, Zustand 5, Vite 8.
 
-**Spec:** `docs/superpowers/specs/2026-06-18-battle-range-overlay-design.md`
+**Spec:** `docs/superpowers/specs/2026-06-18-battle-range-overlay-design.md` (v1 + v2 amendment)
 
 ## Global Constraints
 
-- AoE: ground target (клик по клетке); single-target — клик по врагу как сейчас.
-- Угрозы врагов: базовый overlay на ходе героя + focus при hover на врага.
-- Подсветка героя: дальность сразу при выборе режима; AoE 3×3 и valid-target — на hover.
+- AoE: ground target; single-target — клик по врагу.
+- **v2:** AoE — double-click confirm на той же клетке.
+- Угрозы врагов: базовый overlay + focus при hover.
+- Подсветка героя: дальность сразу; AoE 3×3 и valid-target — на hover (+ pending cell v2).
 - Friendly fire для AoE: **да**.
-- Автобой **не** использует AoE-карты; overlay скрыт при `autoBattleEnabled`.
+- **v2:** Автобой **использует** AoE при выгодном score (`card_aoe`).
+- Overlay скрыт при `autoBattleEnabled`.
 - Цвета overlay: ход `#91caff` ~35%, дальность `#ffd591` ~40%, AoE `#ff7875` ~45%, цель `#b7eb8f` ~50%, угроза база `#ffa39e` ~25%, угроза focus `#ff4d4f` ~35%.
-- LOS, подтверждение AoE вторым кликом, pathfinding — **не v1**.
+- **v2:** LOS (Bresenham, стены), BFS-ход `HERO_MOVE_RANGE=3`, анимация взрыва 600 ms.
 
 ---
 
@@ -42,7 +46,9 @@
 | `src/features/battle/heroAi.test.ts` | Регрессия: fireball не выбирается |
 | `src/features/battle/battleOverlayColors.ts` | Hex + rgba константы overlay |
 | `src/features/battle/cellOverlayStyle.ts` | Сборка `background`/`boxShadow` по слоям |
-| `src/features/battle/BattleScreen.tsx` | Per-card UI, hover, overlay рендер |
+| `src/features/battle/battle.css` | v2: анимация взрыва AoE |
+| `src/game/battle/lineOfSight.ts` | v2: Bresenham LOS |
+| `src/features/battle/BattleScreen.tsx` | Per-card UI, hover, overlay, AoE confirm |
 
 ---
 
@@ -926,22 +932,29 @@ git commit -m "feat(battle): range overlay UI and per-card targeting"
 | Fireball card | Task 3 |
 | USE_CARD_AOE | Task 5 |
 | Friendly fire | Task 4 |
-| Autoboy skip AoE | Task 6 |
+| Autoboy AoE (v2) | Task 6 v2 + `f0865ba` |
+| LOS / BFS / confirm / animation | v2 commit `f0865ba` |
 | Overlay hidden autobattle | Task 8 |
 | Legend | Task 8 |
 | Per-card UI | Task 8 |
-| Tests | Tasks 2, 4, 5, 6 |
+| Tests | Tasks 2, 4, 5, 6 + v2 (118 total) |
 
-No placeholders found. Type names consistent across tasks.
+## Implementation log
+
+| Task | Commit | Status |
+|------|--------|--------|
+| 1 enemyCombat | `92c78b3` | done |
+| 2 rangeOverlay | `ac643b2` | done |
+| 3 fireball | `a39d640` | done |
+| 4 aoe_strike | `55db111` | done |
+| 5 USE_CARD_AOE | `d2a6fbe` | done |
+| 6 heroAi + log | `13512b2`, v2 `f0865ba` | done |
+| 7 overlay colors | `fc8c1f0` | done |
+| 8 BattleScreen | `5026ed7` | done |
+| v2 amendment | `f0865ba` | done |
 
 ---
 
 ## Execution Handoff
 
-Plan complete and saved to `docs/superpowers/plans/2026-06-18-battle-range-overlay.md`. Two execution options:
-
-**1. Subagent-Driven (recommended)** — fresh subagent per task, review between tasks, fast iteration
-
-**2. Inline Execution** — execute tasks in this session using executing-plans, batch execution with checkpoints
-
-Which approach?
+**Plan complete.** Spec updated with v2 amendment. No further implementation required unless new features (tooltip, move animation, unit-blocking LOS).
