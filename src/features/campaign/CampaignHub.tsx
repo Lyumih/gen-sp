@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { FlagOutlined } from '@ant-design/icons'
 import { App, Card, Divider, Space } from 'antd'
 import { SCENARIOS } from '../../game/campaign/scenarios'
+import { unreadCodexEntryIds } from '../../game/codex/discovery'
 import { getItemTemplate } from '../../game/content/itemTemplates'
 import { isItemEquipped } from '../../game/equipment/stashOrder'
 import type { EquipmentSlot } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
 import { CampaignBattleTab } from './CampaignBattleTab'
 import { CampaignCharacterTab } from './CampaignCharacterTab'
+import { CampaignCodexTab } from '../codex/CampaignCodexTab'
 import type { CampaignHubTab } from './campaignHubShared'
 import { CampaignHubHud } from './CampaignHubHud'
 import { CampaignHubNav } from './CampaignHubNav'
@@ -22,6 +24,15 @@ export function CampaignHub() {
   const done = campaign.scenarioIndex >= SCENARIOS.length
   const scenario = SCENARIOS[campaign.scenarioIndex]
   const inBattle = campaign.battle !== null
+  const unreadCodexCount = unreadCodexEntryIds(campaign).length
+
+  const handleTabChange = (tab: CampaignHubTab) => {
+    if (tab === activeTab) return
+    if (tab === 'codex') {
+      dispatchRun({ type: 'MARK_CODEX_SEEN' })
+    }
+    setActiveTab(tab)
+  }
 
   const buy = (templateId: string) => {
     const t = getItemTemplate(templateId)
@@ -73,7 +84,12 @@ export function CampaignHub() {
       <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
         <CampaignHubHud campaign={campaign} />
         <Divider style={{ margin: '4px 0 8px' }} />
-        <CampaignHubNav activeTab={activeTab} onTabChange={setActiveTab} />
+        <CampaignHubNav
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+          unreadCodexCount={unreadCodexCount}
+          codexDisabled={inBattle}
+        />
 
         {activeTab === 'battle' ? (
           <CampaignBattleTab
@@ -115,6 +131,8 @@ export function CampaignHub() {
             onSell={sellItem}
           />
         ) : null}
+
+        {activeTab === 'codex' ? <CampaignCodexTab campaign={campaign} /> : null}
       </Space>
     </Card>
   )
