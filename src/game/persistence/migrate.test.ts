@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { initialCampaignState } from '../campaign/runReducer'
+import { applyRunAction, initialCampaignState } from '../campaign/runReducer'
 import type { CampaignState } from '../types'
 import { SCENARIOS } from '../campaign/scenarios'
 import { EMPTY_EQUIPMENT } from '../equipment/equipmentOrder'
@@ -71,5 +71,26 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
     }
     const out = normalizeLoadedCampaign(c)
     expect(out.equipment.weapon).toBeNull()
+  })
+
+  it('adds missing starter cards from old saves', () => {
+    const strikeOnly = initialCampaignState().cards.filter((c) => c.id === 'c1')
+    const c: CampaignState = {
+      ...initialCampaignState(),
+      cards: strikeOnly,
+    }
+    const out = normalizeLoadedCampaign(c)
+    expect(out.cards.map((card) => card.id)).toEqual(['c1', 'c2'])
+    expect(out.cards.find((card) => card.id === 'c2')?.templateId).toBe('fireball')
+  })
+
+  it('adds missing starter cards to active battle playerCards', () => {
+    const strikeOnly = initialCampaignState().cards.filter((c) => c.id === 'c1')
+    const withBattle = applyRunAction(
+      { ...initialCampaignState(), cards: strikeOnly },
+      { type: 'START_OR_CONTINUE_BATTLE' },
+    )
+    const out = normalizeLoadedCampaign(withBattle)
+    expect(out.battle?.playerCards.map((card) => card.id)).toEqual(['c1', 'c2'])
   })
 })

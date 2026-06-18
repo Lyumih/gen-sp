@@ -1,6 +1,14 @@
 import { SAVE_VERSION } from './schema'
 import type { SaveEnvelopeV1 } from './schema'
-import type { BattleAttemptSnapshot, CampaignState, EquipmentSlot, ItemInstance } from '../types'
+import type {
+  BattleAttemptSnapshot,
+  CampaignState,
+  CardInstance,
+  EquipmentSlot,
+  ItemInstance,
+} from '../types'
+import { cloneCards } from '../campaign/battleSnapshot'
+import { STARTER_CARDS } from '../campaign/runReducer'
 import { SCENARIOS } from '../campaign/scenarios'
 import {
   EMPTY_EQUIPMENT,
@@ -79,6 +87,40 @@ function withDefaultScenarioSlotIndex(c: CampaignState): CampaignState {
   }
 }
 
+function mergeMissingStarterCards(cards: readonly CardInstance[]): CardInstance[] {
+  const existingIds = new Set(cards.map((c) => c.id))
+  const missing = STARTER_CARDS.filter((sc) => !existingIds.has(sc.id))
+  if (missing.length === 0) return [...cards]
+  return [...cards, ...cloneCards(missing)]
+}
+
+/** Старые сохранения без новых стартовых карт — дополняем из STARTER_CARDS. */
+function withMissingStarterCards(c: CampaignState): CampaignState {
+  const cards = mergeMissingStarterCards(c.cards)
+  const cardsChanged = cards.length !== c.cards.length
+
+  let battle = c.battle
+  if (c.battle) {
+    const playerCards = mergeMissingStarterCards(c.battle.playerCards)
+    if (playerCards.length !== c.battle.playerCards.length) {
+      battle = { ...c.battle, playerCards }
+    }
+  }
+
+  let battleAttemptSnapshot = c.battleAttemptSnapshot
+  if (c.battleAttemptSnapshot) {
+    const snapCards = mergeMissingStarterCards(c.battleAttemptSnapshot.cards)
+    if (snapCards.length !== c.battleAttemptSnapshot.cards.length) {
+      battleAttemptSnapshot = { ...c.battleAttemptSnapshot, cards: snapCards }
+    }
+  }
+
+  if (!cardsChanged && battle === c.battle && battleAttemptSnapshot === c.battleAttemptSnapshot) {
+    return c
+  }
+  return { ...c, cards, battle, battleAttemptSnapshot }
+}
+
 /** Старые сохранения без `battle.battleLog` — подставляем пустой массив. */
 export function normalizeLoadedCampaign(c: CampaignState): CampaignState {
   let out: CampaignState
@@ -94,6 +136,7 @@ export function normalizeLoadedCampaign(c: CampaignState): CampaignState {
   }
   out = withDefaultScenarioSlotIndex(out)
   out = normalizeCampaignEconomy(out)
+  out = withMissingStarterCards(out)
   return out
 }
 
