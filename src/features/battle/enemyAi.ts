@@ -1,6 +1,11 @@
 import type { BattleAction, BattleState, Unit } from '../../game/types'
 import { getCurrentActorId } from '../../game/battle/reducer'
 import { canMeleeAttack, canRangedAttack } from '../../game/battle/combat'
+import {
+  ENEMY_MELEE_DAMAGE,
+  ENEMY_RANGED_DAMAGE,
+  ENEMY_RANGED_MAX_RANGE,
+} from '../../game/battle/enemyCombat'
 import { ORTHO_DELTAS, cellKey, manhattan, wallSet } from '../../game/battle/grid'
 
 function aliveHero(state: BattleState): Unit | undefined {
@@ -22,18 +27,18 @@ export function pickEnemyAiAction(state: BattleState): BattleAction | null {
       type: 'attack',
       attackerId: actor.id,
       targetId: hero.id,
-      damage: 4,
+      damage: ENEMY_MELEE_DAMAGE,
       kind: 'melee',
     }
   }
-  if (canRangedAttack(actor, hero, 8)) {
+  if (canRangedAttack(actor, hero, ENEMY_RANGED_MAX_RANGE)) {
     return {
       type: 'attack',
       attackerId: actor.id,
       targetId: hero.id,
-      damage: 3,
+      damage: ENEMY_RANGED_DAMAGE,
       kind: 'ranged',
-      maxRange: 8,
+      maxRange: ENEMY_RANGED_MAX_RANGE,
     }
   }
 
