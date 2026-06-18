@@ -31,14 +31,23 @@ export function describeCardCombatStats(
 
   const levelForDamage = card.global_level + gearCardLevelBonus
   const expectedDamage = computeCardAttackDamage(tmpl, levelForDamage)
-  const kindRu = tmpl.kind === 'melee' ? 'Ближний бой' : 'Дальний бой'
+  const kindRu =
+    tmpl.kind === 'melee'
+      ? 'Ближний бой'
+      : tmpl.kind === 'ranged'
+        ? 'Дальний бой'
+        : 'Дальний бой (область)'
+  const rangeLine =
+    tmpl.kind === 'aoe' && tmpl.aoeSize !== undefined
+      ? `${kindRu}, дальность ${tmpl.maxRange} ${UI_CELL}, область ${tmpl.aoeSize}×${tmpl.aoeSize}`
+      : `${kindRu}, дальность ${tmpl.maxRange} ${UI_CELL}`
   const tokenLine =
     tmpl.damageToken !== undefined
       ? `Токен ${UI_DAMAGE}: ${tmpl.damageToken}`
       : `Без токена (запасной ${UI_DAMAGE} ${tmpl.fallbackDamage})`
 
   const lines = [
-    `${kindRu}, дальность ${tmpl.maxRange} ${UI_CELL}`,
+    rangeLine,
     tokenLine,
     `${UI_LEVEL} карты: ${card.global_level}, бонус экипировки к ${UI_DAMAGE}: +${gearCardLevelBonus}`,
     `Эффективный ${UI_LEVEL} для ${UI_DAMAGE}: ${levelForDamage}`,

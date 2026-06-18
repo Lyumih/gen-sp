@@ -1,5 +1,7 @@
 import { applyAction, getCurrentActorId } from '../battle/reducer'
 import { canMeleeAttack, canRangedAttack } from '../battle/combat'
+import { cellKey, inBounds, wallSet } from '../battle/grid'
+import { canCastAoEAt } from '../battle/rangeOverlay'
 import { computeCardAttackDamage } from '../content/cardAttackDamage'
 import { getCardAttackTemplate } from '../content/cardTemplates'
 import { getItemTemplate } from '../content/itemTemplates'
@@ -40,6 +42,13 @@ export type RunAction =
       type: 'USE_CARD_ATTACK'
       cardId: string
       targetId: string
+      randomInt1to100: number
+    }
+  | {
+      type: 'USE_CARD_AOE'
+      cardId: string
+      targetX: number
+      targetY: number
       randomInt1to100: number
     }
   | { type: 'RETRY_CURRENT_BATTLE' }
@@ -166,6 +175,7 @@ function tryUseCardAttack(
   if (tmpl.kind === 'ranged' && !canRangedAttack(hero, target, tmpl.maxRange)) {
     return state
   }
+  if (tmpl.kind === 'aoe') return state
 
   const used = applyCardUse(card, action.randomInt1to100)
   const nextCard: CardInstance = {
@@ -221,6 +231,70 @@ function tryUseCardAttack(
   return applyBattleOutcome(state, nextBattle)
 }
 
+function tryUseCardAoE(
+  state: CampaignState,
+  action: Extract<RunAction, { type: 'USE_CARD_AOE' }>,
+): CampaignState {
+  if (!state.battle || state.battle.phase !== 'ongoing') return state
+  const b = state.battle
+  if (getCurrentActorId(b) !== 'hero') return state
+
+  const hero = b.units.find((u) => u.id === 'hero' && u.hp > 0)
+  if (!hero) return state
+
+  const card = b.playerCards.find((c) => c.id === action.cardId)
+  if (!card) return state
+
+  const tmpl = getCardAttackTemplate(card.templateId)
+  if (!tmpl || tmpl.kind !== 'aoe' || tmpl.aoeSize === undefined) return state
+
+  const { targetX, targetY } = action
+  if (!inBounds(targetX, targetY, b.width, b.height)) return state
+  if (wallSet(b.walls).has(cellKey(targetX, targetY))) return state
+  if (!canCastAoEAt(hero, targetX, targetY, tmpl.maxRange)) return state
+
+  const used = applyCardUse(card, action.randomInt1to100)
+  const nextCard: CardInstance = {
+    id: used.id,
+    templateId: used.templateId,
+    global_level: used.global_level,
+    uses_count: used.uses_count,
+    modifications: used.modifications,
+  }
+  const levelForDamage = card.global_level + b.gearCardLevelBonus
+  const damage = computeCardAttackDamage(tmpl, levelForDamage)
+  const playerCards = b.playerCards.map((c) => (c.id === card.id ? nextCard : c))
+  const bWithCards = { ...b, playerCards }
+
+  const fromCard = { cardId: card.id, templateId: card.templateId }
+  let nextBattle = applyAction(bWithCards, {
+    type: 'aoe_strike',
+    attackerId: 'hero',
+    centerX: targetX,
+    centerY: targetY,
+    damage,
+    aoeSize: tmpl.aoeSize,
+    fromCard,
+  })
+  if (used.leveledUp) {
+    nextBattle = {
+      ...nextBattle,
+      battleLog: [
+        ...nextBattle.battleLog,
+        {
+          type: 'card_level_up',
+          cardId: card.id,
+          templateId: card.templateId,
+          fromLevel: card.global_level,
+          toLevel: used.global_level,
+          roll: action.randomInt1to100,
+        },
+      ],
+    }
+  }
+  return applyBattleOutcome(state, nextBattle)
+}
+
 export function applyRunAction(state: CampaignState, action: RunAction): CampaignState {
   switch (action.type) {
     case 'START_OR_CONTINUE_BATTLE': {
@@ -252,6 +326,8 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
     }
     case 'USE_CARD_ATTACK':
       return tryUseCardAttack(state, action)
+    case 'USE_CARD_AOE':
+      return tryUseCardAoE(state, action)
     case 'BUY_ITEM': {
       const tmpl = getItemTemplate(action.templateId)
       if (!tmpl) return state
@@ -381,6 +457,13 @@ export const STARTER_CARDS: CardInstance[] = [
   {
     id: 'c1',
     templateId: 'strike',
+    global_level: 1,
+    uses_count: 0,
+    modifications: [],
+  },
+  {
+    id: 'c2',
+    templateId: 'fireball',
     global_level: 1,
     uses_count: 0,
     modifications: [],
