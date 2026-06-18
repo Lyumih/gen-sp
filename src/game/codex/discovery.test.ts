@@ -90,6 +90,16 @@ describe('unreadCodexEntryIds', () => {
     const seen = markCodexSeen(campaign)
     expect(unreadCodexEntryIds(seen)).toEqual([])
   })
+
+  it('ignores stale discovered ids missing from registry', () => {
+    const id = codexEntryId('card', 'strike')
+    const campaign = {
+      ...initialCampaignState(),
+      codexDiscovered: [id, 'item:removed_template'],
+      codexSeenEntryIds: [],
+    }
+    expect(unreadCodexEntryIds(campaign)).toEqual([id])
+  })
 })
 
 describe('mergeBattleCodexDiscoveries', () => {

@@ -7,7 +7,6 @@ type CodexEntryCardProps = {
   discovered: boolean
   unread: boolean
   showAll: boolean
-  gearCardLevelBonus: number
 }
 
 export function CodexEntryCard({
@@ -15,9 +14,8 @@ export function CodexEntryCard({
   discovered,
   unread,
   showAll,
-  gearCardLevelBonus,
 }: CodexEntryCardProps) {
-  const details = describeCodexEntry(entry, gearCardLevelBonus)
+  const details = describeCodexEntry(entry)
 
   return (
     <Card size="small">

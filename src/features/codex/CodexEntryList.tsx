@@ -11,7 +11,7 @@ type CodexEntryListProps = {
   category: CodexCategory
   entries: readonly CodexEntry[]
   showAll: boolean
-  gearCardLevelBonus: number
+  searchActive?: boolean
 }
 
 export function CodexEntryList({
@@ -19,7 +19,7 @@ export function CodexEntryList({
   category,
   entries,
   showAll,
-  gearCardLevelBonus,
+  searchActive = false,
 }: CodexEntryListProps) {
   const discoveredSet = new Set(campaign.codexDiscovered)
   const unreadSet = new Set(unreadCodexEntryIds(campaign))
@@ -29,10 +29,14 @@ export function CodexEntryList({
       <Empty
         image={Empty.PRESENTED_IMAGE_SIMPLE}
         description={
-          <Space direction="vertical" size={4}>
-            <Typography.Text>Пока ничего не открыто</Typography.Text>
-            <Typography.Text type="secondary">{CODEX_EMPTY_HINT[category]}</Typography.Text>
-          </Space>
+          searchActive ? (
+            <Typography.Text type="secondary">Ничего не найдено</Typography.Text>
+          ) : (
+            <Space direction="vertical" size={4}>
+              <Typography.Text>Пока ничего не открыто</Typography.Text>
+              <Typography.Text type="secondary">{CODEX_EMPTY_HINT[category]}</Typography.Text>
+            </Space>
+          )
         }
       />
     )
@@ -47,7 +51,6 @@ export function CodexEntryList({
           discovered={discoveredSet.has(entry.id)}
           unread={unreadSet.has(entry.id)}
           showAll={showAll}
-          gearCardLevelBonus={gearCardLevelBonus}
         />
       ))}
     </Space>

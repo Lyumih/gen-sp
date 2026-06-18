@@ -1,8 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Checkbox, Input, Space, Typography } from 'antd'
 import { codexProgress, visibleCodexEntries } from '../../game/codex/discovery'
-import { getItemTemplate } from '../../game/content/itemTemplates'
-import { aggregateGearCardLevelBonus } from '../../game/equipment/aggregates'
 import type { CampaignState } from '../../game/types'
 import { CodexCategoryNav } from './CodexCategoryNav'
 import { CodexEntryList } from './CodexEntryList'
@@ -23,11 +21,6 @@ export function CampaignCodexTab({ campaign }: CampaignCodexTabProps) {
   const [searchValue, setSearchValue] = useState('')
 
   const progress = codexProgress(campaign, activeCategory)
-  const gearCardLevelBonus = aggregateGearCardLevelBonus(
-    campaign.items,
-    campaign.equipment,
-    getItemTemplate,
-  )
 
   const entries = useMemo(() => {
     const visible = visibleCodexEntries(campaign, activeCategory, showAll)
@@ -73,7 +66,7 @@ export function CampaignCodexTab({ campaign }: CampaignCodexTabProps) {
         category={activeCategory}
         entries={entries}
         showAll={showAll}
-        gearCardLevelBonus={gearCardLevelBonus}
+        searchActive={showAll && searchValue.trim().length > 0}
       />
     </Space>
   )

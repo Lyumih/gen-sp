@@ -1,6 +1,7 @@
 import type { BattleState, CampaignState } from '../types'
 import {
   codexEntriesByCategory,
+  codexEntryById,
   codexEntryId,
   type CodexCategory,
   type CodexEntry,
@@ -39,7 +40,17 @@ export function visibleCodexEntries(
 
 export function unreadCodexEntryIds(campaign: CampaignState): readonly string[] {
   const seenSet = new Set(campaign.codexSeenEntryIds)
-  return campaign.codexDiscovered.filter((id) => !seenSet.has(id))
+  return campaign.codexDiscovered.filter((id) => {
+    if (seenSet.has(id)) return false
+    const entry = codexEntryById(id)
+    if (!entry) {
+      if (import.meta.env.DEV) {
+        console.warn(`[gen-sp] codex: stale discovered id ${id}`)
+      }
+      return false
+    }
+    return true
+  })
 }
 
 export function markCodexSeen(campaign: CampaignState): CampaignState {
