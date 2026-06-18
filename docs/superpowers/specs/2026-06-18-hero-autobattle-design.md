@@ -1,7 +1,7 @@
 # Дизайн: автобой героя
 
 **Дата:** 2026-06-18  
-**Статус:** черновик, ожидает ревью  
+**Статус:** утверждён  
 **Связь:** `src/features/battle/enemyAi.ts`, `src/features/battle/BattleScreen.tsx`, `docs/superpowers/specs/2026-03-28-card-use-in-battle-design.md`
 
 ## 1. Цель
