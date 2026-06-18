@@ -25,6 +25,7 @@ function cardInRange(
   target: Unit,
   tmpl: NonNullable<ReturnType<typeof getCardAttackTemplate>>,
 ): boolean {
+  if (tmpl.kind === 'aoe') return false
   if (tmpl.kind === 'melee') return canMeleeAttack(hero, target)
   return canRangedAttack(hero, target, tmpl.maxRange)
 }

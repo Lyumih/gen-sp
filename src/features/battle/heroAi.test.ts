@@ -106,4 +106,16 @@ describe('pickHeroAiAction', () => {
     const d = pickHeroAiAction(s)
     expect(d).toEqual({ kind: 'card', cardId: 'c2', targetId: 'e1' })
   })
+
+  it('does not pick fireball aoe card', () => {
+    const s = battle({
+      units: [
+        unit({ id: 'hero', side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
+        unit({ id: 'e1', side: 'enemy', x: 2, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
+      ],
+      playerCards: [card({ id: 'c2', templateId: 'fireball' })],
+    })
+    const d = pickHeroAiAction(s)
+    expect(d?.kind === 'card' && d.cardId === 'c2').toBe(false)
+  })
 })

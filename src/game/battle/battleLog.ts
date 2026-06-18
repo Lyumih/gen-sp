@@ -11,7 +11,9 @@ export function formatBattleLogEntry(entry: BattleLogEntry): string {
         ? `карта «${getCardDisplayLabel(entry.fromCard.templateId)}»`
         : entry.attackKind === 'melee'
           ? 'ближний удар'
-          : 'выстрел'
+          : entry.attackKind === 'aoe'
+            ? 'область'
+            : 'выстрел'
       const kill = entry.targetKilled ? ', цель уничтожена' : ''
       return `${entry.attackerId} → ${entry.targetId}: ${entry.damage} ${UI_DAMAGE} (${src})${kill}`
     }
