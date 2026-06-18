@@ -390,6 +390,96 @@ describe('USE_CARD_ATTACK', () => {
   })
 })
 
+describe('USE_CARD_AOE', () => {
+  it('applies damage in 3x3 and increments uses_count', () => {
+    const b = makeBattle({
+      units: [
+        unit({
+          id: 'hero',
+          side: 'player',
+          x: 2,
+          y: 2,
+          hp: 200,
+          maxHp: 200,
+          unitLevel: 1,
+        }),
+        unit({
+          id: 'e1',
+          side: 'enemy',
+          x: 2,
+          y: 1,
+          hp: 500,
+          maxHp: 500,
+          unitLevel: 1,
+        }),
+      ],
+      playerCards: [
+        {
+          id: 'c2',
+          templateId: 'fireball',
+          global_level: 50,
+          uses_count: 0,
+          modifications: [],
+        },
+      ],
+    })
+    let s = campaignWithBattle(b)
+    s = applyRunAction(s, {
+      type: 'USE_CARD_AOE',
+      cardId: 'c2',
+      targetX: 2,
+      targetY: 2,
+      randomInt1to100: 50,
+    })
+    expect(s.battle!.playerCards.find((c) => c.id === 'c2')!.uses_count).toBe(1)
+    expect(s.battle!.units.find((u) => u.id === 'e1')!.hp).toBeLessThan(500)
+  })
+
+  it('no-op when target out of cast range', () => {
+    const b = makeBattle({
+      units: [
+        unit({
+          id: 'hero',
+          side: 'player',
+          x: 0,
+          y: 0,
+          hp: 200,
+          maxHp: 200,
+          unitLevel: 1,
+        }),
+        unit({
+          id: 'e1',
+          side: 'enemy',
+          x: 4,
+          y: 4,
+          hp: 500,
+          maxHp: 500,
+          unitLevel: 1,
+        }),
+      ],
+      playerCards: [
+        {
+          id: 'c2',
+          templateId: 'fireball',
+          global_level: 50,
+          uses_count: 0,
+          modifications: [],
+        },
+      ],
+    })
+    let s = campaignWithBattle(b)
+    const before = s.battle!.playerCards.find((c) => c.id === 'c2')!.uses_count
+    s = applyRunAction(s, {
+      type: 'USE_CARD_AOE',
+      cardId: 'c2',
+      targetX: 4,
+      targetY: 4,
+      randomInt1to100: 50,
+    })
+    expect(s.battle!.playerCards.find((c) => c.id === 'c2')!.uses_count).toBe(before)
+  })
+})
+
 describe('shop and FINALIZE_VICTORY rolls', () => {
   it('FINALIZE_VICTORY no-op when itemLevelRolls length mismatches equipped count', () => {
     const init = initialCampaignState()
@@ -549,19 +639,7 @@ describe('inventory grid actions', () => {
   })
 
   it('REORDER_CARDS changes card order when multiple cards', () => {
-    let s: CampaignState = {
-      ...initialCampaignState(),
-      cards: [
-        ...initialCampaignState().cards,
-        {
-          id: 'c2',
-          templateId: 'strike',
-          global_level: 1,
-          uses_count: 0,
-          modifications: [],
-        },
-      ],
-    }
+    let s = initialCampaignState()
     s = applyRunAction(s, { type: 'REORDER_CARDS', cardIds: ['c2', 'c1'] })
     expect(s.cards.map((c) => c.id)).toEqual(['c2', 'c1'])
   })
