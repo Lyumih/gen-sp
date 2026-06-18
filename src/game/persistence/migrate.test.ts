@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { applyRunAction, initialCampaignState } from '../campaign/runReducer'
 import type { CampaignState } from '../types'
 import { SCENARIOS } from '../campaign/scenarios'
+import { DEFAULT_MOD_KILL_TEMPLATE_ID } from '../content/modTemplates'
 import { EMPTY_EQUIPMENT } from '../equipment/equipmentOrder'
-import { normalizeLoadedCampaign } from './migrate'
+import { migrateFromUnknown, normalizeLoadedCampaign } from './migrate'
 
 describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
   it('fills missing scenarioSlotIndex from scenarioIndex when campaign in progress', () => {
@@ -92,5 +93,33 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
     )
     const out = normalizeLoadedCampaign(withBattle)
     expect(out.battle?.playerCards.map((card) => card.id)).toEqual(['c1', 'c2'])
+  })
+})
+
+describe('normalizeLoadedCampaign legacy codex and mod fields', () => {
+  it('v1 envelope without codex fields gets empty arrays after migrateFromUnknown', () => {
+    const v1 = { version: 1, campaign: { ...initialCampaignState() } }
+    delete (v1.campaign as Record<string, unknown>).codexDiscovered
+    delete (v1.campaign as Record<string, unknown>).codexSeenEntryIds
+    const out = migrateFromUnknown(v1)
+    expect(out?.codexDiscovered).toEqual([])
+    expect(out?.codexSeenEntryIds).toEqual([])
+  })
+
+  it('campaign with modification { level: 0 } only gets templateId backfilled', () => {
+    const c = {
+      ...initialCampaignState(),
+      cards: [
+        {
+          ...initialCampaignState().cards[0],
+          modifications: [{ level: 0 }],
+        },
+        ...initialCampaignState().cards.slice(1),
+      ],
+    } as unknown as CampaignState
+    const out = normalizeLoadedCampaign(c)
+    expect(out.cards[0].modifications).toEqual([
+      { templateId: DEFAULT_MOD_KILL_TEMPLATE_ID, level: 0 },
+    ])
   })
 })

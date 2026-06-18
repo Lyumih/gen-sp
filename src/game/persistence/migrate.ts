@@ -6,10 +6,12 @@ import type {
   CardInstance,
   EquipmentSlot,
   ItemInstance,
+  ModificationInstance,
 } from '../types'
 import { cloneCards } from '../campaign/battleSnapshot'
 import { STARTER_CARDS } from '../campaign/runReducer'
 import { SCENARIOS } from '../campaign/scenarios'
+import { DEFAULT_MOD_KILL_TEMPLATE_ID } from '../content/modTemplates'
 import {
   EMPTY_EQUIPMENT,
   EQUIPMENT_ROLL_ORDER,
@@ -121,6 +123,68 @@ function withMissingStarterCards(c: CampaignState): CampaignState {
   return { ...c, cards, battle, battleAttemptSnapshot }
 }
 
+function normalizeCardModifications(card: CardInstance): CardInstance {
+  let changed = false
+  const modifications = card.modifications.map((mod) => {
+    if (
+      mod &&
+      typeof mod === 'object' &&
+      typeof (mod as ModificationInstance).templateId === 'string'
+    ) {
+      return mod
+    }
+    changed = true
+    const level =
+      mod &&
+      typeof mod === 'object' &&
+      typeof (mod as { level?: unknown }).level === 'number' &&
+      Number.isFinite((mod as { level: number }).level)
+        ? (mod as { level: number }).level
+        : 0
+    return { templateId: DEFAULT_MOD_KILL_TEMPLATE_ID, level }
+  })
+  return changed ? { ...card, modifications } : card
+}
+
+function withLegacyCardModTemplateIds(c: CampaignState): CampaignState {
+  const cards = c.cards.map(normalizeCardModifications)
+  const cardsChanged = cards.some((card, i) => card !== c.cards[i])
+
+  let battle = c.battle
+  if (c.battle) {
+    const playerCards = c.battle.playerCards.map(normalizeCardModifications)
+    const battleCardsChanged = playerCards.some((card, i) => card !== c.battle!.playerCards[i])
+    if (battleCardsChanged) {
+      battle = { ...c.battle, playerCards }
+    }
+  }
+
+  let battleAttemptSnapshot = c.battleAttemptSnapshot
+  if (c.battleAttemptSnapshot) {
+    const snapCards = c.battleAttemptSnapshot.cards.map(normalizeCardModifications)
+    const snapChanged = snapCards.some(
+      (card, i) => card !== c.battleAttemptSnapshot!.cards[i],
+    )
+    if (snapChanged) {
+      battleAttemptSnapshot = { ...c.battleAttemptSnapshot, cards: snapCards }
+    }
+  }
+
+  if (!cardsChanged && battle === c.battle && battleAttemptSnapshot === c.battleAttemptSnapshot) {
+    return c
+  }
+  return { ...c, cards, battle, battleAttemptSnapshot }
+}
+
+function withLegacyCodexFields(c: CampaignState): CampaignState {
+  const codexDiscovered = Array.isArray(c.codexDiscovered) ? c.codexDiscovered : []
+  const codexSeenEntryIds = Array.isArray(c.codexSeenEntryIds) ? c.codexSeenEntryIds : []
+  if (codexDiscovered === c.codexDiscovered && codexSeenEntryIds === c.codexSeenEntryIds) {
+    return c
+  }
+  return { ...c, codexDiscovered, codexSeenEntryIds }
+}
+
 /** Старые сохранения без `battle.battleLog` — подставляем пустой массив. */
 export function normalizeLoadedCampaign(c: CampaignState): CampaignState {
   let out: CampaignState
@@ -137,6 +201,8 @@ export function normalizeLoadedCampaign(c: CampaignState): CampaignState {
   out = withDefaultScenarioSlotIndex(out)
   out = normalizeCampaignEconomy(out)
   out = withMissingStarterCards(out)
+  out = withLegacyCodexFields(out)
+  out = withLegacyCardModTemplateIds(out)
   return out
 }
 
