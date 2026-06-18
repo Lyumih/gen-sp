@@ -29,7 +29,10 @@ export function CodexEntryList({
       <Empty
         image={Empty.PRESENTED_IMAGE_SIMPLE}
         description={
-          <Typography.Text type="secondary">{CODEX_EMPTY_HINT[category]}</Typography.Text>
+          <Space direction="vertical" size={4}>
+            <Typography.Text>Пока ничего не открыто</Typography.Text>
+            <Typography.Text type="secondary">{CODEX_EMPTY_HINT[category]}</Typography.Text>
+          </Space>
         }
       />
     )
