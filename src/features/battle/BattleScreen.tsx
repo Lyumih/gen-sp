@@ -7,9 +7,10 @@ import {
   IdcardOutlined,
   LogoutOutlined,
   RedoOutlined,
+  RobotOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons'
-import { Alert, App, Button, Card, Collapse, Radio, Space, Typography } from 'antd'
+import { Alert, App, Button, Card, Collapse, Radio, Space, Switch, Typography } from 'antd'
 import { computeCardAttackDamage } from '../../game/content/cardAttackDamage'
 import { getCardAttackTemplate } from '../../game/content/cardTemplates'
 import {
@@ -28,10 +29,12 @@ import { cellKey } from '../../game/battle/grid'
 import { occupiedEquipmentSlotsInOrder } from '../../game/equipment/equipmentOrder'
 import { randomInt1to100 } from '../../game/rng'
 import { pickEnemyAiAction } from './enemyAi'
+import { pickHeroAiAction } from './heroAi'
 
 type ActionMode = 'move' | 'melee' | 'ranged' | 'card'
 
 const CELL_PX = 58
+const HERO_AI_DELAY_MS = 2000
 
 const unitCellWrapStyle: CSSProperties = {
   fontSize: 10,
@@ -74,6 +77,8 @@ export function BattleScreen() {
   const modKillTargetCardId = campaign.modKillTargetCardId
   const dispatchRun = useGameStore((s) => s.dispatchRun)
   const dispatchBattle = useGameStore((s) => s.dispatchBattle)
+  const autoBattleEnabled = useGameStore((s) => s.autoBattleEnabled)
+  const setAutoBattleEnabled = useGameStore((s) => s.setAutoBattleEnabled)
   const battle = campaign.battle
   const [mode, setMode] = useState<ActionMode>('move')
   const [profileOpen, setProfileOpen] = useState(false)
@@ -95,6 +100,30 @@ export function BattleScreen() {
     }, 350)
     return () => window.clearTimeout(t)
   }, [battle])
+
+  useEffect(() => {
+    if (!autoBattleEnabled || !battle || battle.phase !== 'ongoing') return
+    const actor = battle.units.find((u) => u.id === getCurrentActorId(battle))
+    if (!actor || actor.side !== 'player') return
+    const t = window.setTimeout(() => {
+      const store = useGameStore.getState()
+      const b = store.campaign.battle
+      if (!b || b.phase !== 'ongoing' || !store.autoBattleEnabled) return
+      const decision = pickHeroAiAction(b)
+      if (!decision) return
+      if (decision.kind === 'battle') {
+        store.dispatchBattle(decision.action)
+      } else {
+        store.dispatchRun({
+          type: 'USE_CARD_ATTACK',
+          cardId: decision.cardId,
+          targetId: decision.targetId,
+          randomInt1to100: randomInt1to100(),
+        })
+      }
+    }, HERO_AI_DELAY_MS)
+    return () => window.clearTimeout(t)
+  }, [battle, autoBattleEnabled])
 
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
@@ -132,7 +161,8 @@ export function BattleScreen() {
     return 0
   })
 
-  const actionsDisabled = battle.phase !== 'ongoing' || currentId !== hero?.id
+  const actionsDisabled =
+    battle.phase !== 'ongoing' || currentId !== hero?.id || autoBattleEnabled
   const basicMode: ActionMode | undefined =
     mode === 'move' || mode === 'melee' || mode === 'ranged' ? mode : undefined
 
@@ -160,6 +190,7 @@ export function BattleScreen() {
 
   const onCellClick = (x: number, y: number) => {
     if (battle.phase !== 'ongoing') return
+    if (autoBattleEnabled) return
     if (!hero || currentId !== hero.id) {
       message.info('Сейчас ход противника')
       return
@@ -359,6 +390,23 @@ export function BattleScreen() {
             Действия героя
           </Typography.Text>
           <Space orientation="vertical" size="small" style={{ width: '100%' }}>
+            <div style={{ marginBottom: 4 }}>
+              <Space align="center">
+                <Switch
+                  checked={autoBattleEnabled}
+                  onChange={setAutoBattleEnabled}
+                  disabled={battle.phase !== 'ongoing'}
+                />
+                <Typography.Text>
+                  <RobotOutlined aria-hidden /> Автобой
+                </Typography.Text>
+                {autoBattleEnabled && currentId === hero?.id && (
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    (ход через 2 с)
+                  </Typography.Text>
+                )}
+              </Space>
+            </div>
             <div>
               <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>
                 Перемещение и базовая атака
