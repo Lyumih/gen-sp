@@ -9,7 +9,7 @@ export function modSlotsUnlocked(cardLevel: number): number {
 export function applyModKillReward(card: CardInstance, points: number): CardInstance {
   if (card.modifications.length === 0) return card
   const modifications = card.modifications.map((m, i) =>
-    i === 0 ? { level: m.level + points } : m,
+    i === 0 ? { templateId: m.templateId, level: m.level + points } : m,
   )
   return { ...card, modifications }
 }

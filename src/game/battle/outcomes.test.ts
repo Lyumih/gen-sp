@@ -11,7 +11,7 @@ const defaultCard = (id: string): CardInstance => ({
   templateId: 't1',
   global_level: 75,
   uses_count: 0,
-  modifications: [{ level: 0 }],
+  modifications: [{ templateId: 'kill_reward', level: 0 }],
 })
 
 function battle(overrides: Partial<BattleState> = {}): BattleState {

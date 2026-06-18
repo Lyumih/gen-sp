@@ -16,9 +16,11 @@ export type Unit = {
   hp: number
   maxHp: number
   unitLevel: number
+  archetypeId?: string
 }
 
 export type ModificationInstance = {
+  templateId: string
   level: number
 }
 
@@ -148,4 +150,6 @@ export type CampaignState = {
   battleAttemptId: number
   /** Заполняется при входе в бой; поражение + retry восстанавливает мету из снимка. */
   battleAttemptSnapshot: BattleAttemptSnapshot | null
+  codexDiscovered: readonly string[]
+  codexSeenEntryIds: readonly string[]
 }

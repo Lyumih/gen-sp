@@ -12,6 +12,7 @@ export type BattleScenarioEnemy = {
   /** База для max HP через computeUnitStat. */
   baseHpStat: number
   unitLevel: number
+  archetypeId: string
 }
 
 export type BattleScenario = {
@@ -32,7 +33,7 @@ export const SCENARIOS: readonly BattleScenario[] = [
     walls: [cellKey(2, 1), cellKey(2, 3)],
     heroStart: { x: 0, y: 2 },
     heroBaseHpStat: 20,
-    enemies: [{ id: 'e1', x: 4, y: 2, baseHpStat: 8, unitLevel: 1 }],
+    enemies: [{ id: 'e1', x: 4, y: 2, baseHpStat: 8, unitLevel: 1, archetypeId: 'grunt' }],
   },
   {
     id: 'two-front',
@@ -42,8 +43,8 @@ export const SCENARIOS: readonly BattleScenario[] = [
     heroStart: { x: 0, y: 1 },
     heroBaseHpStat: 22,
     enemies: [
-      { id: 'e1', x: 5, y: 0, baseHpStat: 7, unitLevel: 1 },
-      { id: 'e2', x: 5, y: 3, baseHpStat: 7, unitLevel: 1 },
+      { id: 'e1', x: 5, y: 0, baseHpStat: 7, unitLevel: 1, archetypeId: 'grunt' },
+      { id: 'e2', x: 5, y: 3, baseHpStat: 7, unitLevel: 1, archetypeId: 'grunt' },
     ],
   },
   {
@@ -53,7 +54,7 @@ export const SCENARIOS: readonly BattleScenario[] = [
     walls: [cellKey(2, 2)],
     heroStart: { x: 0, y: 2 },
     heroBaseHpStat: 24,
-    enemies: [{ id: 'boss', x: 4, y: 2, baseHpStat: 18, unitLevel: 2 }],
+    enemies: [{ id: 'boss', x: 4, y: 2, baseHpStat: 18, unitLevel: 2, archetypeId: 'boss' }],
   },
 ]
 
@@ -88,6 +89,7 @@ function makeEnemies(
       hp: maxHp,
       maxHp,
       unitLevel: e.unitLevel,
+      archetypeId: e.archetypeId,
     }
   })
 }

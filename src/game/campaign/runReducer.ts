@@ -4,6 +4,7 @@ import { cellKey, inBounds, wallSet } from '../battle/grid'
 import { canCastAoEAt } from '../battle/rangeOverlay'
 import { computeCardAttackDamage } from '../content/cardAttackDamage'
 import { getCardAttackTemplate } from '../content/cardTemplates'
+import { DEFAULT_MOD_KILL_TEMPLATE_ID } from '../content/modTemplates'
 import { getItemTemplate } from '../content/itemTemplates'
 import {
   EMPTY_EQUIPMENT,
@@ -461,7 +462,7 @@ export const STARTER_CARDS: CardInstance[] = [
     templateId: 'strike',
     global_level: 1,
     uses_count: 0,
-    modifications: [],
+    modifications: [{ templateId: DEFAULT_MOD_KILL_TEMPLATE_ID, level: 0 }],
   },
   {
     id: 'c2',
@@ -486,5 +487,7 @@ export function initialCampaignState(): CampaignState {
     battle: null,
     battleAttemptId: 0,
     battleAttemptSnapshot: null,
+    codexDiscovered: [],
+    codexSeenEntryIds: [],
   }
 }
