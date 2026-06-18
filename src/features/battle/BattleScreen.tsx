@@ -26,8 +26,18 @@ import { useGameStore } from '../../store/gameStore'
 import { formatBattleLogEntry } from '../../game/battle/battleLog'
 import { getCurrentActorId } from '../../game/battle/reducer'
 import { cellKey } from '../../game/battle/grid'
+import {
+  aggregateEnemyThreatCells,
+  canCastAoEAt,
+  cellsInAoE,
+  cellsInManhattanRange,
+  enemyThreatCells,
+  reachableMoveCells,
+  validSingleTargetCells,
+} from '../../game/battle/rangeOverlay'
 import { occupiedEquipmentSlotsInOrder } from '../../game/equipment/equipmentOrder'
 import { randomInt1to100 } from '../../game/rng'
+import { cellBackgroundStyle, OVERLAY_LEGEND } from './cellOverlayStyle'
 import { pickEnemyAiAction } from './enemyAi'
 import { pickHeroAiAction } from './heroAi'
 
@@ -82,6 +92,9 @@ export function BattleScreen() {
   const battle = campaign.battle
   const [mode, setMode] = useState<ActionMode>('move')
   const [profileOpen, setProfileOpen] = useState(false)
+  const [hoverCell, setHoverCell] = useState<{ x: number; y: number } | null>(null)
+  const [hoveredEnemyId, setHoveredEnemyId] = useState<string | null>(null)
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
   const logEndRef = useRef<HTMLDivElement>(null)
 
   const currentId = battle ? getCurrentActorId(battle) : undefined
@@ -129,14 +142,151 @@ export function BattleScreen() {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [battle?.battleLog.length])
 
-  const primaryBattleCard = battle?.playerCards[0]
-  const primaryCardDamage = useMemo(() => {
-    if (!battle || battle.playerCards.length === 0) return null
-    const card = battle.playerCards[0]!
-    const tmpl = getCardAttackTemplate(card.templateId)
-    if (!tmpl) return null
-    return computeCardAttackDamage(tmpl, card.global_level + battle.gearCardLevelBonus)
-  }, [battle])
+  useEffect(() => {
+    if (!battle || battle.playerCards.length === 0) {
+      setSelectedCardId(null)
+      return
+    }
+    setSelectedCardId((prev) => {
+      if (prev !== null && battle.playerCards.some((c) => c.id === prev)) return prev
+      return battle.playerCards[0]!.id
+    })
+  }, [battle?.playerCards])
+
+  const overlayActive = Boolean(
+    battle &&
+      battle.phase === 'ongoing' &&
+      !autoBattleEnabled &&
+      hero &&
+      currentId === hero.id,
+  )
+
+  const selectedCard = battle?.playerCards.find((c) => c.id === selectedCardId)
+  const selectedCardTemplate = selectedCard
+    ? getCardAttackTemplate(selectedCard.templateId)
+    : undefined
+
+  const overlaySets = useMemo(() => {
+    if (!battle || !hero || !overlayActive) {
+      return {
+        threatBase: new Set<string>(),
+        threatFocus: new Set<string>(),
+        moveCells: new Set<string>(),
+        actionRangeCells: new Set<string>(),
+        aoePreviewCells: new Set<string>(),
+        validTargetCells: new Set<string>(),
+      }
+    }
+
+    const threatBase = aggregateEnemyThreatCells(battle)
+    const threatFocus =
+      hoveredEnemyId !== null ? enemyThreatCells(battle, hoveredEnemyId) : new Set<string>()
+
+    let moveCells = new Set<string>()
+    let actionRangeCells = new Set<string>()
+    let validTargetCells = new Set<string>()
+
+    if (mode === 'move') {
+      moveCells = reachableMoveCells(battle, hero.id)
+    } else if (mode === 'melee') {
+      actionRangeCells = cellsInManhattanRange(
+        hero.x,
+        hero.y,
+        1,
+        1,
+        battle.width,
+        battle.height,
+      )
+      validTargetCells = validSingleTargetCells(battle, hero.x, hero.y, 'melee', 1)
+    } else if (mode === 'ranged') {
+      actionRangeCells = cellsInManhattanRange(
+        hero.x,
+        hero.y,
+        1,
+        HERO_BASIC_RANGED_MAX_RANGE,
+        battle.width,
+        battle.height,
+      )
+      validTargetCells = validSingleTargetCells(
+        battle,
+        hero.x,
+        hero.y,
+        'ranged',
+        HERO_BASIC_RANGED_MAX_RANGE,
+      )
+    } else if (mode === 'card' && selectedCardTemplate) {
+      if (selectedCardTemplate.kind === 'aoe') {
+        actionRangeCells = cellsInManhattanRange(
+          hero.x,
+          hero.y,
+          0,
+          selectedCardTemplate.maxRange,
+          battle.width,
+          battle.height,
+        )
+      } else if (selectedCardTemplate.kind === 'melee') {
+        actionRangeCells = cellsInManhattanRange(
+          hero.x,
+          hero.y,
+          1,
+          1,
+          battle.width,
+          battle.height,
+        )
+        validTargetCells = validSingleTargetCells(battle, hero.x, hero.y, 'melee', 1)
+      } else {
+        actionRangeCells = cellsInManhattanRange(
+          hero.x,
+          hero.y,
+          1,
+          selectedCardTemplate.maxRange,
+          battle.width,
+          battle.height,
+        )
+        validTargetCells = validSingleTargetCells(
+          battle,
+          hero.x,
+          hero.y,
+          'ranged',
+          selectedCardTemplate.maxRange,
+        )
+      }
+    }
+
+    let aoePreviewCells = new Set<string>()
+    if (
+      mode === 'card' &&
+      selectedCardTemplate?.kind === 'aoe' &&
+      selectedCardTemplate.aoeSize !== undefined &&
+      hoverCell !== null &&
+      canCastAoEAt(hero, hoverCell.x, hoverCell.y, selectedCardTemplate.maxRange)
+    ) {
+      aoePreviewCells = cellsInAoE(
+        hoverCell.x,
+        hoverCell.y,
+        selectedCardTemplate.aoeSize,
+        battle.width,
+        battle.height,
+      )
+    }
+
+    return {
+      threatBase,
+      threatFocus,
+      moveCells,
+      actionRangeCells,
+      aoePreviewCells,
+      validTargetCells,
+    }
+  }, [
+    battle,
+    hero,
+    overlayActive,
+    mode,
+    hoveredEnemyId,
+    hoverCell,
+    selectedCardTemplate,
+  ])
 
   const gridCells = useMemo(() => {
     if (!battle) return []
@@ -201,27 +351,41 @@ export function BattleScreen() {
         message.warning('Клетка занята')
         return
       }
+      if (!overlaySets.moveCells.has(cellKey(x, y))) {
+        message.warning('Недоступная клетка')
+        return
+      }
       dispatchBattle({ type: 'move', unitId: hero.id, toX: x, toY: y })
       return
     }
-    if (!target || target.side !== 'enemy') {
-      message.warning('Выберите врага')
-      return
-    }
-    if (mode === 'melee') {
-      dispatchBattle({
-        type: 'attack',
-        attackerId: hero.id,
-        targetId: target.id,
-        damage: HERO_BASIC_MELEE_DAMAGE,
-        kind: 'melee',
-      })
-      return
-    }
     if (mode === 'card') {
-      const card = battle.playerCards[0]
+      const card = battle.playerCards.find((c) => c.id === selectedCardId)
       if (!card) {
         message.warning('Нет карт в бою')
+        return
+      }
+      const tmpl = getCardAttackTemplate(card.templateId)
+      if (!tmpl) return
+      if (tmpl.kind === 'aoe') {
+        if (!canCastAoEAt(hero, x, y, tmpl.maxRange)) {
+          message.warning('Вне дальности')
+          return
+        }
+        dispatchRun({
+          type: 'USE_CARD_AOE',
+          cardId: card.id,
+          targetX: x,
+          targetY: y,
+          randomInt1to100: randomInt1to100(),
+        })
+        return
+      }
+      if (!target || target.side !== 'enemy') {
+        message.warning('Выберите врага')
+        return
+      }
+      if (!overlaySets.validTargetCells.has(cellKey(x, y))) {
+        message.warning('Вне дальности')
         return
       }
       dispatchRun({
@@ -232,6 +396,28 @@ export function BattleScreen() {
       })
       return
     }
+    if (!target || target.side !== 'enemy') {
+      message.warning('Выберите врага')
+      return
+    }
+    if (mode === 'melee') {
+      if (!overlaySets.validTargetCells.has(cellKey(x, y))) {
+        message.warning('Вне дальности')
+        return
+      }
+      dispatchBattle({
+        type: 'attack',
+        attackerId: hero.id,
+        targetId: target.id,
+        damage: HERO_BASIC_MELEE_DAMAGE,
+        kind: 'melee',
+      })
+      return
+    }
+    if (!overlaySets.validTargetCells.has(cellKey(x, y))) {
+      message.warning('Вне дальности')
+      return
+    }
     dispatchBattle({
       type: 'attack',
       attackerId: hero.id,
@@ -240,6 +426,18 @@ export function BattleScreen() {
       kind: 'ranged',
       maxRange: HERO_BASIC_RANGED_MAX_RANGE,
     })
+  }
+
+  const handleCellMouseEnter = (x: number, y: number) => {
+    setHoverCell({ x, y })
+    const u = unitAt(x, y)
+    if (u?.side === 'enemy') setHoveredEnemyId(u.id)
+    else setHoveredEnemyId(null)
+  }
+
+  const handleGridMouseLeave = () => {
+    setHoverCell(null)
+    setHoveredEnemyId(null)
   }
 
   return (
@@ -342,6 +540,7 @@ export function BattleScreen() {
         </div>
 
         <div
+          onMouseLeave={handleGridMouseLeave}
           style={{
             display: 'grid',
             gridTemplateColumns: `repeat(${battle.width}, ${CELL_PX}px)`,
@@ -362,20 +561,43 @@ export function BattleScreen() {
                 )
               else if (u?.side === 'player') inner = <BattleUnitCell unit={u} role="player" />
               else if (u?.side === 'enemy') inner = <BattleUnitCell unit={u} role="enemy" />
+
+              const inThreatFocus = overlaySets.threatFocus.has(k)
+              const inThreatBase = overlaySets.threatBase.has(k)
+              const showValidTarget =
+                overlayActive &&
+                hoverCell?.x === x &&
+                hoverCell.y === y &&
+                overlaySets.validTargetCells.has(k)
+              const cellStyle = cellBackgroundStyle({
+                isWall: wall,
+                threatBase: overlayActive && inThreatBase && !inThreatFocus,
+                threatFocus: overlayActive && inThreatFocus,
+                dimThreat:
+                  overlayActive &&
+                  hoveredEnemyId !== null &&
+                  inThreatBase &&
+                  !inThreatFocus,
+                move: overlayActive && overlaySets.moveCells.has(k),
+                actionRange: overlayActive && overlaySets.actionRangeCells.has(k),
+                aoe: overlayActive && overlaySets.aoePreviewCells.has(k),
+                validTarget: showValidTarget,
+              })
+
               return (
                 <button
                   key={k}
                   type="button"
                   onClick={() => onCellClick(x, y)}
+                  onMouseEnter={() => handleCellMouseEnter(x, y)}
                   style={{
                     width: CELL_PX,
                     height: CELL_PX,
                     padding: wall ? 0 : 2,
                     fontSize: wall ? undefined : 12,
                     cursor: wall ? 'default' : 'pointer',
-                    background: wall ? '#333' : '#f5f5f5',
-                    color: wall ? '#fff' : '#000',
                     border: '1px solid #ccc',
+                    ...cellStyle,
                   }}
                 >
                   {inner}
@@ -384,6 +606,29 @@ export function BattleScreen() {
             }),
           )}
         </div>
+
+        {overlayActive && (
+          <Space wrap size="small">
+            {OVERLAY_LEGEND.map((item) => (
+              <Typography.Text key={item.label} style={{ fontSize: 12 }}>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: 14,
+                    height: 14,
+                    marginRight: 6,
+                    verticalAlign: '-2px',
+                    borderRadius: 2,
+                    border: '1px solid #ccc',
+                    background: item.color,
+                  }}
+                  aria-hidden
+                />
+                {item.label}
+              </Typography.Text>
+            ))}
+          </Space>
+        )}
 
         <div>
           <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>
@@ -400,11 +645,6 @@ export function BattleScreen() {
                 <Typography.Text>
                   <RobotOutlined aria-hidden /> Автобой
                 </Typography.Text>
-                {autoBattleEnabled && currentId === hero?.id && (
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                    (ход через 2 с)
-                  </Typography.Text>
-                )}
               </Space>
             </div>
             <div>
@@ -444,18 +684,35 @@ export function BattleScreen() {
               </Typography.Text>
               <Space wrap align="center">
                 <Radio.Group
-                  value={mode === 'card' ? 'card' : undefined}
-                  onChange={() => setMode('card')}
+                  value={mode === 'card' ? selectedCardId : undefined}
+                  onChange={(e) => {
+                    setMode('card')
+                    setSelectedCardId(e.target.value)
+                  }}
                   disabled={actionsDisabled || battle.playerCards.length === 0}
                 >
-                  <Radio.Button value="card">
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <CreditCardOutlined aria-hidden />
-                      {primaryBattleCard && primaryCardDamage !== null
-                        ? `Атака картой: ${getCardDisplayLabel(primaryBattleCard.templateId)} — ${String(primaryCardDamage)}${UI_DAMAGE}`
-                        : 'Атака картой'}
-                    </span>
-                  </Radio.Button>
+                  {battle.playerCards.map((c) => {
+                    const tmpl = getCardAttackTemplate(c.templateId)
+                    const dmg =
+                      tmpl !== undefined
+                        ? computeCardAttackDamage(
+                            tmpl,
+                            c.global_level + battle.gearCardLevelBonus,
+                          )
+                        : null
+                    const aoeHint =
+                      tmpl?.kind === 'aoe' && tmpl.aoeSize !== undefined
+                        ? ` · AoE ${tmpl.aoeSize}×${tmpl.aoeSize}`
+                        : ''
+                    return (
+                      <Radio.Button key={c.id} value={c.id}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <CreditCardOutlined aria-hidden />
+                          {`${getCardDisplayLabel(c.templateId)}${dmg !== null ? ` — ${String(dmg)}${UI_DAMAGE}` : ''}${aoeHint}`}
+                        </span>
+                      </Radio.Button>
+                    )
+                  })}
                 </Radio.Group>
                 {battle.playerCards.map((c) => {
                   const tmpl = getCardAttackTemplate(c.templateId)
