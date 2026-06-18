@@ -1,8 +1,8 @@
 import type { BattleAction, BattleLogEntry, BattleState, Unit } from '../types'
 import { applyModKillReward } from '../memento/modifications'
 import { canMeleeAttack, canRangedAttack, withDamage } from './combat'
-import { cellKey, manhattan, wallSet } from './grid'
-import { cellsInAoE } from './rangeOverlay'
+import { cellKey, wallSet } from './grid'
+import { cellsInAoE, reachableMoveCells } from './rangeOverlay'
 
 /** Приращение worldPower за смерть врага (MVP-заглушка §6). */
 export const WORLD_POWER_PER_ENEMY_KILL = 1
@@ -103,7 +103,8 @@ function tryMove(state: BattleState, action: Extract<BattleAction, { type: 'move
 
   const { toX, toY } = action
   const walls = wallSet(state.walls)
-  if (manhattan(unit.x, unit.y, toX, toY) !== 1) return state
+  const reachable = reachableMoveCells(state, unit.id)
+  if (!reachable.has(cellKey(toX, toY))) return state
 
   const w = state.width
   const h = state.height
@@ -141,10 +142,11 @@ function tryAttack(state: BattleState, action: Extract<BattleAction, { type: 'at
   if (!isAliveUnit(attacker) || !isAliveUnit(target)) return state
   if (attacker.id === target.id) return state
 
+  const walls = wallSet(state.walls)
   const ok =
     action.kind === 'melee'
       ? canMeleeAttack(attacker, target)
-      : canRangedAttack(attacker, target, action.maxRange)
+      : canRangedAttack(attacker, target, action.maxRange, walls)
   if (!ok) return state
 
   const updated = withDamage(target, action.damage)

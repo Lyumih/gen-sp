@@ -8,26 +8,37 @@ import {
   canRangedAttack,
 } from '../../game/battle/combat'
 import { getCurrentActorId } from '../../game/battle/reducer'
-import { ORTHO_DELTAS, cellKey, manhattan, wallSet } from '../../game/battle/grid'
+import { cellKey, manhattan, wallSet } from '../../game/battle/grid'
+import {
+  aoeCastTargetCells,
+  cellsInAoE,
+  reachableMoveCells,
+} from '../../game/battle/rangeOverlay'
 import type { BattleAction, BattleState, CardInstance, Unit } from '../../game/types'
 
 export type HeroAiDecision =
   | { kind: 'battle'; action: BattleAction }
   | { kind: 'card'; cardId: string; targetId: string }
+  | { kind: 'card_aoe'; cardId: string; targetX: number; targetY: number }
   | null
 
 function aliveEnemies(state: BattleState): Unit[] {
   return state.units.filter((u) => u.side === 'enemy' && u.hp > 0)
 }
 
+function wallsOf(state: BattleState): ReadonlySet<string> {
+  return wallSet(state.walls)
+}
+
 function cardInRange(
   hero: Unit,
   target: Unit,
   tmpl: NonNullable<ReturnType<typeof getCardAttackTemplate>>,
+  state: BattleState,
 ): boolean {
   if (tmpl.kind === 'aoe') return false
   if (tmpl.kind === 'melee') return canMeleeAttack(hero, target)
-  return canRangedAttack(hero, target, tmpl.maxRange)
+  return canRangedAttack(hero, target, tmpl.maxRange, wallsOf(state))
 }
 
 function cardDamage(card: CardInstance, state: BattleState): number {
@@ -40,11 +51,24 @@ function maxAvailableDamage(hero: Unit, enemy: Unit, state: BattleState): number
   let best = 0
   for (const c of state.playerCards) {
     const tmpl = getCardAttackTemplate(c.templateId)
-    if (!tmpl || !cardInRange(hero, enemy, tmpl)) continue
+    if (!tmpl) continue
+    if (tmpl.kind === 'aoe') {
+      const dmg = cardDamage(c, state)
+      const castCells = aoeCastTargetCells(state, hero, tmpl.maxRange)
+      for (const k of castCells) {
+        const [xs, ys] = k.split(',')
+        const cx = Number(xs)
+        const cy = Number(ys)
+        const aoe = cellsInAoE(cx, cy, tmpl.aoeSize ?? 3, state.width, state.height)
+        if (aoe.has(cellKey(enemy.x, enemy.y))) best = Math.max(best, dmg)
+      }
+      continue
+    }
+    if (!cardInRange(hero, enemy, tmpl, state)) continue
     best = Math.max(best, cardDamage(c, state))
   }
   if (canMeleeAttack(hero, enemy)) best = Math.max(best, HERO_BASIC_MELEE_DAMAGE)
-  if (canRangedAttack(hero, enemy, HERO_BASIC_RANGED_MAX_RANGE)) {
+  if (canRangedAttack(hero, enemy, HERO_BASIC_RANGED_MAX_RANGE, wallsOf(state))) {
     best = Math.max(best, HERO_BASIC_RANGED_DAMAGE)
   }
   return best
@@ -68,7 +92,7 @@ function pickBestCard(hero: Unit, target: Unit, state: BattleState): CardInstanc
   let bestDmg = -1
   for (const c of state.playerCards) {
     const tmpl = getCardAttackTemplate(c.templateId)
-    if (!tmpl || !cardInRange(hero, target, tmpl)) continue
+    if (!tmpl || !cardInRange(hero, target, tmpl, state)) continue
     const dmg = cardDamage(c, state)
     if (dmg > bestDmg) {
       best = c
@@ -85,15 +109,62 @@ function pickBestCard(hero: Unit, target: Unit, state: BattleState): CardInstanc
   return best
 }
 
+function scoreAoECell(
+  hero: Unit,
+  cx: number,
+  cy: number,
+  damage: number,
+  aoeSize: number,
+  state: BattleState,
+): number {
+  const aoe = cellsInAoE(cx, cy, aoeSize, state.width, state.height)
+  let score = 0
+  for (const u of state.units) {
+    if (u.hp <= 0) continue
+    if (!aoe.has(cellKey(u.x, u.y))) continue
+    if (u.side === 'enemy') score += damage
+    if (u.id === hero.id) score -= damage * 2
+  }
+  return score
+}
+
+function pickBestAoEAction(
+  hero: Unit,
+  state: BattleState,
+): { cardId: string; targetX: number; targetY: number } | null {
+  let best: { cardId: string; targetX: number; targetY: number; score: number } | null = null
+
+  for (const c of state.playerCards) {
+    const tmpl = getCardAttackTemplate(c.templateId)
+    if (!tmpl || tmpl.kind !== 'aoe' || tmpl.aoeSize === undefined) continue
+    const dmg = cardDamage(c, state)
+    const castCells = aoeCastTargetCells(state, hero, tmpl.maxRange)
+    for (const k of castCells) {
+      const [xs, ys] = k.split(',')
+      const tx = Number(xs)
+      const ty = Number(ys)
+      const score = scoreAoECell(hero, tx, ty, dmg, tmpl.aoeSize, state)
+      if (score <= 0) continue
+      if (
+        !best ||
+        score > best.score ||
+        (score === best.score && c.id === state.modKillTargetCardId)
+      ) {
+        best = { cardId: c.id, targetX: tx, targetY: ty, score }
+      }
+    }
+  }
+  if (!best) return null
+  return { cardId: best.cardId, targetX: best.targetX, targetY: best.targetY }
+}
+
 function pickMoveStep(hero: Unit, target: Unit, state: BattleState): BattleAction | null {
-  const walls = wallSet(state.walls)
+  const reachable = reachableMoveCells(state, hero.id)
   let best: { x: number; y: number; d: number } | null = null
-  for (const d of ORTHO_DELTAS) {
-    const x = hero.x + d.dx
-    const y = hero.y + d.dy
-    if (x < 0 || x >= state.width || y < 0 || y >= state.height) continue
-    if (walls.has(cellKey(x, y))) continue
-    if (state.units.some((u) => u.hp > 0 && u.x === x && u.y === y)) continue
+  for (const k of reachable) {
+    const [xs, ys] = k.split(',')
+    const x = Number(xs)
+    const y = Number(ys)
     const dist = manhattan(x, y, target.x, target.y)
     if (!best || dist < best.d) best = { x, y, d: dist }
   }
@@ -118,6 +189,45 @@ export function pickHeroAiAction(state: BattleState): HeroAiDecision {
     return { kind: 'card', cardId: card.id, targetId: target.id }
   }
 
+  const aoeCards = state.playerCards.filter((c) => {
+    const t = getCardAttackTemplate(c.templateId)
+    return t?.kind === 'aoe'
+  })
+  if (aoeCards.length > 0) {
+    const singleDmg = Math.max(
+      canMeleeAttack(hero, target) ? HERO_BASIC_MELEE_DAMAGE : 0,
+      canRangedAttack(hero, target, HERO_BASIC_RANGED_MAX_RANGE, wallsOf(state))
+        ? HERO_BASIC_RANGED_DAMAGE
+        : 0,
+    )
+    const aoe = pickBestAoEAction(hero, state)
+    if (aoe) {
+      const tmpl = getCardAttackTemplate(
+        state.playerCards.find((c) => c.id === aoe.cardId)!.templateId,
+      )
+      const aoeDmg = cardDamage(
+        state.playerCards.find((c) => c.id === aoe.cardId)!,
+        state,
+      )
+      const aoeScore = scoreAoECell(
+        hero,
+        aoe.targetX,
+        aoe.targetY,
+        aoeDmg,
+        tmpl?.aoeSize ?? 3,
+        state,
+      )
+      if (aoeScore > singleDmg) {
+        return {
+          kind: 'card_aoe',
+          cardId: aoe.cardId,
+          targetX: aoe.targetX,
+          targetY: aoe.targetY,
+        }
+      }
+    }
+  }
+
   if (canMeleeAttack(hero, target)) {
     return {
       kind: 'battle',
@@ -131,7 +241,7 @@ export function pickHeroAiAction(state: BattleState): HeroAiDecision {
     }
   }
 
-  if (canRangedAttack(hero, target, HERO_BASIC_RANGED_MAX_RANGE)) {
+  if (canRangedAttack(hero, target, HERO_BASIC_RANGED_MAX_RANGE, wallsOf(state))) {
     return {
       kind: 'battle',
       action: {

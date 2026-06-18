@@ -328,6 +328,19 @@ describe('applyAction aoe_strike', () => {
     expect(next.currentTurnIndex).toBe(1)
     const strikes = next.battleLog.filter((e) => e.type === 'strike')
     expect(strikes).toHaveLength(3)
-    expect(strikes.every((e) => e.type === 'strike' && e.attackKind === 'aoe')).toBe(true)
+    expect(next.battleLog.every((e) => e.type === 'strike' && e.attackKind === 'aoe')).toBe(true)
+  })
+})
+
+describe('applyAction move multi-step', () => {
+  it('accepts move within BFS range', () => {
+    const s = battle({
+      units: [
+        unit({ id: 'hero', side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
+        unit({ id: 'e1', side: 'enemy', x: 4, y: 0, hp: 5, maxHp: 5, unitLevel: 1 }),
+      ],
+    })
+    const next = applyAction(s, { type: 'move', unitId: 'hero', toX: 2, toY: 0 })
+    expect(next.units.find((u) => u.id === 'hero')).toMatchObject({ x: 2, y: 0 })
   })
 })

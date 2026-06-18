@@ -17,6 +17,7 @@ import {
   HERO_BASIC_MELEE_DAMAGE,
   HERO_BASIC_RANGED_DAMAGE,
   HERO_BASIC_RANGED_MAX_RANGE,
+  HERO_MOVE_RANGE,
 } from '../../game/battle/combat'
 import { describeCardCombatStats, getCardDisplayLabel } from '../../game/descriptions/cardText'
 import { UI_CELL, UI_DAMAGE, UI_HEART, UI_LEVEL } from '../../game/ui/labels'
@@ -25,10 +26,12 @@ import type { Unit } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
 import { formatBattleLogEntry } from '../../game/battle/battleLog'
 import { getCurrentActorId } from '../../game/battle/reducer'
-import { cellKey } from '../../game/battle/grid'
+import { cellKey, wallSet } from '../../game/battle/grid'
 import {
   aggregateEnemyThreatCells,
+  attackRangeCells,
   canCastAoEAt,
+  castRangeCells,
   cellsInAoE,
   cellsInManhattanRange,
   enemyThreatCells,
@@ -40,6 +43,7 @@ import { randomInt1to100 } from '../../game/rng'
 import { cellBackgroundStyle, OVERLAY_LEGEND } from './cellOverlayStyle'
 import { pickEnemyAiAction } from './enemyAi'
 import { pickHeroAiAction } from './heroAi'
+import './battle.css'
 
 type ActionMode = 'move' | 'melee' | 'ranged' | 'card'
 
@@ -95,6 +99,8 @@ export function BattleScreen() {
   const [hoverCell, setHoverCell] = useState<{ x: number; y: number } | null>(null)
   const [hoveredEnemyId, setHoveredEnemyId] = useState<string | null>(null)
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
+  const [pendingAoeCell, setPendingAoeCell] = useState<{ x: number; y: number } | null>(null)
+  const [explosionCells, setExplosionCells] = useState<Set<string>>(new Set())
   const logEndRef = useRef<HTMLDivElement>(null)
 
   const currentId = battle ? getCurrentActorId(battle) : undefined
@@ -126,6 +132,14 @@ export function BattleScreen() {
       if (!decision) return
       if (decision.kind === 'battle') {
         store.dispatchBattle(decision.action)
+      } else if (decision.kind === 'card_aoe') {
+        store.dispatchRun({
+          type: 'USE_CARD_AOE',
+          cardId: decision.cardId,
+          targetX: decision.targetX,
+          targetY: decision.targetY,
+          randomInt1to100: randomInt1to100(),
+        })
       } else {
         store.dispatchRun({
           type: 'USE_CARD_ATTACK',
@@ -152,6 +166,10 @@ export function BattleScreen() {
       return battle.playerCards[0]!.id
     })
   }, [battle?.playerCards])
+
+  useEffect(() => {
+    setPendingAoeCell(null)
+  }, [mode, selectedCardId])
 
   const overlayActive = Boolean(
     battle &&
@@ -199,14 +217,7 @@ export function BattleScreen() {
       )
       validTargetCells = validSingleTargetCells(battle, hero.x, hero.y, 'melee', 1)
     } else if (mode === 'ranged') {
-      actionRangeCells = cellsInManhattanRange(
-        hero.x,
-        hero.y,
-        1,
-        HERO_BASIC_RANGED_MAX_RANGE,
-        battle.width,
-        battle.height,
-      )
+      actionRangeCells = attackRangeCells(battle, hero.x, hero.y, HERO_BASIC_RANGED_MAX_RANGE)
       validTargetCells = validSingleTargetCells(
         battle,
         hero.x,
@@ -216,14 +227,7 @@ export function BattleScreen() {
       )
     } else if (mode === 'card' && selectedCardTemplate) {
       if (selectedCardTemplate.kind === 'aoe') {
-        actionRangeCells = cellsInManhattanRange(
-          hero.x,
-          hero.y,
-          0,
-          selectedCardTemplate.maxRange,
-          battle.width,
-          battle.height,
-        )
+        actionRangeCells = castRangeCells(battle, hero.x, hero.y, selectedCardTemplate.maxRange)
       } else if (selectedCardTemplate.kind === 'melee') {
         actionRangeCells = cellsInManhattanRange(
           hero.x,
@@ -235,14 +239,7 @@ export function BattleScreen() {
         )
         validTargetCells = validSingleTargetCells(battle, hero.x, hero.y, 'melee', 1)
       } else {
-        actionRangeCells = cellsInManhattanRange(
-          hero.x,
-          hero.y,
-          1,
-          selectedCardTemplate.maxRange,
-          battle.width,
-          battle.height,
-        )
+        actionRangeCells = attackRangeCells(battle, hero.x, hero.y, selectedCardTemplate.maxRange)
         validTargetCells = validSingleTargetCells(
           battle,
           hero.x,
@@ -253,17 +250,28 @@ export function BattleScreen() {
       }
     }
 
+    const walls = wallSet(battle.walls)
     let aoePreviewCells = new Set<string>()
+    let previewCenter: { x: number; y: number } | null = null
+    if (mode === 'card' && selectedCardTemplate?.kind === 'aoe') {
+      previewCenter = pendingAoeCell ?? hoverCell
+    }
     if (
       mode === 'card' &&
       selectedCardTemplate?.kind === 'aoe' &&
       selectedCardTemplate.aoeSize !== undefined &&
-      hoverCell !== null &&
-      canCastAoEAt(hero, hoverCell.x, hoverCell.y, selectedCardTemplate.maxRange)
+      previewCenter !== null &&
+      canCastAoEAt(
+        hero,
+        previewCenter.x,
+        previewCenter.y,
+        selectedCardTemplate.maxRange,
+        walls,
+      )
     ) {
       aoePreviewCells = cellsInAoE(
-        hoverCell.x,
-        hoverCell.y,
+        previewCenter.x,
+        previewCenter.y,
         selectedCardTemplate.aoeSize,
         battle.width,
         battle.height,
@@ -286,6 +294,7 @@ export function BattleScreen() {
     hoveredEnemyId,
     hoverCell,
     selectedCardTemplate,
+    pendingAoeCell,
   ])
 
   const gridCells = useMemo(() => {
@@ -338,6 +347,12 @@ export function BattleScreen() {
     })
   }
 
+  const triggerExplosion = (cx: number, cy: number, aoeSize: number) => {
+    const cells = cellsInAoE(cx, cy, aoeSize, battle.width, battle.height)
+    setExplosionCells(cells)
+    window.setTimeout(() => setExplosionCells(new Set()), 600)
+  }
+
   const onCellClick = (x: number, y: number) => {
     if (battle.phase !== 'ongoing') return
     if (autoBattleEnabled) return
@@ -367,17 +382,25 @@ export function BattleScreen() {
       const tmpl = getCardAttackTemplate(card.templateId)
       if (!tmpl) return
       if (tmpl.kind === 'aoe') {
-        if (!canCastAoEAt(hero, x, y, tmpl.maxRange)) {
-          message.warning('Вне дальности')
+        const walls = wallSet(battle.walls)
+        if (!canCastAoEAt(hero, x, y, tmpl.maxRange, walls)) {
+          message.warning('Вне дальности или нет прямой видимости')
           return
         }
-        dispatchRun({
-          type: 'USE_CARD_AOE',
-          cardId: card.id,
-          targetX: x,
-          targetY: y,
-          randomInt1to100: randomInt1to100(),
-        })
+        if (pendingAoeCell?.x === x && pendingAoeCell.y === y) {
+          setPendingAoeCell(null)
+          triggerExplosion(x, y, tmpl.aoeSize ?? 3)
+          dispatchRun({
+            type: 'USE_CARD_AOE',
+            cardId: card.id,
+            targetX: x,
+            targetY: y,
+            randomInt1to100: randomInt1to100(),
+          })
+          return
+        }
+        setPendingAoeCell({ x, y })
+        message.info('Нажмите ещё раз для подтверждения')
         return
       }
       if (!target || target.side !== 'enemy') {
@@ -569,6 +592,9 @@ export function BattleScreen() {
                 hoverCell?.x === x &&
                 hoverCell.y === y &&
                 overlaySets.validTargetCells.has(k)
+              const isPendingAoe =
+                pendingAoeCell?.x === x && pendingAoeCell.y === y && mode === 'card'
+              const isExploding = explosionCells.has(k)
               const cellStyle = cellBackgroundStyle({
                 isWall: wall,
                 threatBase: overlayActive && inThreatBase && !inThreatFocus,
@@ -588,6 +614,7 @@ export function BattleScreen() {
                 <button
                   key={k}
                   type="button"
+                  className={`${isExploding ? 'battle-cell-explosion' : ''}${isPendingAoe ? ' battle-cell-aoe-pending' : ''}`}
                   onClick={() => onCellClick(x, y)}
                   onMouseEnter={() => handleCellMouseEnter(x, y)}
                   style={{
@@ -660,7 +687,7 @@ export function BattleScreen() {
                   <Radio.Button value="move">
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                       <DragOutlined aria-hidden />
-                      Ход
+                      {`Ход (≤${HERO_MOVE_RANGE}${UI_CELL})`}
                     </span>
                   </Radio.Button>
                   <Radio.Button value="melee">

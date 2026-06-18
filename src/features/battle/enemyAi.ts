@@ -31,7 +31,7 @@ export function pickEnemyAiAction(state: BattleState): BattleAction | null {
       kind: 'melee',
     }
   }
-  if (canRangedAttack(actor, hero, ENEMY_RANGED_MAX_RANGE)) {
+  if (canRangedAttack(actor, hero, ENEMY_RANGED_MAX_RANGE, wallSet(state.walls))) {
     return {
       type: 'attack',
       attackerId: actor.id,

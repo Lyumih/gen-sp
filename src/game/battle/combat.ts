@@ -1,5 +1,6 @@
 import type { Unit } from '../types'
 import { manhattan } from './grid'
+import { hasLineOfSight } from './lineOfSight'
 
 /** Урон базовой рукопашной атаки героя (см. `BattleScreen` / `dispatchBattle`). */
 export const HERO_BASIC_MELEE_DAMAGE = 5
@@ -10,19 +11,28 @@ export const HERO_BASIC_RANGED_DAMAGE = 4
 /** Макс. дистанция дальней атаки героя (манхэттен). */
 export const HERO_BASIC_RANGED_MAX_RANGE = 6
 
+/** Ортогональных шагов за одно действие «ход» (BFS по свободным клеткам). */
+export const HERO_MOVE_RANGE = 3
+
 /**
- * Дальний бой (MVP): дистанция — манхэттен между атакующим и целью.
- * Укрытий и блокировки луча нет (LOS не считаем); это сознательное упрощение v0.
  * Ближний бой: строго соседняя клетка (манхэттен === 1).
+ * Дальний: манхэттен в [1, maxRange] и прямая видимость (стены блокируют).
  */
 
 export function canMeleeAttack(attacker: Unit, target: Unit): boolean {
   return manhattan(attacker.x, attacker.y, target.x, target.y) === 1
 }
 
-export function canRangedAttack(attacker: Unit, target: Unit, maxRange: number): boolean {
+export function canRangedAttack(
+  attacker: Unit,
+  target: Unit,
+  maxRange: number,
+  walls?: ReadonlySet<string>,
+): boolean {
   const d = manhattan(attacker.x, attacker.y, target.x, target.y)
-  return d >= 1 && d <= maxRange
+  if (d < 1 || d > maxRange) return false
+  if (walls === undefined) return true
+  return hasLineOfSight(attacker.x, attacker.y, target.x, target.y, walls)
 }
 
 export function withDamage(unit: Unit, damage: number): Unit {

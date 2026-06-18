@@ -61,12 +61,24 @@ describe('cellsInAoE', () => {
 })
 
 describe('reachableMoveCells', () => {
-  it('returns free orthogonal neighbors only', () => {
+  it('returns free orthogonal neighbors only when maxSteps is 1', () => {
     const s = battle({ walls: [cellKey(2, 1)] })
-    const moves = reachableMoveCells(s, 'hero')
+    const moves = reachableMoveCells(s, 'hero', 1)
     expect(moves.has(cellKey(2, 1))).toBe(false)
     expect(moves.has(cellKey(3, 2))).toBe(true)
     expect(moves.size).toBe(3)
+  })
+
+  it('returns multi-step reachable cells via BFS', () => {
+    const s = battle({
+      units: [
+        unit({ id: 'hero', side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
+        unit({ id: 'e1', side: 'enemy', x: 4, y: 0, hp: 5, maxHp: 5, unitLevel: 1 }),
+      ],
+    })
+    const moves = reachableMoveCells(s, 'hero', 3)
+    expect(moves.has(cellKey(3, 0))).toBe(true)
+    expect(moves.has(cellKey(4, 0))).toBe(false)
   })
 })
 

@@ -172,7 +172,8 @@ function tryUseCardAttack(
   if (!tmpl) return state
 
   if (tmpl.kind === 'melee' && !canMeleeAttack(hero, target)) return state
-  if (tmpl.kind === 'ranged' && !canRangedAttack(hero, target, tmpl.maxRange)) {
+  const walls = wallSet(b.walls)
+  if (tmpl.kind === 'ranged' && !canRangedAttack(hero, target, tmpl.maxRange, walls)) {
     return state
   }
   if (tmpl.kind === 'aoe') return state
@@ -250,8 +251,9 @@ function tryUseCardAoE(
 
   const { targetX, targetY } = action
   if (!inBounds(targetX, targetY, b.width, b.height)) return state
-  if (wallSet(b.walls).has(cellKey(targetX, targetY))) return state
-  if (!canCastAoEAt(hero, targetX, targetY, tmpl.maxRange)) return state
+  const walls = wallSet(b.walls)
+  if (walls.has(cellKey(targetX, targetY))) return state
+  if (!canCastAoEAt(hero, targetX, targetY, tmpl.maxRange, walls)) return state
 
   const used = applyCardUse(card, action.randomInt1to100)
   const nextCard: CardInstance = {

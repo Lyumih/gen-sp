@@ -1,6 +1,8 @@
 import type { BattleState, Unit } from '../types'
+import { HERO_MOVE_RANGE } from './combat'
 import { ENEMY_RANGED_MAX_RANGE } from './enemyCombat'
 import { cellKey, inBounds, manhattan, orthoNeighbors, wallSet } from './grid'
+import { hasLineOfSight } from './lineOfSight'
 
 export function cellsInManhattanRange(
   ox: number,
@@ -20,6 +22,26 @@ export function cellsInManhattanRange(
       if (walls?.has(k)) continue
       out.add(k)
     }
+  }
+  return out
+}
+
+function cellsInManhattanRangeWithLos(
+  ox: number,
+  oy: number,
+  minRange: number,
+  maxRange: number,
+  width: number,
+  height: number,
+  walls: ReadonlySet<string>,
+): Set<string> {
+  const disk = cellsInManhattanRange(ox, oy, minRange, maxRange, width, height, walls)
+  const out = new Set<string>()
+  for (const k of disk) {
+    const [xs, ys] = k.split(',')
+    const x = Number(xs)
+    const y = Number(ys)
+    if (hasLineOfSight(ox, oy, x, y, walls)) out.add(k)
   }
   return out
 }
@@ -44,17 +66,38 @@ export function cellsInAoE(
   return out
 }
 
-export function reachableMoveCells(state: BattleState, unitId: string): Set<string> {
+/** BFS: все свободные клетки, достижимые за ≤ maxSteps ортогональных шагов. */
+export function reachableMoveCells(
+  state: BattleState,
+  unitId: string,
+  maxSteps: number = HERO_MOVE_RANGE,
+): Set<string> {
   const unit = state.units.find((u) => u.id === unitId && u.hp > 0)
   if (!unit) return new Set()
   const walls = wallSet(state.walls)
   const out = new Set<string>()
-  for (const [x, y] of orthoNeighbors(unit.x, unit.y)) {
-    if (!inBounds(x, y, state.width, state.height)) continue
-    const k = cellKey(x, y)
-    if (walls.has(k)) continue
-    if (state.units.some((u) => u.hp > 0 && u.x === x && u.y === y)) continue
-    out.add(k)
+  const startK = cellKey(unit.x, unit.y)
+  const visited = new Set<string>([startK])
+  let frontier: [number, number][] = [[unit.x, unit.y]]
+
+  for (let step = 0; step < maxSteps; step++) {
+    const nextFrontier: [number, number][] = []
+    for (const [fx, fy] of frontier) {
+      for (const [x, y] of orthoNeighbors(fx, fy)) {
+        if (!inBounds(x, y, state.width, state.height)) continue
+        const k = cellKey(x, y)
+        if (visited.has(k)) continue
+        if (walls.has(k)) continue
+        if (state.units.some((u) => u.hp > 0 && u.x === x && u.y === y && u.id !== unitId)) {
+          continue
+        }
+        visited.add(k)
+        out.add(k)
+        nextFrontier.push([x, y])
+      }
+    }
+    frontier = nextFrontier
+    if (frontier.length === 0) break
   }
   return out
 }
@@ -62,14 +105,16 @@ export function reachableMoveCells(state: BattleState, unitId: string): Set<stri
 export function enemyThreatCells(state: BattleState, enemyId: string): Set<string> {
   const enemy = state.units.find((u) => u.id === enemyId && u.side === 'enemy' && u.hp > 0)
   if (!enemy) return new Set()
+  const walls = wallSet(state.walls)
   const melee = cellsInManhattanRange(enemy.x, enemy.y, 1, 1, state.width, state.height)
-  const ranged = cellsInManhattanRange(
+  const ranged = cellsInManhattanRangeWithLos(
     enemy.x,
     enemy.y,
     1,
     ENEMY_RANGED_MAX_RANGE,
     state.width,
     state.height,
+    walls,
   )
   return new Set([...melee, ...ranged])
 }
@@ -90,8 +135,12 @@ export function validSingleTargetCells(
   kind: 'melee' | 'ranged',
   maxRange: number,
 ): Set<string> {
+  const walls = wallSet(state.walls)
   const maxR = kind === 'melee' ? 1 : maxRange
-  const range = cellsInManhattanRange(ox, oy, 1, maxR, state.width, state.height)
+  const range =
+    kind === 'melee'
+      ? cellsInManhattanRange(ox, oy, 1, maxR, state.width, state.height)
+      : cellsInManhattanRangeWithLos(ox, oy, 1, maxR, state.width, state.height, walls)
   const out = new Set<string>()
   for (const u of state.units) {
     if (u.side !== 'enemy' || u.hp <= 0) continue
@@ -100,11 +149,47 @@ export function validSingleTargetCells(
   return out
 }
 
+export function castRangeCells(
+  state: BattleState,
+  ox: number,
+  oy: number,
+  castRange: number,
+): Set<string> {
+  const walls = wallSet(state.walls)
+  return cellsInManhattanRangeWithLos(ox, oy, 0, castRange, state.width, state.height, walls)
+}
+
+export function attackRangeCells(
+  state: BattleState,
+  ox: number,
+  oy: number,
+  maxRange: number,
+): Set<string> {
+  const walls = wallSet(state.walls)
+  return cellsInManhattanRangeWithLos(ox, oy, 1, maxRange, state.width, state.height, walls)
+}
+
 export function canCastAoEAt(
   hero: Unit,
   targetX: number,
   targetY: number,
   castRange: number,
+  walls?: ReadonlySet<string>,
 ): boolean {
-  return manhattan(hero.x, hero.y, targetX, targetY) <= castRange
+  if (manhattan(hero.x, hero.y, targetX, targetY) > castRange) return false
+  if (walls === undefined) return true
+  return hasLineOfSight(hero.x, hero.y, targetX, targetY, walls)
+}
+
+/** Все клетки, куда можно кастовать AoE с текущей позиции героя. */
+export function aoeCastTargetCells(state: BattleState, hero: Unit, castRange: number): Set<string> {
+  const walls = wallSet(state.walls)
+  const out = new Set<string>()
+  for (let y = 0; y < state.height; y++) {
+    for (let x = 0; x < state.width; x++) {
+      if (walls.has(cellKey(x, y))) continue
+      if (canCastAoEAt(hero, x, y, castRange, walls)) out.add(cellKey(x, y))
+    }
+  }
+  return out
 }
