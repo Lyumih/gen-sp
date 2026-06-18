@@ -6,6 +6,7 @@ export type CardAttackTemplate = {
   maxRange: number
   damageToken?: string
   fallbackDamage: number
+  emoji?: string
 }
 
 export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>> = {
@@ -15,6 +16,7 @@ export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>>
     maxRange: 1,
     damageToken: '40%%',
     fallbackDamage: 5,
+    emoji: '🃏',
   },
 }
 

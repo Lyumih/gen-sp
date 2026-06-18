@@ -8,6 +8,7 @@ export type ItemTemplate = {
   hpBonusPerItemLevel: number
   cardLevelBonusPerItemLevel: number
   label: string
+  emoji?: string
 }
 
 export const ITEM_TEMPLATES: Readonly<Record<string, ItemTemplate>> = {
@@ -18,6 +19,7 @@ export const ITEM_TEMPLATES: Readonly<Record<string, ItemTemplate>> = {
     hpBonusPerItemLevel: 0,
     cardLevelBonusPerItemLevel: 1,
     label: 'Деревянный меч',
+    emoji: '🗡️',
   },
   leather_armor: {
     id: 'leather_armor',
@@ -26,6 +28,7 @@ export const ITEM_TEMPLATES: Readonly<Record<string, ItemTemplate>> = {
     hpBonusPerItemLevel: 2,
     cardLevelBonusPerItemLevel: 0,
     label: 'Кожаная броня',
+    emoji: '🥋',
   },
   copper_ring: {
     id: 'copper_ring',
@@ -34,6 +37,7 @@ export const ITEM_TEMPLATES: Readonly<Record<string, ItemTemplate>> = {
     hpBonusPerItemLevel: 1,
     cardLevelBonusPerItemLevel: 1,
     label: 'Медное кольцо',
+    emoji: '💍',
   },
 }
 
