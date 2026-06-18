@@ -1,4 +1,3 @@
-import { SAVE_VERSION } from './schema'
 import type { SaveEnvelopeV1 } from './schema'
 import type {
   BattleAttemptSnapshot,
@@ -220,18 +219,24 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
     return null
   }
   const version = raw.version
-  if (version !== SAVE_VERSION) {
+  if (version !== 1 && version !== 2) {
     console.warn(
-      `[gen-sp] save: unsupported version ${String(version)}, expected ${SAVE_VERSION}`,
+      `[gen-sp] save: unsupported version ${String(version)}, expected 1 or 2`,
     )
     return null
   }
-  const campaign = raw.campaign
-  if (!isRecord(campaign)) {
+  const campaignRaw = raw.campaign
+  if (!isRecord(campaignRaw)) {
     console.warn('[gen-sp] save: missing campaign object')
     return null
   }
-  return normalizeLoadedCampaign(campaign as unknown as CampaignState)
+  let campaign = campaignRaw as unknown as CampaignState
+  campaign = normalizeLoadedCampaign({
+    ...campaign,
+    codexDiscovered: Array.isArray(campaign.codexDiscovered) ? campaign.codexDiscovered : [],
+    codexSeenEntryIds: Array.isArray(campaign.codexSeenEntryIds) ? campaign.codexSeenEntryIds : [],
+  })
+  return campaign
 }
 
 export function assertEnvelopeV1(e: SaveEnvelopeV1): CampaignState {
