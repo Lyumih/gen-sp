@@ -528,6 +528,75 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
   })
 })
 
+describe('inventory grid actions', () => {
+  it('SELL_ITEM refunds half price and removes stash item', () => {
+    let s = { ...initialCampaignState(), gold: 100 }
+    s = applyRunAction(s, { type: 'BUY_ITEM', templateId: 'wooden_sword' })
+    const id = s.items[0]!.id
+    s = applyRunAction(s, { type: 'SELL_ITEM', itemId: id })
+    expect(s.items).toHaveLength(0)
+    expect(s.gold).toBe(95)
+  })
+
+  it('SELL_ITEM no-op for equipped item', () => {
+    let s = { ...initialCampaignState(), gold: 100 }
+    s = applyRunAction(s, { type: 'BUY_ITEM', templateId: 'wooden_sword' })
+    const id = s.items[0]!.id
+    s = applyRunAction(s, { type: 'EQUIP_ITEM', itemId: id, slot: 'weapon' })
+    const before = s
+    s = applyRunAction(s, { type: 'SELL_ITEM', itemId: id })
+    expect(s).toEqual(before)
+  })
+
+  it('REORDER_CARDS changes card order when multiple cards', () => {
+    let s: CampaignState = {
+      ...initialCampaignState(),
+      cards: [
+        ...initialCampaignState().cards,
+        {
+          id: 'c2',
+          templateId: 'strike',
+          global_level: 1,
+          uses_count: 0,
+          modifications: [],
+        },
+      ],
+    }
+    s = applyRunAction(s, { type: 'REORDER_CARDS', cardIds: ['c2', 'c1'] })
+    expect(s.cards.map((c) => c.id)).toEqual(['c2', 'c1'])
+  })
+
+  it('SET_MOD_KILL_TARGET updates target', () => {
+    const s = applyRunAction(initialCampaignState(), {
+      type: 'SET_MOD_KILL_TARGET',
+      cardId: 'c1',
+    })
+    expect(s.modKillTargetCardId).toBe('c1')
+  })
+
+  it('REORDER_STASH persists stash order after equipped block', () => {
+    let s = { ...initialCampaignState(), gold: 100 }
+    s = applyRunAction(s, { type: 'BUY_ITEM', templateId: 'wooden_sword' })
+    const swordId = s.items[0]!.id
+    s = applyRunAction(s, { type: 'BUY_ITEM', templateId: 'leather_armor' })
+    const armorId = s.items.find((i) => i.templateId === 'leather_armor')!.id
+    s = applyRunAction(s, { type: 'EQUIP_ITEM', itemId: swordId, slot: 'weapon' })
+    s = applyRunAction(s, { type: 'REORDER_STASH', itemIds: [armorId] })
+    expect(s.items.map((i) => i.id)).toEqual([swordId, armorId])
+  })
+
+  it('inventory actions no-op in battle', () => {
+    let s = applyRunAction({ ...initialCampaignState(), gold: 100 }, {
+      type: 'BUY_ITEM',
+      templateId: 'wooden_sword',
+    })
+    s = applyRunAction(s, { type: 'START_OR_CONTINUE_BATTLE' })
+    const before = s
+    s = applyRunAction(s, { type: 'SELL_ITEM', itemId: before.items[0]!.id })
+    expect(s).toEqual(before)
+  })
+})
+
 describe('scenarios', () => {
   it('has 2–3 battles', () => {
     expect(SCENARIOS.length).toBeGreaterThanOrEqual(2)

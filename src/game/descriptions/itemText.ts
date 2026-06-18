@@ -37,6 +37,15 @@ export function itemTotalCardLevelBonus(t: ItemTemplate, itemLevel: number): num
   return t.cardLevelBonusPerItemLevel * itemLevel
 }
 
+export function itemPriceLine(amount: number): string {
+  return `${amount} 💰`
+}
+
+/** Цена продажи в магазин (50% от shopPrice). */
+export function itemSellPrice(t: ItemTemplate): number {
+  return Math.floor(t.shopPrice * 0.5)
+}
+
 /** Сводка вкладов экземпляра (числа). */
 export function itemTotalBonusesAtLevel(
   t: ItemTemplate,

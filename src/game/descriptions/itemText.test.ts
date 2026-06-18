@@ -3,6 +3,7 @@ import { ITEM_TEMPLATES } from '../content/itemTemplates'
 import {
   itemInstanceDescriptionLines,
   itemPerLevelBonusesLines,
+  itemPriceLine,
   itemSelectShortLabel,
   itemShopSummaryLine,
   itemTotalBonusesAtLevel,
@@ -57,11 +58,21 @@ describe('itemShopSummaryLine', () => {
   })
 })
 
+describe('itemPriceLine', () => {
+  it('formats amount with money emoji', () => {
+    expect(itemPriceLine(10)).toBe('10 💰')
+    expect(itemPriceLine(7)).toBe('7 💰')
+  })
+})
+
 describe('itemInstanceDescriptionLines', () => {
-  it('leather_armor level 2 lists totals and per-level', () => {
+  it('leather_armor level 2 lists totals without buy/sell lines', () => {
     const t = ITEM_TEMPLATES.leather_armor!
     const lines = itemInstanceDescriptionLines(t, 2)
     expect(lines.some((l) => l.includes('+4'))).toBe(true)
     expect(lines.some((l) => l.includes('За уровень'))).toBe(true)
+    expect(lines.some((l) => l.includes('Покупка'))).toBe(false)
+    expect(lines.some((l) => l.includes('Продажа'))).toBe(false)
+    expect(lines.some((l) => l.includes('💰'))).toBe(false)
   })
 })

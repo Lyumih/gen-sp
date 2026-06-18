@@ -8,6 +8,11 @@ import {
   EQUIPMENT_ROLL_ORDER,
   occupiedEquipmentSlotsInOrder,
 } from '../equipment/equipmentOrder'
+import {
+  buildItemsWithStashOrder,
+  isItemEquipped,
+  sellPriceForItem,
+} from '../equipment/stashOrder'
 import { applyCardUse } from '../memento/cardProgress'
 import { rollMementoLevelUp } from '../memento/rollMementoLevelUp'
 import type {
@@ -43,8 +48,16 @@ export type RunAction =
   | { type: 'BUY_ITEM'; templateId: string }
   | { type: 'EQUIP_ITEM'; itemId: string; slot: EquipmentSlot }
   | { type: 'UNEQUIP_ITEM'; slot: EquipmentSlot }
+  | { type: 'REORDER_CARDS'; cardIds: string[] }
+  | { type: 'SET_MOD_KILL_TARGET'; cardId: string | null }
+  | { type: 'SELL_ITEM'; itemId: string }
+  | { type: 'REORDER_STASH'; itemIds: string[] }
 
 export { cloneCards, cloneItems }
+
+function inHub(state: CampaignState): boolean {
+  return state.battle === null
+}
 
 function newItemId(): string {
   if (typeof globalThis.crypto !== 'undefined' && 'randomUUID' in globalThis.crypto) {
@@ -274,6 +287,48 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         ...state,
         equipment: { ...state.equipment, [action.slot]: null },
       }
+    }
+    case 'REORDER_CARDS': {
+      if (!inHub(state)) return state
+      const currentIds = state.cards.map((c) => c.id)
+      if (action.cardIds.length !== currentIds.length) return state
+      const currentSet = new Set(currentIds)
+      for (const id of action.cardIds) {
+        if (!currentSet.has(id)) return state
+      }
+      const byId = new Map(state.cards.map((c) => [c.id, c]))
+      const reordered = action.cardIds.map((id) => byId.get(id)!)
+      return { ...state, cards: reordered }
+    }
+    case 'SET_MOD_KILL_TARGET': {
+      if (!inHub(state)) return state
+      if (action.cardId !== null && !state.cards.some((c) => c.id === action.cardId)) {
+        return state
+      }
+      return { ...state, modKillTargetCardId: action.cardId }
+    }
+    case 'SELL_ITEM': {
+      if (!inHub(state)) return state
+      const item = state.items.find((i) => i.id === action.itemId)
+      if (!item) return state
+      if (isItemEquipped(action.itemId, state.equipment)) return state
+      const price = sellPriceForItem(item, getItemTemplate)
+      if (price <= 0) return state
+      return {
+        ...state,
+        gold: state.gold + price,
+        items: state.items.filter((i) => i.id !== action.itemId),
+      }
+    }
+    case 'REORDER_STASH': {
+      if (!inHub(state)) return state
+      const nextItems = buildItemsWithStashOrder(
+        state.items,
+        state.equipment,
+        action.itemIds,
+      )
+      if (nextItems === null) return state
+      return { ...state, items: nextItems }
     }
     case 'RETRY_CURRENT_BATTLE': {
       const snap = state.battleAttemptSnapshot

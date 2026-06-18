@@ -71,6 +71,7 @@ function BattleUnitCell({ unit, role }: { unit: Unit; role: 'player' | 'enemy' }
 export function BattleScreen() {
   const { message, modal } = App.useApp()
   const campaign = useGameStore((s) => s.campaign)
+  const modKillTargetCardId = campaign.modKillTargetCardId
   const dispatchRun = useGameStore((s) => s.dispatchRun)
   const dispatchBattle = useGameStore((s) => s.dispatchBattle)
   const battle = campaign.battle
@@ -422,6 +423,7 @@ export function BattleScreen() {
                       {getCardDisplayLabel(c.templateId)} {UI_LEVEL}
                       {c.global_level}
                       {dmg !== null ? ` · ${String(dmg)}${UI_DAMAGE}` : ''}
+                      {c.id === modKillTargetCardId ? ' 🎯' : ''}
                     </Typography.Text>
                   )
                 })}
@@ -459,6 +461,7 @@ export function BattleScreen() {
                       {getCardDisplayLabel(c.templateId)} {UI_LEVEL}
                       {c.global_level} · использ. {c.uses_count}
                       {dmg !== null ? ` · ${String(dmg)}${UI_DAMAGE}` : ''}
+                      {c.id === modKillTargetCardId ? ' 🎯' : ''}
                     </span>
                   ),
                   children: (

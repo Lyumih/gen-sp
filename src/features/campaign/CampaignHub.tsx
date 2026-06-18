@@ -3,6 +3,7 @@ import { FlagOutlined } from '@ant-design/icons'
 import { App, Card, Divider, Space } from 'antd'
 import { SCENARIOS } from '../../game/campaign/scenarios'
 import { getItemTemplate } from '../../game/content/itemTemplates'
+import { isItemEquipped } from '../../game/equipment/stashOrder'
 import type { EquipmentSlot } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
 import { CampaignBattleTab } from './CampaignBattleTab'
@@ -38,6 +39,26 @@ export function CampaignHub() {
 
   const unequip = (slot: EquipmentSlot) => {
     dispatchRun({ type: 'UNEQUIP_ITEM', slot })
+  }
+
+  const sellItem = (itemId: string) => {
+    if (isItemEquipped(itemId, campaign.equipment)) {
+      message.warning('Сначала снимите предмет')
+      return
+    }
+    dispatchRun({ type: 'SELL_ITEM', itemId })
+  }
+
+  const reorderStash = (itemIds: string[]) => {
+    dispatchRun({ type: 'REORDER_STASH', itemIds })
+  }
+
+  const reorderCards = (cardIds: string[]) => {
+    dispatchRun({ type: 'REORDER_CARDS', cardIds })
+  }
+
+  const setModKillTarget = (cardId: string) => {
+    dispatchRun({ type: 'SET_MOD_KILL_TARGET', cardId })
   }
 
   return (
@@ -78,11 +99,21 @@ export function CampaignHub() {
             inBattle={inBattle}
             onEquip={equip}
             onUnequip={unequip}
+            onReorderStash={reorderStash}
+            onReorderCards={reorderCards}
+            onSetModKillTarget={setModKillTarget}
+            onInvalidSlot={() => message.warning('Не подходит к этому слоту')}
           />
         ) : null}
 
         {activeTab === 'shop' ? (
-          <CampaignShopTab campaign={campaign} inBattle={inBattle} onBuy={buy} />
+          <CampaignShopTab
+            campaign={campaign}
+            inBattle={inBattle}
+            onBuy={buy}
+            onInsufficientGold={() => message.warning('Недостаточно золота')}
+            onSell={sellItem}
+          />
         ) : null}
       </Space>
     </Card>
