@@ -10,6 +10,8 @@ import { STORAGE_KEY } from '../game/persistence/schema'
 
 export type GameStoreState = {
   campaign: CampaignState
+  autoBattleEnabled: boolean
+  setAutoBattleEnabled: (enabled: boolean) => void
   dispatchRun: (action: RunAction) => void
   dispatchBattle: (action: BattleAction) => void
   hydrateFromStorage: () => void
@@ -28,6 +30,8 @@ function readInitialCampaign(): CampaignState {
 
 export const useGameStore = create<GameStoreState>((set, get) => ({
   campaign: readInitialCampaign(),
+  autoBattleEnabled: false,
+  setAutoBattleEnabled: (enabled) => set({ autoBattleEnabled: enabled }),
   dispatchRun: (action) => {
     set((s) => ({ campaign: applyRunAction(s.campaign, action) }))
   },
