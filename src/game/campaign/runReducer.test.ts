@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { codexEntryId } from '../codex/discovery'
 import type { BattleState, CampaignState, Unit } from '../types'
 import {
   applyRunAction,
@@ -388,6 +389,20 @@ describe('USE_CARD_ATTACK', () => {
       roll,
     })
   })
+
+  it('discovers used attack card in codex', () => {
+    const b = makeBattle()
+    let s = campaignWithBattle(b)
+
+    s = applyRunAction(s, {
+      type: 'USE_CARD_ATTACK',
+      cardId: 'c1',
+      targetId: 'e1',
+      randomInt1to100: 48,
+    })
+
+    expect(s.codexDiscovered).toContain(codexEntryId('card', 'strike'))
+  })
 })
 
 describe('USE_CARD_AOE', () => {
@@ -481,6 +496,14 @@ describe('USE_CARD_AOE', () => {
 })
 
 describe('shop and FINALIZE_VICTORY rolls', () => {
+  it('BUY_ITEM discovers item in codex', () => {
+    let s = { ...initialCampaignState(), gold: 100 }
+
+    s = applyRunAction(s, { type: 'BUY_ITEM', templateId: 'wooden_sword' })
+
+    expect(s.codexDiscovered).toContain(codexEntryId('item', 'wooden_sword'))
+  })
+
   it('FINALIZE_VICTORY no-op when itemLevelRolls length mismatches equipped count', () => {
     const init = initialCampaignState()
     const items = [{ id: 'w1', templateId: 'wooden_sword', itemLevel: 1 }]
@@ -615,6 +638,44 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
     expect(s.phase).toBe('battle')
     expect(s.gold).toBe(goldAtStart)
     expect(s.items).toHaveLength(1)
+  })
+
+  it('BATTLE_DISPATCH discovers killed enemy archetype in codex', () => {
+    let s = initialCampaignState()
+    s = applyRunAction(s, { type: 'START_OR_CONTINUE_BATTLE' })
+
+    s = applyRunAction(s, {
+      type: 'BATTLE_DISPATCH',
+      battleAction: {
+        type: 'attack',
+        attackerId: 'hero',
+        targetId: 'e1',
+        damage: 999,
+        kind: 'ranged',
+        maxRange: 10,
+      },
+    })
+
+    expect(s.codexDiscovered).toContain(codexEntryId('enemy', 'grunt'))
+  })
+
+  it('MARK_CODEX_SEEN marks discovered entries as seen', () => {
+    const s = applyRunAction(
+      {
+        ...initialCampaignState(),
+        codexDiscovered: [
+          codexEntryId('item', 'wooden_sword'),
+          codexEntryId('enemy', 'grunt'),
+        ],
+        codexSeenEntryIds: [codexEntryId('item', 'wooden_sword')],
+      },
+      { type: 'MARK_CODEX_SEEN' },
+    )
+
+    expect(s.codexSeenEntryIds).toEqual([
+      codexEntryId('item', 'wooden_sword'),
+      codexEntryId('enemy', 'grunt'),
+    ])
   })
 })
 

@@ -4,6 +4,12 @@ import { cellKey, inBounds, wallSet } from '../battle/grid'
 import { canCastAoEAt } from '../battle/rangeOverlay'
 import { computeCardAttackDamage } from '../content/cardAttackDamage'
 import { getCardAttackTemplate } from '../content/cardTemplates'
+import {
+  codexEntryId,
+  discoverCodexEntry,
+  markCodexSeen,
+  mergeBattleCodexDiscoveries,
+} from '../codex/discovery'
 import { DEFAULT_MOD_KILL_TEMPLATE_ID } from '../content/modTemplates'
 import { getItemTemplate } from '../content/itemTemplates'
 import {
@@ -62,6 +68,7 @@ export type RunAction =
   | { type: 'SET_MOD_KILL_TARGET'; cardId: string | null }
   | { type: 'SELL_ITEM'; itemId: string }
   | { type: 'REORDER_STASH'; itemIds: string[] }
+  | { type: 'MARK_CODEX_SEEN' }
 
 export { cloneCards, cloneItems }
 
@@ -74,6 +81,15 @@ function newItemId(): string {
     return globalThis.crypto.randomUUID()
   }
   return `item-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+function withCodexDiscoveries(state: CampaignState, ids: readonly string[]): CampaignState {
+  let codexDiscovered = state.codexDiscovered
+  for (const id of ids) {
+    codexDiscovered = discoverCodexEntry(codexDiscovered, id)
+  }
+  if (codexDiscovered === state.codexDiscovered) return state
+  return { ...state, codexDiscovered }
 }
 
 function startBattleFromScenario(state: CampaignState): CampaignState {
@@ -142,14 +158,21 @@ function finalizeVictory(
   }
 }
 
-function applyBattleOutcome(state: CampaignState, nextBattle: BattleState): CampaignState {
+function applyBattleOutcome(
+  state: CampaignState,
+  prevBattle: BattleState,
+  nextBattle: BattleState,
+): CampaignState {
+  const nextState = withCodexDiscoveries(state, [
+    ...mergeBattleCodexDiscoveries(prevBattle, nextBattle, state.codexDiscovered),
+  ].filter((id) => !state.codexDiscovered.includes(id)))
   if (nextBattle.phase === 'victory') {
-    return { ...state, battle: nextBattle, phase: 'victory' }
+    return { ...nextState, battle: nextBattle, phase: 'victory' }
   }
   if (nextBattle.phase === 'defeat') {
-    return { ...state, battle: nextBattle, phase: 'defeat' }
+    return { ...nextState, battle: nextBattle, phase: 'defeat' }
   }
-  return { ...state, battle: nextBattle, phase: 'battle' }
+  return { ...nextState, battle: nextBattle, phase: 'battle' }
 }
 
 function tryUseCardAttack(
@@ -230,7 +253,7 @@ function tryUseCardAttack(
       ],
     }
   }
-  return applyBattleOutcome(state, nextBattle)
+  return applyBattleOutcome(state, b, nextBattle)
 }
 
 function tryUseCardAoE(
@@ -295,7 +318,7 @@ function tryUseCardAoE(
       ],
     }
   }
-  return applyBattleOutcome(state, nextBattle)
+  return applyBattleOutcome(state, b, nextBattle)
 }
 
 export function applyRunAction(state: CampaignState, action: RunAction): CampaignState {
@@ -324,8 +347,9 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
     }
     case 'BATTLE_DISPATCH': {
       if (!state.battle || state.battle.phase !== 'ongoing') return state
-      const nextBattle = applyAction(state.battle, action.battleAction)
-      return applyBattleOutcome(state, nextBattle)
+      const prevBattle = state.battle
+      const nextBattle = applyAction(prevBattle, action.battleAction)
+      return applyBattleOutcome(state, prevBattle, nextBattle)
     }
     case 'USE_CARD_ATTACK':
       return tryUseCardAttack(state, action)
@@ -340,11 +364,14 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         templateId: action.templateId,
         itemLevel: 1,
       }
-      return {
+      return withCodexDiscoveries(
+        {
         ...state,
         gold: state.gold - tmpl.shopPrice,
         items: [...state.items, inst],
-      }
+        },
+        [codexEntryId('item', action.templateId)],
+      )
     }
     case 'EQUIP_ITEM': {
       const { itemId, slot } = action
@@ -409,6 +436,8 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       if (nextItems === null) return state
       return { ...state, items: nextItems }
     }
+    case 'MARK_CODEX_SEEN':
+      return markCodexSeen(state)
     case 'RETRY_CURRENT_BATTLE': {
       const snap = state.battleAttemptSnapshot
       if (!snap) return state
