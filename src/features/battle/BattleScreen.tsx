@@ -42,9 +42,10 @@ import {
   validSingleTargetCells,
 } from '../../game/battle/rangeOverlay'
 import { occupiedEquipmentSlotsInOrder } from '../../game/equipment/equipmentOrder'
-import { getPrimaryCharacter } from '../../game/campaign/selectors'
+import { getCharacter, getPrimaryCharacter } from '../../game/campaign/selectors'
 import { randomInt1to100 } from '../../game/rng'
 import { cellBackgroundStyle, OVERLAY_LEGEND } from './cellOverlayStyle'
+import { InitiativeQueue } from './InitiativeQueue'
 import { pickEnemyAiAction } from './enemyAi'
 import { pickPlayerAiAction } from './playerAi'
 import './battle.css'
@@ -105,12 +106,19 @@ export function BattleScreen() {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
   const [pendingAoeCell, setPendingAoeCell] = useState<{ x: number; y: number } | null>(null)
   const [explosionCells, setExplosionCells] = useState<Set<string>>(new Set())
+  const [selectedPlayerUnitId, setSelectedPlayerUnitId] = useState<string | null>(null)
   const logEndRef = useRef<HTMLDivElement>(null)
 
   const currentId = battle ? getCurrentActorId(battle) : undefined
   const current = battle?.units.find((u) => u.id === currentId)
   const actor = current?.side === 'player' && current.hp > 0 ? current : undefined
-  const actorCards = battle && actor ? getActorPlayerCards(battle, actor.id) : []
+  const actorCards = battle && currentId ? getActorPlayerCards(battle, currentId) : []
+
+  useEffect(() => {
+    if (currentId && current?.side === 'player') {
+      setSelectedPlayerUnitId(currentId)
+    }
+  }, [currentId, current?.side])
 
   useEffect(() => {
     if (!battle || battle.phase !== 'ongoing') return
@@ -369,14 +377,29 @@ export function BattleScreen() {
     window.setTimeout(() => setExplosionCells(new Set()), 600)
   }
 
+  const playerUnitLabel = (unitId: string) => {
+    const unit = battle.units.find((u) => u.id === unitId)
+    if (unit?.side === 'player') {
+      return getCharacter(campaign, unitId)?.name ?? '🛡️'
+    }
+    return '👾'
+  }
+
   const onCellClick = (x: number, y: number) => {
     if (battle.phase !== 'ongoing') return
     if (autoBattleEnabled) return
+    const target = unitAt(x, y)
+    if (target?.side === 'player' && current?.side === 'player') {
+      setSelectedPlayerUnitId(target.id)
+      if (target.id !== currentId) {
+        message.info('Сейчас ход другого бойца')
+        return
+      }
+    }
     if (!actor || currentId !== actor.id) {
       message.info('Сейчас ход противника')
       return
     }
-    const target = unitAt(x, y)
     if (mode === 'move') {
       if (target) {
         message.warning('Клетка занята')
@@ -575,8 +598,12 @@ export function BattleScreen() {
             <>
               Ход:{' '}
               <strong>
-                {current?.side === 'player' ? 'Герой' : current?.id ?? '—'}
+                {current?.side === 'player'
+                  ? (getCharacter(campaign, current.id)?.name ?? current.id)
+                  : (current?.id ?? '—')}
               </strong>
+              {' · '}
+              Раунд {battle.roundNumber}
               {' · '}
               <span style={{ fontSize: 28, lineHeight: 1, verticalAlign: '-0.18em' }} aria-hidden>
                 ⚡
@@ -588,12 +615,25 @@ export function BattleScreen() {
 
         <div>
           <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>
+            Инициатива
+          </Typography.Text>
+          <InitiativeQueue
+            turnOrder={battle.turnOrder}
+            currentActorId={currentId}
+            units={battle.units}
+            unitLabel={playerUnitLabel}
+          />
+        </div>
+
+        <div>
+          <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>
             Здоровье героя и врагов
           </Typography.Text>
           <Space wrap>
             {unitsHealthOrder.map((u) => (
               <Typography.Text key={u.id}>
-                {u.side === 'player' ? 'Герой' : u.id}: {UI_HEART} {u.hp}/{u.maxHp}
+                {u.side === 'player' ? (getCharacter(campaign, u.id)?.name ?? u.id) : u.id}: {UI_HEART}{' '}
+                {u.hp}/{u.maxHp}
               </Typography.Text>
             ))}
           </Space>
@@ -632,6 +672,9 @@ export function BattleScreen() {
               const isPendingAoe =
                 pendingAoeCell?.x === x && pendingAoeCell.y === y && mode === 'card'
               const isExploding = explosionCells.has(k)
+              const isCurrentActor = u?.id === currentId
+              const isSelectedPlayer =
+                u?.side === 'player' && u.id === selectedPlayerUnitId && !isCurrentActor
               const cellStyle = cellBackgroundStyle({
                 isWall: wall,
                 threatBase: overlayActive && inThreatBase && !inThreatFocus,
@@ -660,7 +703,12 @@ export function BattleScreen() {
                     padding: wall ? 0 : 2,
                     fontSize: wall ? undefined : 12,
                     cursor: wall ? 'default' : 'pointer',
-                    border: '1px solid #ccc',
+                    border: isCurrentActor
+                      ? '2px solid #1677ff'
+                      : isSelectedPlayer
+                        ? '2px solid #52c41a'
+                        : '1px solid #ccc',
+                    boxShadow: isCurrentActor ? '0 0 0 1px #1677ff' : undefined,
                     ...cellStyle,
                   }}
                 >
@@ -696,7 +744,9 @@ export function BattleScreen() {
 
         <div>
           <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>
-            Действия героя
+            {actor
+              ? `Действия: ${getCharacter(campaign, actor.id)?.name ?? actor.id}`
+              : 'Действия'}
           </Typography.Text>
           <Space orientation="vertical" size="small" style={{ width: '100%' }}>
             <div style={{ marginBottom: 4 }}>
