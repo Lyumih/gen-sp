@@ -38,14 +38,12 @@ export function buildBattleAttemptSnapshot(
   }
 }
 
-/** First squad member eligible to fight (active, non-null). */
+/** First active squad member; downed members are skipped until revived. */
 export function getExpeditionBattleCharacterId(expedition: Expedition): string | null {
   const active = expedition.squadSnapshot.find(
     (slot) => slot !== null && slot.metaStatus === 'active',
   )
-  if (active) return active.characterId
-  const any = expedition.squadSnapshot.find((slot) => slot !== null)
-  return any?.characterId ?? null
+  return active?.characterId ?? null
 }
 
 export function buildExpeditionBattleSnapshot(

@@ -1095,6 +1095,33 @@ describe('expedition state machine', () => {
     expect(s.expedition!.squadSnapshot[0]!.metaStatus).toBe('active')
   })
 
+  it('ADVANCE does not spawn battle when squad is downed and camp revive off', () => {
+    const s: CampaignState = {
+      ...hubState(),
+      phase: 'inter_battle',
+      expedition: {
+        scenarioChainId: 'campaign-main',
+        partySize: 1,
+        squadSnapshot: [
+          {
+            characterId: HERO_ID,
+            equipment: { weapon: null, armor: null, accessory: null },
+            battleLoadout: ['c1', 'c2'],
+            metaStatus: 'downed',
+          },
+        ],
+        battleIndex: 1,
+        battleCount: 3,
+        shopLocked: true,
+      },
+    }
+
+    const next = applyRunAction(s, { type: 'ADVANCE_EXPEDITION_BATTLE' })
+    expect(next.phase).toBe('inter_battle')
+    expect(next.battle).toBeNull()
+    expect(next.expedition!.squadSnapshot[0]!.metaStatus).toBe('downed')
+  })
+
   it('INTER_BATTLE_REVIVE_ALL revives downed when camp rule enabled', () => {
     let s: CampaignState = {
       ...hubState(),
