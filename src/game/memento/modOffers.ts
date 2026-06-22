@@ -11,6 +11,8 @@ export function filterModsForCarrier(
   const occupied = new Set(occupiedTemplateIds)
 
   return pool.filter((mod) => {
+    if (mod.enabled === false) return false
+
     const requires = mod.requires ?? []
     if (!requires.every((tag) => tagSet.has(tag))) return false
 
