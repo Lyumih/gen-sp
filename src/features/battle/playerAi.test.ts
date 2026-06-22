@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { LEGACY_HERO_CHARACTER_ID } from '../../game/character/constants'
 import type { BattlePlayerCard, BattleState, Unit } from '../../game/types'
-import { pickHeroAiAction } from './heroAi'
+import { pickPlayerAiAction } from './playerAi'
 
 const HERO_ID = LEGACY_HERO_CHARACTER_ID
+const ALLY_ID = 'char-2'
 
 function unit(partial: Unit): Unit {
   return partial
@@ -21,9 +22,12 @@ function card(partial: Partial<BattlePlayerCard> & Pick<BattlePlayerCard, 'id'>)
 }
 
 function battle(
-  overrides: Partial<BattleState> & { playerCards?: BattlePlayerCard[] } = {},
+  overrides: Partial<BattleState> & {
+    playerCards?: BattlePlayerCard[]
+    playerCardsByUnit?: Record<string, BattlePlayerCard[]>
+  } = {},
 ): BattleState {
-  const { playerCards, ...rest } = overrides
+  const { playerCards, playerCardsByUnit, ...rest } = overrides
   const base: BattleState = {
     width: 6,
     height: 4,
@@ -37,7 +41,7 @@ function battle(
     roundNumber: 1,
     phase: 'ongoing',
     worldPower: 0,
-    playerCardsByUnitId: playerCards ? { [HERO_ID]: playerCards } : {},
+    playerCardsByUnitId: playerCardsByUnit ?? (playerCards ? { [HERO_ID]: playerCards } : {}),
     modKillTargetCardId: null,
     battleLog: [],
     gearCardLevelBonus: 0,
@@ -45,10 +49,10 @@ function battle(
   return { ...base, ...rest, units: rest.units ?? base.units }
 }
 
-describe('pickHeroAiAction', () => {
-  it('returns null when not hero turn', () => {
+describe('pickPlayerAiAction', () => {
+  it('returns null when not a player unit turn', () => {
     const s = battle({ currentTurnIndex: 1 })
-    expect(pickHeroAiAction(s)).toBeNull()
+    expect(pickPlayerAiAction(s)).toBeNull()
   })
 
   it('moves toward closest enemy when no attack available', () => {
@@ -58,7 +62,7 @@ describe('pickHeroAiAction', () => {
         unit({ id: 'e1', side: 'enemy', x: 5, y: 3, hp: 10, maxHp: 10, unitLevel: 1 }),
       ],
     })
-    const d = pickHeroAiAction(s)
+    const d = pickPlayerAiAction(s)
     expect(d).toEqual({
       kind: 'battle',
       action: { type: 'move', unitId: HERO_ID, toX: 3, toY: 0 },
@@ -73,7 +77,7 @@ describe('pickHeroAiAction', () => {
         unit({ id: 'e2', side: 'enemy', x: 3, y: 0, hp: 4, maxHp: 4, unitLevel: 1 }),
       ],
     })
-    const d = pickHeroAiAction(s)
+    const d = pickPlayerAiAction(s)
     expect(d).toEqual({
       kind: 'battle',
       action: {
@@ -95,7 +99,7 @@ describe('pickHeroAiAction', () => {
       ],
       playerCards: [card({ id: 'c1', global_level: 100 })],
     })
-    const d = pickHeroAiAction(s)
+    const d = pickPlayerAiAction(s)
     expect(d).toEqual({ kind: 'card', cardId: 'c1', targetId: 'e1' })
   })
 
@@ -111,7 +115,7 @@ describe('pickHeroAiAction', () => {
       ],
       modKillTargetCardId: 'c2',
     })
-    const d = pickHeroAiAction(s)
+    const d = pickPlayerAiAction(s)
     expect(d).toEqual({ kind: 'card', cardId: 'c2', targetId: 'e1' })
   })
 
@@ -123,7 +127,7 @@ describe('pickHeroAiAction', () => {
       ],
       playerCards: [card({ id: 'c2', templateId: 'fireball' })],
     })
-    const d = pickHeroAiAction(s)
+    const d = pickPlayerAiAction(s)
     expect(d?.kind === 'card_aoe' && d.cardId === 'c2').toBe(false)
   })
 
@@ -136,7 +140,7 @@ describe('pickHeroAiAction', () => {
       ],
       playerCards: [card({ id: 'c2', templateId: 'fireball', global_level: 50 })],
     })
-    const d = pickHeroAiAction(s)
+    const d = pickPlayerAiAction(s)
     expect(d).toEqual({
       kind: 'card_aoe',
       cardId: 'c2',
@@ -154,7 +158,25 @@ describe('pickHeroAiAction', () => {
       ],
       playerCards: [card({ id: 'c3', templateId: 'heal' })],
     })
-    const d = pickHeroAiAction(s)
+    const d = pickPlayerAiAction(s)
     expect(d).toEqual({ kind: 'card_heal', cardId: 'c3', targetId: HERO_ID })
+  })
+
+  it('acts for any allied unit using that unit cards', () => {
+    const s = battle({
+      units: [
+        unit({ id: HERO_ID, side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
+        unit({ id: ALLY_ID, side: 'player', x: 0, y: 1, hp: 10, maxHp: 10, unitLevel: 1 }),
+        unit({ id: 'e1', side: 'enemy', x: 1, y: 1, hp: 20, maxHp: 20, unitLevel: 1 }),
+      ],
+      turnOrder: [HERO_ID, ALLY_ID, 'e1'],
+      currentTurnIndex: 1,
+      playerCardsByUnit: {
+        [HERO_ID]: [card({ id: 'c-hero', global_level: 1 })],
+        [ALLY_ID]: [card({ id: 'c-ally', global_level: 100 })],
+      },
+    })
+    const d = pickPlayerAiAction(s)
+    expect(d).toEqual({ kind: 'card', cardId: 'c-ally', targetId: 'e1' })
   })
 })

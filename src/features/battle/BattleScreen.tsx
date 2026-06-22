@@ -46,7 +46,7 @@ import { getPrimaryCharacter } from '../../game/campaign/selectors'
 import { randomInt1to100 } from '../../game/rng'
 import { cellBackgroundStyle, OVERLAY_LEGEND } from './cellOverlayStyle'
 import { pickEnemyAiAction } from './enemyAi'
-import { pickHeroAiAction } from './heroAi'
+import { pickPlayerAiAction } from './playerAi'
 import './battle.css'
 
 type ActionMode = 'move' | 'melee' | 'ranged' | 'card'
@@ -133,7 +133,7 @@ export function BattleScreen() {
       const store = useGameStore.getState()
       const b = store.campaign.battle
       if (!b || b.phase !== 'ongoing' || !store.autoBattleEnabled) return
-      const decision = pickHeroAiAction(b)
+      const decision = pickPlayerAiAction(b)
       if (!decision) return
       if (decision.kind === 'battle') {
         store.dispatchBattle(decision.action)
