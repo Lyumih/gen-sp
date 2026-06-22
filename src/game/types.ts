@@ -104,6 +104,13 @@ export type Expedition = {
 
 export type BattlePhase = 'ongoing' | 'victory' | 'defeat'
 
+/** Card mod context passed into battle actions for proc / on-use effects. */
+export type BattleModContext = {
+  modSlots: readonly ModSlotState[]
+  /** Returns 1–100; invoked once per independent proc roll. */
+  rng: () => number
+}
+
 export type BattleLogEntry =
   | {
       type: 'move'
@@ -137,6 +144,12 @@ export type BattleLogEntry =
       amount: number
       fromCard?: { cardId: string; templateId: string }
     }
+  | {
+      type: 'mod_proc'
+      modTemplateId: string
+      label: string
+      unitId: string
+    }
 
 /**
  * Тактический бой: сетка, стены как ключи "x,y", очередь ходов по id.
@@ -157,6 +170,8 @@ export type BattleState = {
   worldPower: number
   /** Карты игрока по id юнита (characterId) на поле боя. */
   playerCardsByUnitId: Readonly<Record<string, readonly BattlePlayerCard[]>>
+  /** Filled gear mod slots (armor + accessory) per player unit id. */
+  playerGearModSlotsByUnitId?: Readonly<Record<string, readonly ModSlotState[]>>
   /** Текущий актор владеет UI карт (опционально). */
   activePlayerCardUnitId?: string
   /** Пропустить тик CD в конце текущего хода героя (ход применения карты с CD). */
@@ -178,6 +193,7 @@ export type BattleAction =
       damage: number
       kind: 'melee'
       fromCard?: { cardId: string; templateId: string }
+      modCtx?: BattleModContext
     }
   | {
       type: 'attack'
@@ -187,6 +203,7 @@ export type BattleAction =
       kind: 'ranged'
       maxRange: number
       fromCard?: { cardId: string; templateId: string }
+      modCtx?: BattleModContext
     }
   | {
       type: 'aoe_strike'
@@ -196,6 +213,7 @@ export type BattleAction =
       damage: number
       aoeSize: number
       fromCard?: { cardId: string; templateId: string }
+      modCtx?: BattleModContext
     }
   | {
       type: 'heal'
@@ -203,6 +221,7 @@ export type BattleAction =
       targetId: string
       amount: number
       fromCard?: { cardId: string; templateId: string }
+      modCtx?: BattleModContext
     }
 
 export type RunPhase = 'hub' | 'battle' | 'victory' | 'defeat' | 'inter_battle'

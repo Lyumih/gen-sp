@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import type { ModSlotState } from '../types'
 import {
+  applyAoeCenterDamageMods,
   applyAoeSizeMods,
   applyCooldownMods,
   applyDamageMods,
   applyHealMods,
   applyRangeMods,
+  computeHealSplashAmount,
+  computeLifestealHeal,
+  computeReflectDamage,
+  computeSelfHealOnDamaged,
+  computeSelfHealOnUse,
+  rollProcExtraHits,
   type ModCombatContext,
 } from './modPipeline'
 
@@ -60,5 +67,79 @@ describe('applyAoeSizeMods', () => {
   it('applies aoe_size_add +1 at lm=0', () => {
     const slots: ModSlotState[] = [{ status: 'filled', templateId: 'mod-aoe-size', lm: 0 }]
     expect(applyAoeSizeMods(3, ctx(slots, ['aoe', 'ranged', 'attack', 'skill']))).toBe(4)
+  })
+})
+
+describe('computeSelfHealOnUse', () => {
+  it('returns round(5) at lm=0', () => {
+    const slots: ModSlotState[] = [{ status: 'filled', templateId: 'mod-self-heal-on-use', lm: 0 }]
+    expect(computeSelfHealOnUse(ctx(slots, ['skill']))).toBe(5)
+  })
+})
+
+describe('computeLifestealHeal', () => {
+  it('returns 20% of damage at lm=0', () => {
+    const slots: ModSlotState[] = [{ status: 'filled', templateId: 'mod-lifesteal', lm: 0 }]
+    expect(computeLifestealHeal(10, ctx(slots, ['attack']))).toBe(2)
+  })
+})
+
+describe('rollProcExtraHits', () => {
+  it('rolls double and triple strike independently', () => {
+    const slots: ModSlotState[] = [
+      { status: 'filled', templateId: 'mod-double-strike', lm: 0 },
+      { status: 'filled', templateId: 'mod-triple-strike', lm: 0 },
+    ]
+    let roll = 0
+    const rolls = [20, 5]
+    const results = rollProcExtraHits({
+      carrierTags: ['attack'],
+      modSlots: slots,
+      rng: () => rolls[roll++] ?? 100,
+    })
+    expect(results).toEqual([
+      { modTemplateId: 'mod-double-strike', label: 'Двойной удар', extraHits: 1 },
+      { modTemplateId: 'mod-triple-strike', label: 'Тройной удар', extraHits: 2 },
+    ])
+  })
+
+  it('skips proc when roll above threshold', () => {
+    const slots: ModSlotState[] = [{ status: 'filled', templateId: 'mod-double-strike', lm: 0 }]
+    expect(
+      rollProcExtraHits({
+        carrierTags: ['attack'],
+        modSlots: slots,
+        rng: () => 99,
+      }),
+    ).toEqual([])
+  })
+})
+
+describe('computeReflectDamage', () => {
+  it('returns 3 thorns damage at lm=0', () => {
+    const slots: ModSlotState[] = [{ status: 'filled', templateId: 'mod-thorns', lm: 0 }]
+    expect(computeReflectDamage(ctx(slots, ['armor']))).toBe(3)
+  })
+})
+
+describe('computeSelfHealOnDamaged', () => {
+  it('returns 3 regen at lm=0', () => {
+    const slots: ModSlotState[] = [{ status: 'filled', templateId: 'mod-heal-on-hit-taken', lm: 0 }]
+    expect(computeSelfHealOnDamaged(ctx(slots, ['armor']))).toBe(3)
+  })
+})
+
+describe('applyAoeCenterDamageMods', () => {
+  it('doubles center cell damage at lm=0', () => {
+    const slots: ModSlotState[] = [{ status: 'filled', templateId: 'mod-aoe-center-bonus', lm: 0 }]
+    expect(applyAoeCenterDamageMods(10, true, ctx(slots, ['aoe']))).toBe(20)
+    expect(applyAoeCenterDamageMods(10, false, ctx(slots, ['aoe']))).toBe(10)
+  })
+})
+
+describe('computeHealSplashAmount', () => {
+  it('returns 50% of primary heal at lm=0', () => {
+    const slots: ModSlotState[] = [{ status: 'filled', templateId: 'mod-ally-heal-splash', lm: 0 }]
+    expect(computeHealSplashAmount(10, ctx(slots, ['heal']))).toBe(5)
   })
 })

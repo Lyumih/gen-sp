@@ -37,6 +37,8 @@ export function formatBattleLogEntry(
     }
     case 'card_level_up':
       return `Карта «${getCardDisplayLabel(entry.templateId)}»: уровень ${entry.fromLevel} → ${entry.toLevel}; выпало ${entry.roll} из 100`
+    case 'mod_proc':
+      return `✨ ${entry.label}!`
     default: {
       const _exhaustive: never = entry
       return String(_exhaustive)

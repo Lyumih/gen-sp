@@ -1,10 +1,21 @@
-import type { BattleAction, BattleLogEntry, BattleState, Unit } from '../types'
+import type { BattleAction, BattleLogEntry, BattleModContext, BattleState, ModSlotState, Unit } from '../types'
 import { canMeleeAttack, canRangedAttack, withDamage, withHeal } from './combat'
-import { cellKey, manhattan, wallSet } from './grid'
+import { cellKey, manhattan, orthoNeighbors, wallSet } from './grid'
 import { advanceTurn } from './initiative'
 import { hasLineOfSight } from './lineOfSight'
 import { isPartyWipe } from './outcomes'
 import { cellsInAoE, reachableMoveCells } from './rangeOverlay'
+import {
+  computeHealSplashAmount,
+  computeLifestealHeal,
+  computeReflectDamage,
+  computeSelfHealOnDamaged,
+  computeSelfHealOnUse,
+  applyAoeCenterDamageMods,
+  rollProcExtraHits,
+  type ModCombatContext,
+} from '../mods/modPipeline'
+import { getModTemplate } from '../content/modTemplates'
 
 /** Приращение worldPower за смерть врага (MVP-заглушка §6). */
 export const WORLD_POWER_PER_ENEMY_KILL = 1
@@ -44,6 +55,31 @@ function actorIdAtPointer(state: BattleState, ptr: number): string | undefined {
   return isAliveUnit(getUnit(state, id)) ? id : undefined
 }
 
+function gearModSlots(state: BattleState, unitId: string): readonly ModSlotState[] {
+  return state.playerGearModSlotsByUnitId?.[unitId] ?? []
+}
+
+function toModCtx(modCtx: BattleModContext | undefined): ModCombatContext | undefined {
+  if (!modCtx) return undefined
+  return { carrierTags: [], modSlots: modCtx.modSlots, rng: modCtx.rng }
+}
+
+function appendLog(state: BattleState, entries: BattleLogEntry[]): BattleState {
+  if (entries.length === 0) return state
+  return { ...state, battleLog: [...state.battleLog, ...entries] }
+}
+
+function updateUnit(state: BattleState, unitId: string, next: Unit): BattleState {
+  return {
+    ...state,
+    units: state.units.map((u) => (u.id === unitId ? next : u)),
+  }
+}
+
+function modProcLog(modTemplateId: string, label: string, unitId: string): BattleLogEntry {
+  return { type: 'mod_proc', modTemplateId, label, unitId }
+}
+
 function applyEnemyKillRewards(state: BattleState, killedEnemy: Unit): BattleState {
   if (killedEnemy.side !== 'enemy') return state
   return { ...state, worldPower: state.worldPower + WORLD_POWER_PER_ENEMY_KILL }
@@ -62,6 +98,212 @@ function afterHpChange(state: BattleState, killedUnit: Unit | null): BattleState
   if (isPartyWipe(next)) return { ...next, phase: 'defeat' }
   if (!enemiesAlive) return { ...next, phase: 'victory' }
   return next
+}
+
+type StrikeParams = {
+  attackerId: string
+  targetId: string
+  damage: number
+  attackKind: 'melee' | 'ranged' | 'aoe'
+  fromCard?: { cardId: string; templateId: string }
+  modCtx?: BattleModContext
+}
+
+function applyGearOnHitProcs(
+  state: BattleState,
+  targetId: string,
+  attackerId: string,
+): { state: BattleState; killed: Unit | null } {
+  const target = getUnit(state, targetId)
+  const attacker = getUnit(state, attackerId)
+  if (!isAliveUnit(target) || !isAliveUnit(attacker)) {
+    return { state, killed: null }
+  }
+
+  const gearSlots = gearModSlots(state, targetId)
+  if (gearSlots.length === 0) return { state, killed: null }
+
+  const gearCtx: ModCombatContext = { carrierTags: [], modSlots: gearSlots, rng: () => 50 }
+  const reflect = computeReflectDamage(gearCtx)
+  const selfHeal = computeSelfHealOnDamaged(gearCtx)
+  const log: BattleLogEntry[] = []
+  let next = state
+  let killed: Unit | null = null
+
+  if (reflect > 0) {
+    const updatedAttacker = withDamage(attacker, reflect)
+    const wasKill = updatedAttacker.hp <= 0 && attacker.hp > 0
+    next = updateUnit(next, attackerId, updatedAttacker)
+    log.push({
+      type: 'strike',
+      attackerId: targetId,
+      targetId: attackerId,
+      damage: reflect,
+      attackKind: 'melee',
+      targetKilled: wasKill,
+    })
+    for (const slot of gearSlots) {
+      if (slot.status !== 'filled') continue
+      const tmpl = getModTemplate(slot.templateId)
+      if (tmpl?.ops.some((op) => op.kind === 'reflect_on_hit')) {
+        log.push(modProcLog(tmpl.id, tmpl.label, targetId))
+      }
+    }
+    if (wasKill) killed = updatedAttacker
+  }
+
+  if (selfHeal > 0 && isAliveUnit(getUnit(next, targetId))) {
+    const healed = withHeal(getUnit(next, targetId)!, selfHeal)
+    next = updateUnit(next, targetId, healed)
+    log.push({
+      type: 'heal',
+      healerId: targetId,
+      targetId,
+      amount: selfHeal,
+    })
+    for (const slot of gearSlots) {
+      if (slot.status !== 'filled') continue
+      const tmpl = getModTemplate(slot.templateId)
+      if (tmpl?.ops.some((op) => op.kind === 'self_heal_on_damaged')) {
+        log.push(modProcLog(tmpl.id, tmpl.label, targetId))
+      }
+    }
+  }
+
+  next = appendLog(next, log)
+  return { state: next, killed }
+}
+
+function applyAttackerOnHitProcs(
+  state: BattleState,
+  params: StrikeParams,
+  damageDealt: number,
+): { state: BattleState; killed: Unit | null } {
+  const ctx = toModCtx(params.modCtx)
+  if (!ctx) return { state, killed: null }
+
+  let next = state
+  const log: BattleLogEntry[] = []
+  let killed: Unit | null = null
+
+  const lifesteal = computeLifestealHeal(damageDealt, ctx)
+  if (lifesteal > 0 && isAliveUnit(getUnit(next, params.attackerId))) {
+    const healed = withHeal(getUnit(next, params.attackerId)!, lifesteal)
+    next = updateUnit(next, params.attackerId, healed)
+    log.push({
+      type: 'heal',
+      healerId: params.attackerId,
+      targetId: params.attackerId,
+      amount: lifesteal,
+      ...(params.fromCard ? { fromCard: params.fromCard } : {}),
+    })
+    for (const slot of ctx.modSlots) {
+      if (slot.status !== 'filled') continue
+      const tmpl = getModTemplate(slot.templateId)
+      if (tmpl?.ops.some((op) => op.kind === 'lifesteal_pct')) {
+        log.push(modProcLog(tmpl.id, tmpl.label, params.attackerId))
+      }
+    }
+  }
+
+  const procs = rollProcExtraHits(ctx)
+  for (const proc of procs) {
+    log.push(modProcLog(proc.modTemplateId, proc.label, params.attackerId))
+    for (let h = 0; h < proc.extraHits; h++) {
+      const target = getUnit(next, params.targetId)
+      if (!isAliveUnit(target)) break
+      const updated = withDamage(target, params.damage)
+      const wasKill = updated.hp <= 0 && target.hp > 0
+      next = updateUnit(next, params.targetId, updated)
+      log.push({
+        type: 'strike',
+        attackerId: params.attackerId,
+        targetId: params.targetId,
+        damage: params.damage,
+        attackKind: params.attackKind,
+        targetKilled: wasKill,
+        ...(params.fromCard ? { fromCard: params.fromCard } : {}),
+      })
+      if (wasKill) {
+        killed = updated
+        break
+      }
+      const gearResult = applyGearOnHitProcs(next, params.targetId, params.attackerId)
+      next = gearResult.state
+      if (gearResult.killed) killed = gearResult.killed
+    }
+  }
+
+  next = appendLog(next, log)
+  return { state: next, killed }
+}
+
+function applySelfHealOnUse(
+  state: BattleState,
+  unitId: string,
+  modCtx: BattleModContext | undefined,
+  fromCard?: { cardId: string; templateId: string },
+): BattleState {
+  const ctx = toModCtx(modCtx)
+  if (!ctx) return state
+  const amount = computeSelfHealOnUse(ctx)
+  if (amount <= 0) return state
+  const unit = getUnit(state, unitId)
+  if (!isAliveUnit(unit)) return state
+  const healed = withHeal(unit, amount)
+  const log: BattleLogEntry[] = [
+    {
+      type: 'heal',
+      healerId: unitId,
+      targetId: unitId,
+      amount,
+      ...(fromCard ? { fromCard } : {}),
+    },
+  ]
+  for (const slot of modCtx!.modSlots) {
+    if (slot.status !== 'filled') continue
+    const tmpl = getModTemplate(slot.templateId)
+    if (tmpl?.ops.some((op) => op.kind === 'self_heal_on_use')) {
+      log.push(modProcLog(tmpl.id, tmpl.label, unitId))
+    }
+  }
+  return appendLog(updateUnit(state, unitId, healed), log)
+}
+
+function applySingleStrike(
+  state: BattleState,
+  params: StrikeParams,
+): { state: BattleState; killed: Unit | null } {
+  const target = getUnit(state, params.targetId)
+  if (!isAliveUnit(target)) return { state, killed: null }
+
+  const updated = withDamage(target, params.damage)
+  const wasKill = updated.hp <= 0 && target.hp > 0
+  let next = updateUnit(state, params.targetId, updated)
+  const log: BattleLogEntry[] = [
+    {
+      type: 'strike',
+      attackerId: params.attackerId,
+      targetId: params.targetId,
+      damage: params.damage,
+      attackKind: params.attackKind,
+      targetKilled: wasKill,
+      ...(params.fromCard ? { fromCard: params.fromCard } : {}),
+    },
+  ]
+  next = appendLog(next, log)
+
+  let killed: Unit | null = wasKill ? updated : null
+
+  const gearResult = applyGearOnHitProcs(next, params.targetId, params.attackerId)
+  next = gearResult.state
+  if (gearResult.killed) killed = gearResult.killed
+
+  const attackerProcs = applyAttackerOnHitProcs(next, params, params.damage)
+  next = attackerProcs.state
+  if (attackerProcs.killed) killed = attackerProcs.killed
+
+  return { state: next, killed }
 }
 
 function tryMove(state: BattleState, action: Extract<BattleAction, { type: 'move' }>): BattleState {
@@ -120,25 +362,18 @@ function tryAttack(state: BattleState, action: Extract<BattleAction, { type: 'at
       : canRangedAttack(attacker, target, action.maxRange, walls)
   if (!ok) return state
 
-  const updated = withDamage(target, action.damage)
-  const units = state.units.map((u) => (u.id === target.id ? updated : u))
-  const wasKill = updated.hp <= 0 && target.hp > 0
-  const killed = wasKill ? updated : null
-
-  const strikeLog: BattleLogEntry = {
-    type: 'strike',
+  const strikeParams: StrikeParams = {
     attackerId: action.attackerId,
     targetId: action.targetId,
     damage: action.damage,
     attackKind: action.kind === 'melee' ? 'melee' : 'ranged',
-    targetKilled: wasKill,
     ...(action.fromCard !== undefined ? { fromCard: action.fromCard } : {}),
+    ...(action.modCtx !== undefined ? { modCtx: action.modCtx } : {}),
   }
-  let next: BattleState = {
-    ...state,
-    units,
-    battleLog: [...state.battleLog, strikeLog],
-  }
+
+  const { state: afterStrike, killed } = applySingleStrike(state, strikeParams)
+  let next = afterStrike
+  next = applySelfHealOnUse(next, action.attackerId, action.modCtx, action.fromCard)
   next = afterHpChange(next, killed)
   if (next.phase !== 'ongoing') return next
   return advanceTurn(next)
@@ -167,32 +402,33 @@ function tryAoEStrike(
     .map((u) => u.id)
   if (hitIds.length === 0) return state
 
+  const modCtx = toModCtx(action.modCtx)
   let next: BattleState = state
-  const newLog: BattleLogEntry[] = [...state.battleLog]
   const killedEnemies: Unit[] = []
 
   for (const id of hitIds) {
     const target = getUnit(next, id)
     if (!isAliveUnit(target)) continue
-    const updated = withDamage(target, action.damage)
-    const wasKill = updated.hp <= 0 && target.hp > 0
-    next = {
-      ...next,
-      units: next.units.map((u) => (u.id === id ? updated : u)),
-    }
-    newLog.push({
-      type: 'strike',
+    const isCenter = target.x === action.centerX && target.y === action.centerY
+    const damage =
+      modCtx !== undefined
+        ? applyAoeCenterDamageMods(action.damage, isCenter, modCtx)
+        : action.damage
+
+    const strikeParams: StrikeParams = {
       attackerId: action.attackerId,
       targetId: id,
-      damage: action.damage,
+      damage,
       attackKind: 'aoe',
-      targetKilled: wasKill,
       ...(action.fromCard !== undefined ? { fromCard: action.fromCard } : {}),
-    })
-    if (wasKill && updated.side === 'enemy') killedEnemies.push(updated)
+      ...(action.modCtx !== undefined ? { modCtx: action.modCtx } : {}),
+    }
+    const result = applySingleStrike(next, strikeParams)
+    next = result.state
+    if (result.killed && result.killed.side === 'enemy') killedEnemies.push(result.killed)
   }
 
-  next = { ...next, battleLog: newLog }
+  next = applySelfHealOnUse(next, action.attackerId, action.modCtx, action.fromCard)
   for (const killed of killedEnemies) {
     next = afterHpChange(next, killed)
     if (next.phase !== 'ongoing') return next
@@ -201,6 +437,17 @@ function tryAoEStrike(
   if (isPartyWipe(next)) return { ...next, phase: 'defeat' }
   if (!enemiesAlive) return { ...next, phase: 'victory' }
   return advanceTurn(next)
+}
+
+function findHealSplashTargets(state: BattleState, target: Unit): Unit[] {
+  const out: Unit[] = []
+  for (const [nx, ny] of orthoNeighbors(target.x, target.y)) {
+    const neighbor = state.units.find(
+      (u) => u.hp > 0 && u.side === 'player' && u.x === nx && u.y === ny && u.id !== target.id,
+    )
+    if (neighbor) out.push(neighbor)
+  }
+  return out
 }
 
 function tryHeal(state: BattleState, action: Extract<BattleAction, { type: 'heal' }>): BattleState {
@@ -219,19 +466,38 @@ function tryHeal(state: BattleState, action: Extract<BattleAction, { type: 'heal
   if (d > 0 && !hasLineOfSight(healer.x, healer.y, target.x, target.y, walls)) return state
 
   const updated = withHeal(target, action.amount)
-  const units = state.units.map((u) => (u.id === target.id ? updated : u))
-  const healLog: BattleLogEntry = {
-    type: 'heal',
-    healerId: action.healerId,
-    targetId: action.targetId,
-    amount: action.amount,
-    ...(action.fromCard !== undefined ? { fromCard: action.fromCard } : {}),
+  let next = updateUnit(state, action.targetId, updated)
+  const log: BattleLogEntry[] = [
+    {
+      type: 'heal',
+      healerId: action.healerId,
+      targetId: action.targetId,
+      amount: action.amount,
+      ...(action.fromCard !== undefined ? { fromCard: action.fromCard } : {}),
+    },
+  ]
+
+  const ctx = toModCtx(action.modCtx)
+  if (ctx) {
+    const splashAmount = computeHealSplashAmount(action.amount, ctx)
+    if (splashAmount > 0) {
+      log.push(modProcLog('mod-ally-heal-splash', 'Окружение светом', action.healerId))
+      for (const ally of findHealSplashTargets(next, target)) {
+        const splashed = withHeal(ally, splashAmount)
+        next = updateUnit(next, ally.id, splashed)
+        log.push({
+          type: 'heal',
+          healerId: action.healerId,
+          targetId: ally.id,
+          amount: splashAmount,
+          ...(action.fromCard !== undefined ? { fromCard: action.fromCard } : {}),
+        })
+      }
+    }
   }
-  let next: BattleState = {
-    ...state,
-    units,
-    battleLog: [...state.battleLog, healLog],
-  }
+
+  next = appendLog(next, log)
+  next = applySelfHealOnUse(next, action.healerId, action.modCtx, action.fromCard)
   next = afterHpChange(next, null)
   if (next.phase !== 'ongoing') return next
   return advanceTurn(next)

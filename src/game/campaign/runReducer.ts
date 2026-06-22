@@ -592,14 +592,32 @@ function withCardCooldownSkip(battle: BattleState, cooldownTurns: number): Battl
 }
 
 function cardModCombatContext(
+  state: CampaignState,
+  actorId: string,
   card: BattlePlayerCard,
-  randomInt1to100: number,
+  cardLevelRoll: number,
 ): ModCombatContext {
+  let procIndex = 0
   return {
     carrierTags: resolveCarrierTags('card', card.templateId),
     modSlots: card.modSlots,
-    rng: () => randomInt1to100,
+    rng: () => {
+      procIndex += 1
+      return (
+        (modOfferSeed(
+          `${state.battleAttemptId}:${actorId}:${card.id}:${cardLevelRoll}:proc${procIndex}`,
+          0,
+          0,
+        ) %
+          100) +
+        1
+      )
+    },
   }
+}
+
+function battleModContext(ctx: ModCombatContext): { modSlots: typeof ctx.modSlots; rng: typeof ctx.rng } {
+  return { modSlots: ctx.modSlots, rng: ctx.rng }
 }
 
 function tryUseCardAttack(
@@ -627,7 +645,7 @@ function tryUseCardAttack(
 
   if (tmpl.kind === 'melee' && !canMeleeAttack(actor, target)) return state
   const walls = wallSet(b.walls)
-  const modCtx = cardModCombatContext(card, action.randomInt1to100)
+  const modCtx = cardModCombatContext(state, actorId!, card, action.randomInt1to100)
   const effectiveRange = applyRangeMods(tmpl.maxRange, modCtx)
   if (tmpl.kind === 'ranged' && !canRangedAttack(actor, target, effectiveRange, walls)) {
     return state
@@ -663,6 +681,7 @@ function tryUseCardAttack(
           damage,
           kind: 'melee',
           fromCard,
+          modCtx: battleModContext(modCtx),
         }
       : {
           type: 'attack',
@@ -672,6 +691,7 @@ function tryUseCardAttack(
           kind: 'ranged',
           maxRange: effectiveRange,
           fromCard,
+          modCtx: battleModContext(modCtx),
         }
 
   let nextBattle = applyAction(bWithCards, battleAction)
@@ -710,7 +730,7 @@ function tryUseCardAoE(
   if (!inBounds(targetX, targetY, b.width, b.height)) return state
   const walls = wallSet(b.walls)
   if (walls.has(cellKey(targetX, targetY))) return state
-  const modCtx = cardModCombatContext(card, action.randomInt1to100)
+  const modCtx = cardModCombatContext(state, actorId!, card, action.randomInt1to100)
   const effectiveRange = applyRangeMods(tmpl.maxRange, modCtx)
   if (!canCastAoEAt(actor, targetX, targetY, effectiveRange, walls)) return state
 
@@ -743,6 +763,7 @@ function tryUseCardAoE(
     damage,
     aoeSize,
     fromCard,
+    modCtx: battleModContext(modCtx),
   })
   if (used.leveledUp) {
     nextBattle = appendCardLevelUpLog(nextBattle, card, used, action.randomInt1to100)
@@ -775,7 +796,7 @@ function tryUseCardHeal(
   if (!tmpl || tmpl.kind !== 'heal') return state
 
   const walls = wallSet(b.walls)
-  const modCtx = cardModCombatContext(card, action.randomInt1to100)
+  const modCtx = cardModCombatContext(state, actorId!, card, action.randomInt1to100)
   const effectiveRange = applyRangeMods(tmpl.maxRange, modCtx)
   if (!canHealTarget(actor, target, effectiveRange, walls)) return state
 
@@ -805,6 +826,7 @@ function tryUseCardHeal(
     targetId: target.id,
     amount,
     fromCard,
+    modCtx: battleModContext(modCtx),
   })
   if (used.leveledUp) {
     nextBattle = appendCardLevelUpLog(nextBattle, card, used, action.randomInt1to100)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { LEGACY_HERO_CHARACTER_ID } from '../character/constants'
-import type { BattleState, Unit } from '../types'
+import type { BattleModContext, BattleState, ModSlotState, Unit } from '../types'
 import { cellKey, manhattan, orthoNeighbors } from './grid'
 import { applyAction } from './reducer'
 
@@ -388,5 +388,77 @@ describe('applyAction move multi-step', () => {
     })
     const next = applyAction(s, { type: 'move', unitId: HERO_ID, toX: 2, toY: 0 })
     expect(next.units.find((u) => u.id === HERO_ID)).toMatchObject({ x: 2, y: 0 })
+  })
+})
+
+function modCtx(slots: ModSlotState[], rng: () => number): BattleModContext {
+  return { modSlots: slots, rng }
+}
+
+describe('applyAction mod procs', () => {
+  it('reflects thorns damage when player takes a hit', () => {
+    const thorns: ModSlotState[] = [{ status: 'filled', templateId: 'mod-thorns', lm: 0 }]
+    const s = battle({
+      units: [
+        unit({ id: HERO_ID, side: 'player', x: 1, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
+        unit({ id: 'e1', side: 'enemy', x: 2, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
+      ],
+      currentTurnIndex: 1,
+      turnOrder: [HERO_ID, 'e1'],
+      playerGearModSlotsByUnitId: { [HERO_ID]: thorns },
+    })
+    const next = applyAction(s, {
+      type: 'attack',
+      attackerId: 'e1',
+      targetId: HERO_ID,
+      damage: 2,
+      kind: 'melee',
+    })
+    expect(next.units.find((u) => u.id === HERO_ID)!.hp).toBe(8)
+    expect(next.units.find((u) => u.id === 'e1')!.hp).toBe(7)
+    expect(next.battleLog.some((e) => e.type === 'mod_proc' && e.modTemplateId === 'mod-thorns')).toBe(true)
+  })
+
+  it('proc_extra_hit deals extra damage with mod_proc log', () => {
+    const slots: ModSlotState[] = [{ status: 'filled', templateId: 'mod-double-strike', lm: 0 }]
+    const s = battle({
+      units: [
+        unit({ id: HERO_ID, side: 'player', x: 1, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
+        unit({ id: 'e1', side: 'enemy', x: 2, y: 0, hp: 20, maxHp: 20, unitLevel: 1 }),
+      ],
+    })
+    const next = applyAction(s, {
+      type: 'attack',
+      attackerId: HERO_ID,
+      targetId: 'e1',
+      damage: 5,
+      kind: 'melee',
+      modCtx: modCtx(slots, () => 20),
+    })
+    expect(next.units.find((u) => u.id === 'e1')!.hp).toBe(10)
+    expect(next.battleLog.filter((e) => e.type === 'strike')).toHaveLength(2)
+    expect(next.battleLog.some((e) => e.type === 'mod_proc' && e.modTemplateId === 'mod-double-strike')).toBe(
+      true,
+    )
+  })
+
+  it('lifesteal heals attacker after damage', () => {
+    const slots: ModSlotState[] = [{ status: 'filled', templateId: 'mod-lifesteal', lm: 0 }]
+    const s = battle({
+      units: [
+        unit({ id: HERO_ID, side: 'player', x: 1, y: 0, hp: 8, maxHp: 10, unitLevel: 1 }),
+        unit({ id: 'e1', side: 'enemy', x: 2, y: 0, hp: 20, maxHp: 20, unitLevel: 1 }),
+      ],
+    })
+    const next = applyAction(s, {
+      type: 'attack',
+      attackerId: HERO_ID,
+      targetId: 'e1',
+      damage: 10,
+      kind: 'melee',
+      modCtx: modCtx(slots, () => 99),
+    })
+    expect(next.units.find((u) => u.id === HERO_ID)!.hp).toBe(10)
+    expect(next.battleLog.some((e) => e.type === 'mod_proc' && e.modTemplateId === 'mod-lifesteal')).toBe(true)
   })
 })
