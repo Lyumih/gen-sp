@@ -13,6 +13,18 @@ export type ItemInstance = {
 
 export type Side = 'player' | 'enemy'
 
+export type IconAccentId =
+  | 'default'
+  | 'green'
+  | 'gray'
+  | 'blue'
+  | 'red'
+  | 'gold'
+  | 'purple'
+  | 'teal'
+
+export type IconSkinToneId = 'default' | 'light' | 'medium' | 'dark'
+
 export type Unit = {
   id: string
   side: Side
@@ -26,6 +38,9 @@ export type Unit = {
   initiativeBase?: number
   /** Base stats snapshot for UI tooltips. */
   baseStats?: BaseStats
+  displayName?: string
+  iconEmoji?: string
+  iconAccent?: IconAccentId
 }
 
 export type ModificationInstance = {
@@ -62,6 +77,9 @@ export type Character = {
   items: ItemInstance[]
   cards: CardInstance[]
   battleLoadout: BattleLoadout
+  iconEmoji: string
+  iconAccent: IconAccentId
+  iconSkinTone: IconSkinToneId
 }
 
 export type CharacterBattleSnapshot = {
@@ -146,6 +164,8 @@ export type BattleState = {
   battleLog: readonly BattleLogEntry[]
   /** Суммарный бонус уровня карт от экипировки на старт боя (снимок). */
   gearCardLevelBonus: number
+  /** Герои без клетки спавна — не участвуют в этом бою. */
+  excludedCharacterIds?: readonly string[]
 }
 
 export type BattleAction =
