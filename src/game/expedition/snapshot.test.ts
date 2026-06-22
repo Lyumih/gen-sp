@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { initialCampaignState } from '../campaign/runReducer'
-import { createCharacter } from '../character/createCharacter'
+import { TEST_BASE_STATS, testCreateCharacter } from '../stats/testFixtures'
 import type { ExpeditionChainConfig } from './config'
 import { buildExpeditionSnapshot } from './snapshot'
 
@@ -13,29 +13,28 @@ const fourMemberChain: ExpeditionChainConfig = {
 
 describe('buildExpeditionSnapshot', () => {
   it('builds squad snapshot with partySize slots and deep-copied loadout/equipment', () => {
-    const hero = createCharacter({
+    const hero = testCreateCharacter({
       id: 'char-hero-1',
       name: 'Hero',
       classId: 'warrior',
-      initiativeBase: 10,
     })
-    const ally2 = createCharacter({
+    const ally2 = testCreateCharacter({
       id: 'char-2',
       name: 'Ally 2',
       classId: 'warrior',
-      initiativeBase: 9,
+      baseStats: { ...TEST_BASE_STATS, initiative: 9 },
     })
-    const ally3 = createCharacter({
+    const ally3 = testCreateCharacter({
       id: 'char-3',
       name: 'Ally 3',
       classId: 'warrior',
-      initiativeBase: 8,
+      baseStats: { ...TEST_BASE_STATS, initiative: 8 },
     })
-    const ally4 = createCharacter({
+    const ally4 = testCreateCharacter({
       id: 'char-4',
       name: 'Ally 4',
       classId: 'warrior',
-      initiativeBase: 7,
+      baseStats: { ...TEST_BASE_STATS, initiative: 7 },
     })
 
     const campaign = {

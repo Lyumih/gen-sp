@@ -131,3 +131,16 @@ export function getStatAffinity(classId: string, statId: StatId): StatAffinityKi
   if (affinity.secondary.includes(statId)) return 'secondary'
   return 'normal'
 }
+
+/** Fixed stats for the campaign starter hero (not a tavern roll). */
+export const STARTER_HERO_BASE_STATS: BaseStats = {
+  health: 20,
+  defense: 2,
+  attack: 3,
+  magicPower: 0,
+  mana: 5,
+  healPower: 0,
+  speed: 2,
+  initiative: 10,
+  critChance: 3,
+}

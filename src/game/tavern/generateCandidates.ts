@@ -1,4 +1,7 @@
 import { getCharacterClass, CHARACTER_CLASS_IDS } from '../content/characterClasses'
+import type { BaseStats } from '../config/baseStats'
+import { computeBaseStatRating } from '../stats/computeRating'
+import { rollBaseStatsForClass } from '../stats/rollBaseStats'
 import { EQUIPMENT_ROLL_ORDER } from '../equipment/equipmentOrder'
 import type { EquipmentSlot } from '../types'
 
@@ -10,6 +13,8 @@ export type TavernCandidate = {
   classId: string
   price: number
   previewGear: Partial<Record<EquipmentSlot, string>>
+  baseStats: BaseStats
+  baseStatRating: number
 }
 
 function weightedPick<T extends { weight: number }>(
@@ -59,11 +64,14 @@ export function generateTavernCandidates(
     const classId = CHARACTER_CLASS_IDS[classIdx]!
     const cls = getCharacterClass(classId)
     if (!cls) continue
+    const baseStats = rollBaseStatsForClass(classId, rng)
     out.push({
       candidateId: newCandidateId(),
       classId,
       price: cls.hirePrice,
       previewGear: rollGearForClass(classId, rng),
+      baseStats,
+      baseStatRating: computeBaseStatRating(baseStats),
     })
   }
   return out

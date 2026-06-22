@@ -10,7 +10,7 @@ import {
   RobotOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons'
-import { Alert, App, Button, Card, Collapse, Radio, Space, Switch, Typography } from 'antd'
+import { Alert, App, Button, Card, Collapse, Popover, Radio, Space, Switch, Typography } from 'antd'
 import { computeCardAttackDamage } from '../../game/content/cardAttackDamage'
 import { computeCardHealAmount } from '../../game/content/cardHealAmount'
 import { getCardAttackTemplate } from '../../game/content/cardTemplates'
@@ -22,6 +22,8 @@ import {
 } from '../../game/battle/combat'
 import { describeCardCombatStats, getCardDisplayLabel } from '../../game/descriptions/cardText'
 import { UI_CELL, UI_DAMAGE, UI_HEART, UI_LEVEL } from '../../game/ui/labels'
+import { computeEffectiveStats } from '../../game/stats/effectiveStats'
+import { StatStrip } from '../stats/StatStrip'
 import { HeroProfileModal } from '../profile/HeroProfileModal'
 import type { Unit } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
@@ -71,9 +73,17 @@ const unitCellEmojiStyle: CSSProperties = {
   lineHeight: 1,
 }
 
-function BattleUnitCell({ unit, role }: { unit: Unit; role: 'player' | 'enemy' }) {
+function BattleUnitCell({
+  unit,
+  role,
+  worldPower,
+}: {
+  unit: Unit
+  role: 'player' | 'enemy'
+  worldPower: number
+}) {
   const glyph = role === 'player' ? '🛡️' : '👾'
-  return (
+  const cell = (
     <span style={unitCellWrapStyle}>
       <span style={unitCellEmojiStyle} aria-hidden>
         {glyph}
@@ -87,6 +97,29 @@ function BattleUnitCell({ unit, role }: { unit: Unit; role: 'player' | 'enemy' }
         {unit.hp}/{unit.maxHp}
       </span>
     </span>
+  )
+
+  if (!unit.baseStats) return cell
+
+  const effective = computeEffectiveStats(unit.baseStats, unit.unitLevel, worldPower)
+  effective.health = unit.maxHp
+  effective.initiative = unit.initiativeBase ?? effective.initiative
+
+  return (
+    <Popover
+      trigger="hover"
+      mouseEnterDelay={0.3}
+      content={
+        <div style={{ maxWidth: 320 }}>
+          <StatStrip baseStats={unit.baseStats} effectiveStats={effective} />
+          <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
+            {UI_HEART} в бою: {unit.hp}/{unit.maxHp}
+          </Typography.Text>
+        </div>
+      }
+    >
+      {cell}
+    </Popover>
   )
 }
 
@@ -659,8 +692,8 @@ export function BattleScreen() {
                     🧱
                   </span>
                 )
-              else if (u?.side === 'player') inner = <BattleUnitCell unit={u} role="player" />
-              else if (u?.side === 'enemy') inner = <BattleUnitCell unit={u} role="enemy" />
+              else if (u?.side === 'player') inner = <BattleUnitCell unit={u} role="player" worldPower={battle.worldPower} />
+              else if (u?.side === 'enemy') inner = <BattleUnitCell unit={u} role="enemy" worldPower={battle.worldPower} />
 
               const inThreatFocus = overlaySets.threatFocus.has(k)
               const inThreatBase = overlaySets.threatBase.has(k)

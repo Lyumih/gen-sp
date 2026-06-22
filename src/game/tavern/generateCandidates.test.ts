@@ -14,13 +14,15 @@ describe('generateTavernCandidates', () => {
     expect(candidates).toHaveLength(TAVERN_CANDIDATE_COUNT)
   })
 
-  it('each candidate has classId, price, and preview gear per slot', () => {
+  it('each candidate has classId, price, preview gear, and base stats', () => {
     const rng = seededRng(7)
     const candidates = generateTavernCandidates(rng)
     for (const c of candidates) {
       expect(c.candidateId).toBeTruthy()
       expect(CHARACTER_CLASS_IDS).toContain(c.classId)
       expect(c.price).toBeGreaterThan(0)
+      expect(c.baseStats.health).toBeGreaterThanOrEqual(1)
+      expect(c.baseStatRating).toBeGreaterThan(0)
       for (const slot of EQUIPMENT_ROLL_ORDER) {
         expect(typeof c.previewGear[slot]).toBe('string')
       }
@@ -30,8 +32,20 @@ describe('generateTavernCandidates', () => {
   it('is deterministic with the same seeded rng', () => {
     const a = generateTavernCandidates(seededRng(99))
     const b = generateTavernCandidates(seededRng(99))
-    expect(a.map((c) => ({ classId: c.classId, price: c.price, previewGear: c.previewGear }))).toEqual(
-      b.map((c) => ({ classId: c.classId, price: c.price, previewGear: c.previewGear })),
+    expect(
+      a.map((c) => ({
+        classId: c.classId,
+        price: c.price,
+        previewGear: c.previewGear,
+        baseStats: c.baseStats,
+      })),
+    ).toEqual(
+      b.map((c) => ({
+        classId: c.classId,
+        price: c.price,
+        previewGear: c.previewGear,
+        baseStats: c.baseStats,
+      })),
     )
   })
 })

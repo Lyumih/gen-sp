@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { initialCampaignState } from '../campaign/runReducer'
 import { LEGACY_HERO_CHARACTER_ID } from './constants'
-import { createCharacter } from './createCharacter'
+import { testCreateCharacter } from '../stats/testFixtures'
 import {
   findFirstEmptySquadSlotIndex,
   findSquadSlotIndex,
@@ -14,11 +14,10 @@ import {
 
 function campaignWithTwoCharacters() {
   const base = initialCampaignState()
-  const reserve = createCharacter({
+  const reserve = testCreateCharacter({
     id: 'char-2',
     name: 'Reserve',
     classId: 'mage',
-    initiativeBase: 8,
   })
   return {
     ...base,

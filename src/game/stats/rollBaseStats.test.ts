@@ -1,0 +1,36 @@
+import { describe, expect, it } from 'vitest'
+import { seededRng } from '../tavern/generateCandidates'
+import { hashSeed, rollBaseStatsForClass, rollStatInRange, rollUpperBound } from './rollBaseStats'
+
+describe('rollUpperBound', () => {
+  it('primary extends to max*1.5', () => {
+    expect(rollUpperBound(30, 'primary')).toBe(45)
+    expect(rollUpperBound(5, 'secondary')).toBe(6)
+    expect(rollUpperBound(10, 'normal')).toBe(10)
+  })
+})
+
+describe('rollStatInRange', () => {
+  it('returns min when rng is 0', () => {
+    expect(rollStatInRange(1, 45, () => 0)).toBe(1)
+  })
+})
+
+describe('rollBaseStatsForClass', () => {
+  it('warrior health can exceed config max', () => {
+    const stats = rollBaseStatsForClass('warrior', () => 0.99)
+    expect(stats.health).toBeGreaterThan(30)
+  })
+
+  it('is deterministic for same rng sequence', () => {
+    const a = rollBaseStatsForClass('mage', seededRng(42))
+    const b = rollBaseStatsForClass('mage', seededRng(42))
+    expect(a).toEqual(b)
+  })
+})
+
+describe('hashSeed', () => {
+  it('is stable for same input', () => {
+    expect(hashSeed('c1:warrior')).toBe(hashSeed('c1:warrior'))
+  })
+})

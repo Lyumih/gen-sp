@@ -21,6 +21,9 @@ import { SCENARIOS } from '../campaign/scenarios'
 import { createCharacter } from '../character/createCharacter'
 import { DEFAULT_SQUAD_SLOTS, LEGACY_HERO_CHARACTER_ID } from '../character/constants'
 import { DEFAULT_MOD_KILL_TEMPLATE_ID } from '../content/modTemplates'
+import { STARTER_HERO_BASE_STATS } from '../config/baseStats'
+import { computeBaseStatRating } from '../stats/computeRating'
+import { rollBaseStatsDeterministic } from '../stats/rollBaseStats'
 import {
   EMPTY_EQUIPMENT,
   EQUIPMENT_ROLL_ORDER,
@@ -106,7 +109,12 @@ function normalizeCharacter(char: Character): Character {
   }
 }
 
-function normalizePartyMember(member: PartyMemberBattleSnapshot): PartyMemberBattleSnapshot {
+function normalizePartyMember(
+  member: Omit<PartyMemberBattleSnapshot, 'baseStats'> & {
+    baseStats?: PartyMemberBattleSnapshot['baseStats']
+    initiativeBase?: number
+  },
+): PartyMemberBattleSnapshot {
   const items = (Array.isArray(member.items) ? member.items : [])
     .filter(isItemInstance)
     .map((i) => ({ ...i }))
@@ -123,9 +131,17 @@ function normalizePartyMember(member: PartyMemberBattleSnapshot): PartyMemberBat
   ])
   const unitLevel =
     typeof member.unitLevel === 'number' && Number.isFinite(member.unitLevel) ? member.unitLevel : 1
+  let baseStats = member.baseStats
+  if (!baseStats) {
+    baseStats = rollBaseStatsDeterministic('warrior', member.characterId)
+    if (typeof member.initiativeBase === 'number') {
+      baseStats = { ...baseStats, initiative: member.initiativeBase }
+    }
+  }
   return {
     characterId: member.characterId,
     unitLevel,
+    baseStats,
     items,
     equipment,
     cards,
@@ -187,6 +203,8 @@ function normalizeBattleAttemptSnapshot(
         battleLoadout,
         metaStatus: 'active',
         spawnIndex: 0,
+        initiativeBase:
+          typeof raw.initiativeBase === 'number' ? raw.initiativeBase : undefined,
       }),
     ],
   }
@@ -527,11 +545,13 @@ export function normalizeLoadedCampaign(c: CampaignState): CampaignState {
 
 export function migrateV2CampaignToV3(c: LegacyCampaignStateV2): CampaignState {
   const raw = c as Record<string, unknown>
+  const heroBaseStats = { ...STARTER_HERO_BASE_STATS }
   const hero = createCharacter({
     id: LEGACY_HERO_CHARACTER_ID,
     name: 'Герой',
     classId: 'warrior',
-    initiativeBase: 10,
+    baseStats: heroBaseStats,
+    baseStatRating: computeBaseStatRating(heroBaseStats),
     unitLevel: typeof raw.playerUnitLevel === 'number' ? raw.playerUnitLevel : 1,
   })
   hero.cards = Array.isArray(raw.cards)
@@ -566,6 +586,34 @@ export function migrateV2CampaignToV3(c: LegacyCampaignStateV2): CampaignState {
     characters: [hero],
     squad,
     expedition: null,
+    tavernCandidates: null,
+  })
+}
+
+type LegacyCharacterV3 = Character & { initiativeBase?: number }
+
+function migrateCharacterToV4(char: LegacyCharacterV3): Character {
+  if (char.baseStats !== undefined && typeof char.baseStatRating === 'number') {
+    const { initiativeBase: _removed, ...rest } = char
+    return rest as Character
+  }
+  const classId = char.classId ?? 'warrior'
+  let baseStats = rollBaseStatsDeterministic(classId, char.id)
+  if (typeof char.initiativeBase === 'number') {
+    baseStats = { ...baseStats, initiative: char.initiativeBase }
+  }
+  const { initiativeBase: _removed, ...rest } = char
+  return {
+    ...rest,
+    baseStats,
+    baseStatRating: computeBaseStatRating(baseStats),
+  }
+}
+
+export function migrateV3CampaignToV4(c: CampaignState): CampaignState {
+  return normalizeLoadedCampaign({
+    ...c,
+    characters: c.characters.map((ch) => migrateCharacterToV4(ch as LegacyCharacterV3)),
     tavernCandidates: null,
   })
 }
@@ -607,9 +655,9 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
     return null
   }
   const version = raw.version
-  if (version !== 1 && version !== 2 && version !== 3) {
+  if (version !== 1 && version !== 2 && version !== 3 && version !== 4) {
     console.warn(
-      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, or 3`,
+      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, or 4`,
     )
     return null
   }
@@ -618,7 +666,7 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
     console.warn('[gen-sp] save: missing campaign object')
     return null
   }
-  return campaignFromRaw(campaignRaw)
+  return migrateV3CampaignToV4(campaignFromRaw(campaignRaw))
 }
 
 export function assertEnvelopeV1(e: SaveEnvelopeV1): CampaignState {

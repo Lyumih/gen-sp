@@ -17,7 +17,6 @@ import { DEFAULT_MOD_KILL_TEMPLATE_ID } from '../content/modTemplates'
 import { getCharacterClass } from '../content/characterClasses'
 import { getItemTemplate } from '../content/itemTemplates'
 import {
-  EMPTY_EQUIPMENT,
   EQUIPMENT_ROLL_ORDER,
   occupiedEquipmentSlotsInOrder,
 } from '../equipment/equipmentOrder'
@@ -65,6 +64,8 @@ import {
   seededRng,
   TAVERN_REFRESH_COST,
 } from '../tavern/generateCandidates'
+import { STARTER_HERO_BASE_STATS } from '../config/baseStats'
+import { computeBaseStatRating } from '../stats/computeRating'
 import type { Expedition } from '../types'
 
 export type RunAction =
@@ -962,7 +963,8 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         id: charId,
         name: `${cls.label} ${state.characters.length + 1}`,
         classId: candidate.classId,
-        initiativeBase: cls.initiativeBase,
+        baseStats: candidate.baseStats,
+        baseStatRating: candidate.baseStatRating,
       })
 
       const items = [...character.items]
@@ -1015,18 +1017,15 @@ export const STARTER_CARDS: CardInstance[] = [
 ]
 
 export function initialCampaignState(): CampaignState {
-  const heroCards = cloneCards(STARTER_CARDS)
-  const hero = {
+  const hero = createCharacter({
     id: LEGACY_HERO_CHARACTER_ID,
     name: 'Герой',
     classId: 'warrior',
-    unitLevel: 1,
-    initiativeBase: 10,
-    cards: heroCards,
-    battleLoadout: ['c1', 'c2'] as BattleLoadout,
-    items: [] as ItemInstance[],
-    equipment: { ...EMPTY_EQUIPMENT },
-  }
+    baseStats: STARTER_HERO_BASE_STATS,
+    baseStatRating: computeBaseStatRating(STARTER_HERO_BASE_STATS),
+  })
+  hero.cards = cloneCards(STARTER_CARDS)
+  hero.battleLoadout = ['c1', 'c2']
   const squad: (string | null)[] = [LEGACY_HERO_CHARACTER_ID]
   while (squad.length < DEFAULT_SQUAD_SLOTS) squad.push(null)
 

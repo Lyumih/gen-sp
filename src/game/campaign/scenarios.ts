@@ -1,9 +1,12 @@
-import { computeUnitStat } from '../balance'
-import { getItemTemplate } from '../content/itemTemplates'
-import { aggregateGearCardLevelBonus } from '../equipment/aggregates'
+import type { BaseStats } from '../config/baseStats'
+import { getEnemyTemplate } from '../content/enemyTemplates'
+import { computeEffectiveStat } from '../stats/effectiveStats'
 import { buildRoundTurnOrder } from '../battle/initiative'
 import { computeCharacterMaxHpForScenario } from './heroMaxHp'
 import { playerCardsByUnitFromParty } from '../battle/playerCards'
+import { aggregateGearCardLevelBonus } from '../equipment/aggregates'
+import { getItemTemplate } from '../content/itemTemplates'
+import { computeUnitStat } from '../balance'
 import type { BattleAttemptSnapshot, BattleState, PartyMemberBattleSnapshot, Unit } from '../types'
 import { cellKey } from '../battle/grid'
 
@@ -11,7 +14,7 @@ export type BattleScenarioEnemy = {
   id: string
   x: number
   y: number
-  /** База для max HP через computeUnitStat. */
+  /** Legacy fallback when template baseStats missing. */
   baseHpStat: number
   unitLevel: number
   archetypeId: string
@@ -23,6 +26,7 @@ export type BattleScenario = {
   height: number
   walls: readonly string[]
   playerSpawns: { x: number; y: number }[]
+  /** Legacy; player HP uses character baseStats.health. */
   heroBaseHpStat: number
   enemies: readonly BattleScenarioEnemy[]
 }
@@ -84,6 +88,12 @@ export function makePlayerUnits(
     .map((member) => {
       const spawn = spawnForMember(scenario, member)
       const maxHp = computeCharacterMaxHpForScenario(member, scenario, snapshot.worldPower)
+      const initiativeBase = computeEffectiveStat(
+        member.baseStats,
+        'initiative',
+        member.unitLevel,
+        snapshot.worldPower,
+      )
       return {
         id: member.characterId,
         side: 'player' as const,
@@ -92,9 +102,26 @@ export function makePlayerUnits(
         hp: maxHp,
         maxHp,
         unitLevel: member.unitLevel,
-        initiativeBase: member.initiativeBase ?? 10,
+        initiativeBase,
+        baseStats: { ...member.baseStats },
       }
     })
+}
+
+function enemyBaseStats(archetypeId: string, fallbackHp: number): BaseStats {
+  const tmpl = getEnemyTemplate(archetypeId)
+  if (tmpl?.baseStats) return { ...tmpl.baseStats }
+  return {
+    health: fallbackHp,
+    defense: 1,
+    attack: 2,
+    magicPower: 0,
+    mana: 0,
+    healPower: 0,
+    speed: 2,
+    initiative: 6,
+    critChance: 2,
+  }
 }
 
 function makeEnemies(
@@ -102,11 +129,18 @@ function makeEnemies(
   snapshot: BattleAttemptSnapshot,
 ): Unit[] {
   return scenario.enemies.map((e) => {
+    const baseStats = enemyBaseStats(e.archetypeId, e.baseHpStat)
     const maxHp = computeUnitStat({
-      baseStat: e.baseHpStat,
+      baseStat: baseStats.health,
       unitLevel: e.unitLevel,
       worldPower: snapshot.worldPower,
     })
+    const initiativeBase = computeEffectiveStat(
+      baseStats,
+      'initiative',
+      e.unitLevel,
+      snapshot.worldPower,
+    )
     return {
       id: e.id,
       side: 'enemy' as const,
@@ -116,7 +150,8 @@ function makeEnemies(
       maxHp,
       unitLevel: e.unitLevel,
       archetypeId: e.archetypeId,
-      initiativeBase: 10,
+      initiativeBase,
+      baseStats,
     }
   })
 }

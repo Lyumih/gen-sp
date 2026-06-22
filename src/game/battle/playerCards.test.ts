@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { LEGACY_HERO_CHARACTER_ID } from '../character/constants'
 import type { BattlePlayerCard, BattleState, Character, PartyMemberBattleSnapshot } from '../types'
+import { TEST_BASE_STATS } from '../stats/testFixtures'
 import {
   mergeBattleCardsToParty,
   playerCardsByUnitFromParty,
@@ -13,6 +14,7 @@ function member(
 ): PartyMemberBattleSnapshot {
   return {
     unitLevel: 1,
+    baseStats: TEST_BASE_STATS,
     items: [],
     equipment: { weapon: null, armor: null, accessory: null },
     cards: [
@@ -68,7 +70,8 @@ describe('mergeBattleCardsToParty', () => {
       name: 'Hero',
       classId: 'warrior',
       unitLevel: 1,
-      initiativeBase: 10,
+      baseStats: TEST_BASE_STATS,
+      baseStatRating: 0.5,
       equipment: { weapon: null, armor: null, accessory: null },
       items: [],
       cards: [

@@ -12,8 +12,10 @@ import {
 import { getItemTemplate } from '../../game/content/itemTemplates'
 import { aggregateGearCardLevelBonus, aggregateGearHpBonus } from '../../game/equipment/aggregates'
 import { EQUIPMENT_ROLL_ORDER } from '../../game/equipment/equipmentOrder'
+import { computeEffectiveStats } from '../../game/stats/effectiveStats'
 import type { BattleState, CampaignState } from '../../game/types'
 import { UI_DAMAGE, UI_HEART, UI_LEVEL } from '../../game/ui/labels'
+import { StatStrip } from '../stats/StatStrip'
 
 export type HeroProfileContentProps = {
   mode: 'hub' | 'battle'
@@ -64,8 +66,22 @@ export function HeroProfileContent({
         )
       : null
 
+  const effectiveHub = computeEffectiveStats(
+    hero.baseStats,
+    hero.unitLevel,
+    campaign.worldPower,
+    { health: gearHpHub },
+  )
+
   return (
     <>
+      <StatStrip
+        baseStats={hero.baseStats}
+        effectiveStats={mode === 'battle' && battle ? undefined : effectiveHub}
+        baseStatRating={hero.baseStatRating}
+        showRating
+      />
+
       {includeResourceStats ? (
         <Typography.Paragraph style={{ marginBottom: 8 }}>
           Герой: {UI_LEVEL}

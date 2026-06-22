@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { LEGACY_HERO_CHARACTER_ID } from '../character/constants'
 import { EMPTY_EQUIPMENT } from '../equipment/equipmentOrder'
+import { TEST_BASE_STATS } from '../stats/testFixtures'
 import type { BattleAttemptSnapshot, PartyMemberBattleSnapshot } from '../types'
 import { computeCharacterMaxHpForScenario } from './heroMaxHp'
 import { SCENARIOS, battleStateFromScenario } from './scenarios'
@@ -13,6 +14,7 @@ function member(
   return {
     characterId: HERO_ID,
     unitLevel: 1,
+    baseStats: TEST_BASE_STATS,
     items: [],
     equipment: { ...EMPTY_EQUIPMENT },
     cards: [],

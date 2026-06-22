@@ -8,6 +8,7 @@ import {
 import { getCharacterClass } from '../../game/content/characterClasses'
 import type { CampaignState, Character } from '../../game/types'
 import { UI_LEVEL } from '../../game/ui/labels'
+import { StatStrip } from '../stats/StatStrip'
 import { parseDragId, rosterCharacterDragId, rosterCharacterDropId } from '../inventory/inventoryDnD'
 
 type CharacterRosterViewProps = {
@@ -137,10 +138,17 @@ function RosterRow({
           </span>
         }
         description={
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            {cls?.label ?? character.classId} · {UI_LEVEL}
-            {character.unitLevel} · предметов: {stashCount}
-          </Typography.Text>
+          <>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              {cls?.label ?? character.classId} · {UI_LEVEL}
+              {character.unitLevel} · предметов: {stashCount}
+            </Typography.Text>
+            <StatStrip
+              baseStats={character.baseStats}
+              baseStatRating={character.baseStatRating}
+              showRating
+            />
+          </>
         }
       />
     </List.Item>

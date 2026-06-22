@@ -1,4 +1,7 @@
 import type { TavernCandidate } from './tavern/generateCandidates'
+import type { BaseStats } from './config/baseStats'
+
+export type { BaseStats, StatId } from './config/baseStats'
 
 export type EquipmentSlot = 'weapon' | 'armor' | 'accessory'
 
@@ -19,8 +22,10 @@ export type Unit = {
   maxHp: number
   unitLevel: number
   archetypeId?: string
-  /** Snapshot at spawn; defaults to 10 when missing. */
+  /** Effective initiative at spawn (base stat scaled + gear). */
   initiativeBase?: number
+  /** Base stats snapshot for UI tooltips. */
+  baseStats?: BaseStats
 }
 
 export type ModificationInstance = {
@@ -51,7 +56,8 @@ export type Character = {
   name: string
   classId: string
   unitLevel: number
-  initiativeBase: number
+  baseStats: BaseStats
+  baseStatRating: number
   equipment: Record<EquipmentSlot, string | null>
   items: ItemInstance[]
   cards: CardInstance[]
@@ -183,8 +189,7 @@ export type RunPhase = 'hub' | 'battle' | 'victory' | 'defeat' | 'inter_battle'
 export type PartyMemberBattleSnapshot = {
   characterId: string
   unitLevel: number
-  /** Copied from Character at snapshot; defaults to 10 at spawn when missing. */
-  initiativeBase?: number
+  baseStats: BaseStats
   items: ItemInstance[]
   equipment: Record<EquipmentSlot, string | null>
   cards: CardInstance[]

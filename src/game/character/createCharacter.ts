@@ -1,5 +1,6 @@
 import { cloneCards } from '../campaign/battleSnapshot'
 import { STARTER_CARDS } from '../campaign/runReducer'
+import type { BaseStats } from '../config/baseStats'
 import { EMPTY_EQUIPMENT } from '../equipment/equipmentOrder'
 import type { Character } from '../types'
 
@@ -7,7 +8,8 @@ export type CreateCharacterInput = {
   id: string
   name: string
   classId: string
-  initiativeBase: number
+  baseStats: BaseStats
+  baseStatRating: number
   unitLevel?: number
 }
 
@@ -25,7 +27,8 @@ export function createCharacter(input: CreateCharacterInput): Character {
     name: input.name,
     classId: input.classId,
     unitLevel: input.unitLevel ?? 1,
-    initiativeBase: input.initiativeBase,
+    baseStats: { ...input.baseStats },
+    baseStatRating: input.baseStatRating,
     equipment: { ...EMPTY_EQUIPMENT },
     items: [],
     cards,

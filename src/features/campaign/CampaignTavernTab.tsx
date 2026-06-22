@@ -1,5 +1,5 @@
 import { ReloadOutlined, UserAddOutlined } from '@ant-design/icons'
-import { Alert, Button, Card, Space, Typography } from 'antd'
+import { Alert, Button, Card, Space, Tooltip, Typography } from 'antd'
 import { MAX_ROSTER_SIZE } from '../../game/character/constants'
 import { getCharacterClass } from '../../game/content/characterClasses'
 import { getItemTemplate } from '../../game/content/itemTemplates'
@@ -8,6 +8,9 @@ import {
   TAVERN_CANDIDATE_COUNT,
   TAVERN_REFRESH_COST,
 } from '../../game/tavern/generateCandidates'
+import { previewCandidateEffectiveStats } from '../../game/stats/previewCandidateStats'
+import { StatStrip } from '../stats/StatStrip'
+import { classAffinityTooltipLines } from '../stats/statTooltipText'
 import { SLOT_LABEL } from './campaignHubShared'
 
 const ROSTER_SOFT_WARN_SIZE = 90
@@ -100,9 +103,21 @@ export function CampaignTavernTab({
             return (
               <Card key={candidate.candidateId} size="small">
                 <Space orientation="vertical" size="small" style={{ width: '100%' }}>
-                  <Typography.Text strong>
-                    {cls?.label ?? candidate.classId} — {candidate.price} золота
-                  </Typography.Text>
+                  <Tooltip title={classAffinityTooltipLines(candidate.classId).join('\n')}>
+                    <Typography.Text strong>
+                      {cls?.label ?? candidate.classId} — {candidate.price} золота
+                    </Typography.Text>
+                  </Tooltip>
+                  <StatStrip
+                    baseStats={candidate.baseStats}
+                    effectiveStats={previewCandidateEffectiveStats(
+                      candidate.baseStats,
+                      campaign.worldPower,
+                      candidate.previewGear,
+                    )}
+                    baseStatRating={candidate.baseStatRating}
+                    showRating
+                  />
                   <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                     Стартовая экипировка:{' '}
                     {Object.entries(candidate.previewGear).length > 0

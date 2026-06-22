@@ -15,7 +15,8 @@ MVP тактической RPG **Gen**: пошаговые бои на сетк�
 
 - Спека геймдизайна: [docs/superpowers/specs/2026-03-28-gen-game-design.md](docs/superpowers/specs/2026-03-28-gen-game-design.md)
 - План реализации MVP: [docs/superpowers/plans/2026-03-28-gen-game-implementation.md](docs/superpowers/plans/2026-03-28-gen-game-implementation.md)
-- Базовые характеристики персонажей: [docs/superpowers/specs/2026-06-22-character-base-stats-design.md](docs/superpowers/specs/2026-06-22-character-base-stats-design.md)
+- Спека базовых характеристик: [docs/superpowers/specs/2026-06-22-character-base-stats-design.md](docs/superpowers/specs/2026-06-22-character-base-stats-design.md)
+- План реализации base stats: [docs/superpowers/plans/2026-06-22-character-base-stats.md](docs/superpowers/plans/2026-06-22-character-base-stats.md)
 - UI/UX паттерны (для агентов): [AGENTS.md](AGENTS.md)
 
 ## Сохранения

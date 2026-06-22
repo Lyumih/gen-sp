@@ -23,7 +23,7 @@ import { getCurrentActorId } from '../battle/reducer'
 import { SCENARIOS } from './scenarios'
 import { getPrimaryCharacter } from './selectors'
 import { LEGACY_HERO_CHARACTER_ID, MAX_ROSTER_SIZE } from '../character/constants'
-import { createCharacter } from '../character/createCharacter'
+import { testCreateCharacter } from '../stats/testFixtures'
 import { TAVERN_REFRESH_COST } from '../tavern/generateCandidates'
 
 const HERO_ID = LEGACY_HERO_CHARACTER_ID
@@ -113,6 +113,7 @@ function partyMemberFromHero(
   return {
     characterId: h.id,
     unitLevel: h.unitLevel,
+    baseStats: { ...h.baseStats },
     items: cloneItems(h.items),
     equipment: { ...h.equipment },
     cards: cloneCards(h.cards),
@@ -857,11 +858,10 @@ describe('inventory grid actions', () => {
 describe('squad and transfer actions', () => {
   function twoCharacterCampaign() {
     const base = initialCampaignState()
-    const reserve = createCharacter({
+    const reserve = testCreateCharacter({
       id: 'char-2',
       name: 'Reserve',
       classId: 'mage',
-      initiativeBase: 8,
     })
     return {
       ...base,
@@ -1437,11 +1437,10 @@ describe('tavern', () => {
     const characters = [getPrimaryCharacter(state)]
     for (let i = 0; i < MAX_ROSTER_SIZE - 1; i++) {
       characters.push(
-        createCharacter({
+        testCreateCharacter({
           id: `char-reserve-${i}`,
           name: `Reserve ${i}`,
           classId: 'warrior',
-          initiativeBase: 10,
         }),
       )
     }

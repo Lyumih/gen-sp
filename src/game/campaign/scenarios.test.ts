@@ -3,6 +3,7 @@ import { LEGACY_HERO_CHARACTER_ID } from '../character/constants'
 import { createCharacter } from '../character/createCharacter'
 import { ENEMY_TEMPLATES } from '../content/enemyTemplates'
 import { EMPTY_EQUIPMENT } from '../equipment/equipmentOrder'
+import { TEST_BASE_STATS } from '../stats/testFixtures'
 import type { BattleAttemptSnapshot, PartyMemberBattleSnapshot } from '../types'
 import {
   SCENARIOS,
@@ -18,6 +19,7 @@ function member(
 ): PartyMemberBattleSnapshot {
   return {
     unitLevel: 1,
+    baseStats: TEST_BASE_STATS,
     items: [],
     equipment: { ...EMPTY_EQUIPMENT },
     cards: [],
@@ -108,12 +110,14 @@ describe('battleStateFromScenario', () => {
       id: HERO_ID,
       name: 'Hero',
       classId: 'warrior',
-      initiativeBase: 10,
+      baseStats: TEST_BASE_STATS,
+      baseStatRating: 0.5,
     })
     const snap = snapshotWithParty([
       {
         characterId: hero.id,
         unitLevel: hero.unitLevel,
+        baseStats: hero.baseStats,
         items: hero.items,
         equipment: { ...hero.equipment },
         cards: hero.cards,
