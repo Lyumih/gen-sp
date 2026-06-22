@@ -491,6 +491,11 @@ function withDefaultExpedition(c: CampaignState): CampaignState {
   return c
 }
 
+function withDefaultTavernCandidates(c: CampaignState): CampaignState {
+  if (c.tavernCandidates === undefined) return { ...c, tavernCandidates: null }
+  return c
+}
+
 /** Старые сохранения без `battle.battleLog` — подставляем пустой массив. */
 export function normalizeLoadedCampaign(c: CampaignState): CampaignState {
   let out: CampaignState
@@ -505,6 +510,7 @@ export function normalizeLoadedCampaign(c: CampaignState): CampaignState {
     }
   }
   out = withDefaultExpedition(out)
+  out = withDefaultTavernCandidates(out)
   out = withDefaultSquad(out)
   out = withDefaultScenarioSlotIndex(out)
   out = withNormalizedBattleAttemptSnapshot(out)
@@ -560,6 +566,7 @@ export function migrateV2CampaignToV3(c: LegacyCampaignStateV2): CampaignState {
     characters: [hero],
     squad,
     expedition: null,
+    tavernCandidates: null,
   })
 }
 

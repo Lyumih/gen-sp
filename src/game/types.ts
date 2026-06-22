@@ -1,3 +1,5 @@
+import type { TavernCandidate } from './tavern/generateCandidates'
+
 export type EquipmentSlot = 'weapon' | 'armor' | 'accessory'
 
 export type ItemInstance = {
@@ -220,4 +222,6 @@ export type CampaignState = {
   /** Слоты отряда в хабе; null = пустой слот. */
   squad: (string | null)[]
   expedition: Expedition | null
+  /** Hub-only tavern roster; null until first refresh. */
+  tavernCandidates: TavernCandidate[] | null
 }

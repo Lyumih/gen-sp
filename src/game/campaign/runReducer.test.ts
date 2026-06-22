@@ -17,8 +17,9 @@ import {
 } from './runReducer'
 import { SCENARIOS } from './scenarios'
 import { getPrimaryCharacter } from './selectors'
-import { LEGACY_HERO_CHARACTER_ID } from '../character/constants'
+import { LEGACY_HERO_CHARACTER_ID, MAX_ROSTER_SIZE } from '../character/constants'
 import { createCharacter } from '../character/createCharacter'
+import { TAVERN_REFRESH_COST } from '../tavern/generateCandidates'
 
 const HERO_ID = LEGACY_HERO_CHARACTER_ID
 
@@ -1295,5 +1296,90 @@ describe('expedition state machine', () => {
     const next = applyRunAction(s, { type: 'FINISH_EXPEDITION' })
     expect(next.expedition).toBeNull()
     expect(next.phase).toBe('hub')
+  })
+})
+
+describe('tavern', () => {
+  function refreshedState(gold = 100) {
+    return applyRunAction(
+      { ...initialCampaignState(), gold },
+      { type: 'REFRESH_TAVERN', seed: 42 },
+    )
+  }
+
+  it('REFRESH_TAVERN generates 3 candidates and costs gold', () => {
+    const state = refreshedState(50)
+    expect(state.gold).toBe(50 - TAVERN_REFRESH_COST)
+    expect(state.tavernCandidates).toHaveLength(3)
+  })
+
+  it('HIRE_TAVERN_CANDIDATE adds character with rolled gear equipped and starter cards', () => {
+    const state = refreshedState(200)
+    const candidate = state.tavernCandidates![0]!
+    const next = applyRunAction(state, {
+      type: 'HIRE_TAVERN_CANDIDATE',
+      candidateId: candidate.candidateId,
+    })
+
+    expect(next.characters).toHaveLength(2)
+    const hired = next.characters.find((c) => c.id !== HERO_ID)!
+    expect(hired.classId).toBe(candidate.classId)
+    expect(hired.cards.length).toBeGreaterThan(0)
+    expect(hired.battleLoadout[0]).toBeTruthy()
+    expect(next.gold).toBe(state.gold - candidate.price)
+    expect(next.tavernCandidates).toHaveLength(2)
+
+    for (const slot of ['weapon', 'armor', 'accessory'] as const) {
+      const templateId = candidate.previewGear[slot]
+      if (!templateId) continue
+      const itemId = hired.equipment[slot]
+      expect(itemId).toBeTruthy()
+      const item = hired.items.find((i) => i.id === itemId)
+      expect(item?.templateId).toBe(templateId)
+    }
+  })
+
+  it('rejects hire when roster is full', () => {
+    let state = refreshedState(10_000)
+    const characters = [getPrimaryCharacter(state)]
+    for (let i = 0; i < MAX_ROSTER_SIZE - 1; i++) {
+      characters.push(
+        createCharacter({
+          id: `char-reserve-${i}`,
+          name: `Reserve ${i}`,
+          classId: 'warrior',
+          initiativeBase: 10,
+        }),
+      )
+    }
+    state = { ...state, characters }
+    const candidate = state.tavernCandidates![0]!
+
+    const next = applyRunAction(state, {
+      type: 'HIRE_TAVERN_CANDIDATE',
+      candidateId: candidate.candidateId,
+    })
+    expect(next).toBe(state)
+    expect(next.characters).toHaveLength(MAX_ROSTER_SIZE)
+  })
+
+  it('blocks refresh and hire during expedition', () => {
+    const hub = refreshedState(200)
+    const expedition = applyRunAction(hub, {
+      type: 'START_EXPEDITION',
+      chainId: 'campaign-main',
+      selectedCharacterIds: [HERO_ID],
+    })
+
+    const refreshBlocked = applyRunAction(expedition, { type: 'REFRESH_TAVERN', seed: 1 })
+    expect(refreshBlocked).toBe(expedition)
+
+    const candidate = hub.tavernCandidates![0]!
+    const hireBlocked = applyRunAction(expedition, {
+      type: 'HIRE_TAVERN_CANDIDATE',
+      candidateId: candidate.candidateId,
+    })
+    expect(hireBlocked).toBe(expedition)
+    expect(hireBlocked.characters).toHaveLength(1)
   })
 })

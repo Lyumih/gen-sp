@@ -14,6 +14,7 @@ import {
   mergeBattleCodexDiscoveries,
 } from '../codex/discovery'
 import { DEFAULT_MOD_KILL_TEMPLATE_ID } from '../content/modTemplates'
+import { getCharacterClass } from '../content/characterClasses'
 import { getItemTemplate } from '../content/itemTemplates'
 import {
   EMPTY_EQUIPMENT,
@@ -54,10 +55,16 @@ import {
   getPrimaryCharacter,
   updateCharacter,
 } from '../character/selectors'
-import { DEFAULT_SQUAD_SLOTS, LEGACY_HERO_CHARACTER_ID } from '../character/constants'
+import { createCharacter } from '../character/createCharacter'
+import { DEFAULT_SQUAD_SLOTS, LEGACY_HERO_CHARACTER_ID, MAX_ROSTER_SIZE } from '../character/constants'
 import { assertHubActionAllowed } from '../expedition/freeze'
 import { buildExpeditionSnapshot } from '../expedition/snapshot'
 import { getExpeditionChainById, resolvePartySize } from '../expedition/config'
+import {
+  generateTavernCandidates,
+  seededRng,
+  TAVERN_REFRESH_COST,
+} from '../tavern/generateCandidates'
 import type { Expedition } from '../types'
 
 export type RunAction =
@@ -107,6 +114,8 @@ export type RunAction =
   | { type: 'ADVANCE_EXPEDITION_BATTLE' }
   | { type: 'INTER_BATTLE_REVIVE_ALL' }
   | { type: 'FINISH_EXPEDITION' }
+  | { type: 'REFRESH_TAVERN'; seed?: number }
+  | { type: 'HIRE_TAVERN_CANDIDATE'; candidateId: string }
 
 export { cloneCards, cloneItems }
 
@@ -123,6 +132,13 @@ function newItemId(): string {
     return globalThis.crypto.randomUUID()
   }
   return `item-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+function newCharacterId(): string {
+  if (typeof globalThis.crypto !== 'undefined' && 'randomUUID' in globalThis.crypto) {
+    return globalThis.crypto.randomUUID()
+  }
+  return `char-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
 function withCodexDiscoveries(state: CampaignState, ids: readonly string[]): CampaignState {
@@ -919,6 +935,58 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
     }
     case 'FINISH_EXPEDITION':
       return finishExpedition(state)
+    case 'REFRESH_TAVERN': {
+      if (!assertHubActionAllowed(state, 'tavern')) return state
+      if (state.gold < TAVERN_REFRESH_COST) return state
+      const rng = action.seed !== undefined ? seededRng(action.seed) : () => Math.random()
+      return {
+        ...state,
+        gold: state.gold - TAVERN_REFRESH_COST,
+        tavernCandidates: generateTavernCandidates(rng),
+      }
+    }
+    case 'HIRE_TAVERN_CANDIDATE': {
+      if (!assertHubActionAllowed(state, 'tavern')) return state
+      if (!state.tavernCandidates) return state
+      if (state.characters.length >= MAX_ROSTER_SIZE) return state
+
+      const candidate = state.tavernCandidates.find((c) => c.candidateId === action.candidateId)
+      if (!candidate) return state
+      if (state.gold < candidate.price) return state
+
+      const cls = getCharacterClass(candidate.classId)
+      if (!cls) return state
+
+      const charId = newCharacterId()
+      let character = createCharacter({
+        id: charId,
+        name: `${cls.label} ${state.characters.length + 1}`,
+        classId: candidate.classId,
+        initiativeBase: cls.initiativeBase,
+      })
+
+      const items = [...character.items]
+      const equipment = { ...character.equipment }
+      for (const slot of EQUIPMENT_ROLL_ORDER) {
+        const templateId = candidate.previewGear[slot]
+        if (!templateId) continue
+        const tmpl = getItemTemplate(templateId)
+        if (!tmpl || tmpl.slot !== slot) continue
+        const inst: ItemInstance = { id: newItemId(), templateId, itemLevel: 1 }
+        items.push(inst)
+        equipment[slot] = inst.id
+      }
+      character = { ...character, items, equipment }
+
+      return {
+        ...state,
+        gold: state.gold - candidate.price,
+        characters: [...state.characters, character],
+        tavernCandidates: state.tavernCandidates.filter(
+          (c) => c.candidateId !== action.candidateId,
+        ),
+      }
+    }
   }
 }
 
@@ -976,5 +1044,6 @@ export function initialCampaignState(): CampaignState {
     characters: [hero],
     squad,
     expedition: null,
+    tavernCandidates: null,
   }
 }
