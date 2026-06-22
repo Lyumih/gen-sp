@@ -15,6 +15,8 @@ export type InventoryCellProps = {
   emoji?: string
   levelBadge?: string
   contextBadge?: string
+  showModPendingBadge?: boolean
+  slotDots?: ReactNode
   state: InventoryCellState
   popoverContent?: ReactNode
   popoverTitle?: string
@@ -50,6 +52,8 @@ export const InventoryCell = forwardRef<HTMLButtonElement, InventoryCellProps>(
       emoji,
       levelBadge,
       contextBadge,
+      showModPendingBadge,
+      slotDots,
       state,
       popoverContent,
       popoverTitle,
@@ -69,7 +73,14 @@ export const InventoryCell = forwardRef<HTMLButtonElement, InventoryCellProps>(
       <button
         ref={ref}
         type="button"
-        className={['inv-cell', stateClass(state), className].filter(Boolean).join(' ')}
+        className={[
+          'inv-cell',
+          stateClass(state),
+          showModPendingBadge ? 'inv-cell--mod-pending' : '',
+          className,
+        ]
+          .filter(Boolean)
+          .join(' ')}
         aria-label={ariaLabel}
         disabled={state === 'disabled'}
         onDoubleClick={onDoubleClick}
@@ -90,8 +101,14 @@ export const InventoryCell = forwardRef<HTMLButtonElement, InventoryCellProps>(
             {emoji}
           </span>
         )}
+        {showModPendingBadge ? (
+          <span className="inv-badge-mod-pending" aria-label="Доступен модификатор">
+            M+
+          </span>
+        ) : null}
         {levelBadge ? <span className="inv-badge-level">{levelBadge}</span> : null}
         {contextBadge ? <span className="inv-badge-context">{contextBadge}</span> : null}
+        {slotDots}
       </button>
     )
 

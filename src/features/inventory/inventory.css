@@ -33,10 +33,6 @@
   border: 2px solid #52c41a;
 }
 
-.inv-cell--mod-target {
-  border: 2px solid #faad14;
-}
-
 .inv-cell--disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -94,6 +90,59 @@
   padding: 1px 2px;
 }
 
+.inv-cell--mod-pending .inv-badge-level {
+  top: auto;
+  bottom: 2px;
+  right: 2px;
+}
+
+.inv-badge-mod-pending {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  color: #fff;
+  background: #1677ff;
+  border-radius: 2px;
+  padding: 1px 3px;
+}
+
+.inv-slot-dots {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.inv-slot-dot {
+  font-size: 7px;
+}
+
+.inv-slot-dot--pending {
+  color: #1677ff;
+}
+
+.inv-slot-dot--empty {
+  color: rgba(0, 0, 0, 0.25);
+}
+
+.inv-mod-slot-list {
+  margin: 0;
+  padding-left: 16px;
+  max-width: 320px;
+}
+
+.inv-mod-offer-card {
+  cursor: pointer;
+}
+
 .inv-badge-context {
   position: absolute;
   bottom: 2px;
@@ -105,14 +154,9 @@
   padding: 1px 2px;
 }
 
-.inv-badge-target {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  font-size: 10px;
-  line-height: 1;
+.inv-cell--mod-pending .inv-badge-context {
+  bottom: 12px;
 }
-
 .inv-drop-zone {
   min-height: 56px;
   border: 2px dashed #d9d9d9;

@@ -11,10 +11,15 @@ export type PopoverAction = {
 
 export type ItemPopoverActionsProps = {
   inBattle: boolean
+  disabledTooltip?: string
   actions: PopoverAction[]
 }
 
-export function ItemPopoverActions({ inBattle, actions }: ItemPopoverActionsProps) {
+export function ItemPopoverActions({
+  inBattle,
+  disabledTooltip,
+  actions,
+}: ItemPopoverActionsProps) {
   const buttons = (
     <Space wrap size="small">
       {actions.map((a) => (
@@ -33,7 +38,7 @@ export function ItemPopoverActions({ inBattle, actions }: ItemPopoverActionsProp
   )
 
   if (inBattle) {
-    return <Tooltip title="Доступно после боя">{buttons}</Tooltip>
+    return <Tooltip title={disabledTooltip ?? 'Доступно после боя'}>{buttons}</Tooltip>
   }
   return buttons
 }

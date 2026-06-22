@@ -96,6 +96,38 @@ export function CampaignHub() {
     dispatchRun({ type: 'SWAP_SQUAD_SLOTS', from, to })
   }
 
+  const pickModOffer = (
+    characterId: string,
+    carrierKind: 'card' | 'item',
+    carrierId: string,
+    slotIndex: number,
+    modTemplateId: string,
+  ) => {
+    dispatchRun({
+      type: 'PICK_MOD_OFFER',
+      characterId,
+      carrierKind,
+      carrierId,
+      slotIndex,
+      modTemplateId,
+    })
+  }
+
+  const removeMod = (
+    characterId: string,
+    carrierKind: 'card' | 'item',
+    carrierId: string,
+    slotIndex: number,
+  ) => {
+    dispatchRun({
+      type: 'REMOVE_MOD',
+      characterId,
+      carrierKind,
+      carrierId,
+      slotIndex,
+    })
+  }
+
   const assignToSquad = (characterId: string) => {
     const slotIndex = findFirstEmptySquadSlotIndex(campaign.squad)
     if (slotIndex === null) {
@@ -159,6 +191,7 @@ export function CampaignHub() {
           <CampaignCharacterTab
             campaign={campaign}
             inBattle={inBattle}
+            expeditionActive={expeditionActive}
             onEquip={equip}
             onUnequip={unequip}
             onReorderStash={reorderStash}
@@ -169,6 +202,8 @@ export function CampaignHub() {
             onSwapSquadSlots={swapSquadSlots}
             onAssignToSquad={assignToSquad}
             onRemoveFromSquad={removeFromSquad}
+            onPickModOffer={pickModOffer}
+            onRemoveMod={removeMod}
             onInvalidSlot={() => message.warning('Не подходит к этому слоту')}
           />
         ) : null}

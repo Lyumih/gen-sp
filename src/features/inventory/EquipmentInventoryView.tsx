@@ -18,7 +18,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Button, Space, Tooltip, Typography } from 'antd'
+import { App, Button, Divider, Space, Tooltip, Typography } from 'antd'
 import { getItemTemplate } from '../../game/content/itemTemplates'
 import {
   itemInstanceDescriptionLinesFromInstance,
@@ -32,12 +32,13 @@ import {
   stashItemsFromCampaign,
 } from '../../game/equipment/stashOrder'
 import { getCharacter } from '../../game/character/selectors'
-import type { CampaignState, EquipmentSlot, ItemInstance } from '../../game/types'
+import type { CampaignState, EquipmentSlot, ItemInstance, ModOffer } from '../../game/types'
 import { UI_HEART, UI_DAMAGE, UI_LEVEL } from '../../game/ui/labels'
 import { SLOT_LABEL } from '../campaign/campaignHubShared'
 import { ItemPopoverActions } from './ItemPopoverActions'
 import { InventoryCell, type InventoryCellState } from './InventoryCell'
 import { InventoryGrid } from './InventoryGrid'
+import { ModOfferPicker } from './ModOfferPicker'
 import {
   parseDragId,
   resolveSquadDragDrop,
@@ -47,12 +48,26 @@ import {
 } from './inventoryDnD'
 import { resolveItemEmoji, SLOT_EMOJI } from './inventoryEmoji'
 import { previewEquipDelta } from './previewEquipDelta'
+import {
+  CarrierModPopoverSection,
+  ModSlotDots,
+  hasPendingModOffer,
+  removeModConfirmText,
+} from './modSlotBadges'
 import './inventory.css'
+
+type PickerState = {
+  carrierId: string
+  slotIndex: number
+  offer: ModOffer
+} | null
 
 type EquipmentInventoryViewProps = {
   campaign: CampaignState
   characterId: string
   inBattle: boolean
+  modsDisabled?: boolean
+  modsDisabledTooltip?: string
   onEquip: (itemId: string, slot: EquipmentSlot) => void
   onUnequip: (slot: EquipmentSlot) => void
   onReorderStash: (itemIds: string[]) => void
@@ -60,14 +75,48 @@ type EquipmentInventoryViewProps = {
   onTransferItem?: (itemId: string, toCharacterId: string) => void
   onSetSquadSlot?: (slotIndex: number, characterId: string | null) => void
   onSwapSquadSlots?: (from: number, to: number) => void
+  onPickModOffer: (
+    carrierKind: 'item',
+    carrierId: string,
+    slotIndex: number,
+    modTemplateId: string,
+  ) => void
+  onRemoveMod: (carrierKind: 'item', carrierId: string, slotIndex: number) => void
   squadLocked?: boolean
   dndBeforeContent?: (activeDragId: string | null) => ReactNode
+}
+
+function itemModPopoverSection(
+  item: ItemInstance,
+  modsDisabled: boolean,
+  modsDisabledTooltip: string | undefined,
+  onOpenPicker: (slotIndex: number, offer: ModOffer) => void,
+  onConfirmRemove: (slotIndex: number) => void,
+) {
+  if (item.modSlots.length === 0 && item.itemLevel === 0) return null
+  return (
+    <>
+      <Divider style={{ margin: '4px 0' }} />
+      <CarrierModPopoverSection
+        modSlots={item.modSlots}
+        carrierLevel={item.itemLevel}
+        modsDisabled={modsDisabled}
+        modsDisabledTooltip={modsDisabledTooltip}
+        onOpenPicker={onOpenPicker}
+        onConfirmRemove={onConfirmRemove}
+      />
+    </>
+  )
 }
 
 function characterStashPopover(
   item: ItemInstance,
   inBattle: boolean,
+  modsDisabled: boolean,
+  modsDisabledTooltip: string | undefined,
   onEquip: () => void,
+  onOpenPicker: (slotIndex: number, offer: ModOffer) => void,
+  onConfirmRemove: (slotIndex: number) => void,
 ) {
   const tmpl = getItemTemplate(item.templateId)
   const lines = itemInstanceDescriptionLinesFromInstance(item, getItemTemplate)
@@ -89,6 +138,13 @@ function characterStashPopover(
         inBattle={inBattle}
         actions={[{ key: 'equip', label: 'Надеть', type: 'primary', onClick: onEquip }]}
       />
+      {itemModPopoverSection(
+        item,
+        modsDisabled,
+        modsDisabledTooltip,
+        onOpenPicker,
+        onConfirmRemove,
+      )}
     </Space>
   )
 }
@@ -96,7 +152,11 @@ function characterStashPopover(
 function characterSlotPopover(
   item: ItemInstance,
   inBattle: boolean,
+  modsDisabled: boolean,
+  modsDisabledTooltip: string | undefined,
   onUnequip: () => void,
+  onOpenPicker: (slotIndex: number, offer: ModOffer) => void,
+  onConfirmRemove: (slotIndex: number) => void,
 ) {
   const tmpl = getItemTemplate(item.templateId)
   const lines = itemInstanceDescriptionLinesFromInstance(item, getItemTemplate)
@@ -118,6 +178,13 @@ function characterSlotPopover(
         inBattle={inBattle}
         actions={[{ key: 'unequip', label: 'Снять', onClick: onUnequip }]}
       />
+      {itemModPopoverSection(
+        item,
+        modsDisabled,
+        modsDisabledTooltip,
+        onOpenPicker,
+        onConfirmRemove,
+      )}
     </Space>
   )
 }
@@ -125,15 +192,23 @@ function characterSlotPopover(
 function SortableStashCell({
   item,
   inBattle,
+  modsDisabled,
   cellState,
   onDoubleClick,
   onEquip,
+  onOpenPicker,
+  onConfirmRemove,
+  modsDisabledTooltip,
 }: {
   item: ItemInstance
   inBattle: boolean
+  modsDisabled: boolean
+  modsDisabledTooltip?: string
   cellState: InventoryCellState
   onDoubleClick: () => void
   onEquip: () => void
+  onOpenPicker: (slotIndex: number, offer: ModOffer) => void
+  onConfirmRemove: (slotIndex: number) => void
 }) {
   const tmpl = getItemTemplate(item.templateId)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -156,9 +231,19 @@ function SortableStashCell({
       emoji={resolveItemEmoji(tmpl, tmpl?.slot ?? 'weapon')}
       levelBadge={`${UI_LEVEL}${item.itemLevel}`}
       contextBadge={tmpl ? SLOT_EMOJI[tmpl.slot] : undefined}
+      showModPendingBadge={!modsDisabled && hasPendingModOffer(item.modSlots)}
+      slotDots={item.modSlots.length > 0 ? <ModSlotDots modSlots={item.modSlots} /> : undefined}
       state={cellState}
       popoverTitle={tmpl?.label}
-      popoverContent={characterStashPopover(item, inBattle, onEquip)}
+      popoverContent={characterStashPopover(
+        item,
+        inBattle,
+        modsDisabled,
+        modsDisabledTooltip,
+        onEquip,
+        onOpenPicker,
+        onConfirmRemove,
+      )}
       ariaLabel={tmpl ? itemSelectShortLabel(tmpl, item.itemLevel) : item.id}
       onDoubleClick={onDoubleClick}
     />
@@ -184,16 +269,24 @@ function EquipmentSlotCell({
   slot,
   item,
   inBattle,
+  modsDisabled,
   dragOver,
   compareText,
   onUnequip,
+  onOpenPicker,
+  onConfirmRemove,
+  modsDisabledTooltip,
 }: {
   slot: EquipmentSlot
   item: ItemInstance | undefined
   inBattle: boolean
+  modsDisabled: boolean
+  modsDisabledTooltip?: string
   dragOver: boolean
   compareText?: string
   onUnequip: () => void
+  onOpenPicker: (slotIndex: number, offer: ModOffer) => void
+  onConfirmRemove: (slotIndex: number) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: slotDragId(slot), disabled: inBattle })
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
@@ -215,7 +308,15 @@ function EquipmentSlotCell({
     compareText !== undefined ? (
       <Typography.Text style={{ fontSize: 12 }}>{compareText}</Typography.Text>
     ) : item ? (
-      characterSlotPopover(item, inBattle, onUnequip)
+      characterSlotPopover(
+        item,
+        inBattle,
+        modsDisabled,
+        modsDisabledTooltip,
+        onUnequip,
+        onOpenPicker,
+        onConfirmRemove,
+      )
     ) : undefined
 
   return (
@@ -230,6 +331,12 @@ function EquipmentSlotCell({
         emoji={item ? resolveItemEmoji(tmpl, slot) : SLOT_EMOJI[slot]}
         levelBadge={item ? `${UI_LEVEL}${item.itemLevel}` : undefined}
         contextBadge={SLOT_EMOJI[slot]}
+        showModPendingBadge={Boolean(item && !modsDisabled && hasPendingModOffer(item.modSlots))}
+        slotDots={
+          item && item.modSlots.length > 0 ? (
+            <ModSlotDots modSlots={item.modSlots} />
+          ) : undefined
+        }
         state={state}
         popoverTitle={item ? tmpl?.label : SLOT_LABEL[slot]}
         popoverContent={popover}
@@ -247,6 +354,8 @@ export function EquipmentInventoryView({
   campaign,
   characterId,
   inBattle,
+  modsDisabled = false,
+  modsDisabledTooltip,
   onEquip,
   onUnequip,
   onReorderStash,
@@ -254,9 +363,12 @@ export function EquipmentInventoryView({
   onTransferItem,
   onSetSquadSlot,
   onSwapSquadSlots,
+  onPickModOffer,
+  onRemoveMod,
   squadLocked = false,
   dndBeforeContent,
 }: EquipmentInventoryViewProps) {
+  const { modal } = App.useApp()
   const hero = getCharacter(campaign, characterId)
   const stash = useMemo(
     () => (hero ? stashItemsFromCampaign(hero.items, hero.equipment) : []),
@@ -265,6 +377,28 @@ export function EquipmentInventoryView({
   const stashIds = stash.map((i) => i.id)
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
   const [flashInvalid, setFlashInvalid] = useState(false)
+  const [picker, setPicker] = useState<PickerState>(null)
+
+  function openPicker(carrierId: string, slotIndex: number, offer: ModOffer) {
+    setPicker({ carrierId, slotIndex, offer })
+  }
+
+  function confirmRemoveMod(item: ItemInstance, slotIndex: number) {
+    modal.confirm({
+      title: 'Удалить модификатор?',
+      content: removeModConfirmText(item.itemLevel, slotIndex),
+      okText: 'Удалить',
+      cancelText: 'Отмена',
+      okButtonProps: { danger: true },
+      onOk: () => onRemoveMod('item', item.id, slotIndex),
+    })
+  }
+
+  const bindItemModHandlers = (item: ItemInstance) => ({
+    onOpenPicker: (slotIndex: number, offer: ModOffer) =>
+      openPicker(item.id, slotIndex, offer),
+    onConfirmRemove: (slotIndex: number) => confirmRemoveMod(item, slotIndex),
+  })
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -383,9 +517,19 @@ export function EquipmentInventoryView({
                 slot={slot}
                 item={item}
                 inBattle={inBattle}
+                modsDisabled={modsDisabled}
+                modsDisabledTooltip={modsDisabledTooltip}
                 dragOver={Boolean(dragOver)}
                 compareText={compareForSlot(slot)}
                 onUnequip={() => onUnequip(slot)}
+                onOpenPicker={
+                  item
+                    ? (slotIndex, offer) => openPicker(item.id, slotIndex, offer)
+                    : () => {}
+                }
+                onConfirmRemove={
+                  item ? (slotIndex) => confirmRemoveMod(item, slotIndex) : () => {}
+                }
               />
             )
           })}
@@ -419,11 +563,14 @@ export function EquipmentInventoryView({
               }
               const item = stash[index]!
               const tmpl = getItemTemplate(item.templateId)
+              const modHandlers = bindItemModHandlers(item)
               return (
                 <SortableStashCell
                   key={item.id}
                   item={item}
                   inBattle={inBattle}
+                  modsDisabled={modsDisabled}
+                  modsDisabledTooltip={modsDisabledTooltip}
                   cellState={
                     inBattle ? 'disabled' : flashInvalid ? 'invalidDrop' : 'filled'
                   }
@@ -435,12 +582,23 @@ export function EquipmentInventoryView({
                     if (inBattle || !tmpl) return
                     onEquip(item.id, tmpl.slot)
                   }}
+                  {...modHandlers}
                 />
               )
             }}
           />
         </SortableContext>
       </div>
+      <ModOfferPicker
+        open={picker !== null}
+        offer={picker?.offer ?? null}
+        onCancel={() => setPicker(null)}
+        onPick={(modTemplateId) => {
+          if (!picker) return
+          onPickModOffer('item', picker.carrierId, picker.slotIndex, modTemplateId)
+          setPicker(null)
+        }}
+      />
     </Space>
   )
 

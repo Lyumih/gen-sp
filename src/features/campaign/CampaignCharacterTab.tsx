@@ -14,6 +14,7 @@ import '../inventory/inventory.css'
 type CampaignCharacterTabProps = {
   campaign: CampaignState
   inBattle: boolean
+  expeditionActive: boolean
   onEquip: (characterId: string, itemId: string, slot: EquipmentSlot) => void
   onUnequip: (characterId: string, slot: EquipmentSlot) => void
   onReorderStash: (characterId: string, itemIds: string[]) => void
@@ -24,12 +25,26 @@ type CampaignCharacterTabProps = {
   onSwapSquadSlots: (from: number, to: number) => void
   onAssignToSquad: (characterId: string) => void
   onRemoveFromSquad: (characterId: string) => void
+  onPickModOffer: (
+    characterId: string,
+    carrierKind: 'card' | 'item',
+    carrierId: string,
+    slotIndex: number,
+    modTemplateId: string,
+  ) => void
+  onRemoveMod: (
+    characterId: string,
+    carrierKind: 'card' | 'item',
+    carrierId: string,
+    slotIndex: number,
+  ) => void
   onInvalidSlot: () => void
 }
 
 export function CampaignCharacterTab({
   campaign,
   inBattle,
+  expeditionActive,
   onEquip,
   onUnequip,
   onReorderStash,
@@ -40,6 +55,8 @@ export function CampaignCharacterTab({
   onSwapSquadSlots,
   onAssignToSquad,
   onRemoveFromSquad,
+  onPickModOffer,
+  onRemoveMod,
   onInvalidSlot,
 }: CampaignCharacterTabProps) {
   const [selectedCharacterId, setSelectedCharacterId] = useState(
@@ -52,7 +69,13 @@ export function CampaignCharacterTab({
     }
   }, [campaign, selectedCharacterId])
 
-  const squadLocked = campaign.expedition !== null
+  const squadLocked = expeditionActive
+  const modsDisabled = inBattle || expeditionActive
+  const modsDisabledTooltip = expeditionActive
+    ? 'Недоступно во время expedition'
+    : inBattle
+      ? 'Доступно после боя'
+      : undefined
   const transferDisabled = inBattle || squadLocked
   const selectedCharacter = getCharacter(campaign, selectedCharacterId) ?? getActiveCharacter(campaign)
   const gearCardPreview = aggregateGearCardLevelBonus(
@@ -67,6 +90,8 @@ export function CampaignCharacterTab({
         campaign={campaign}
         characterId={selectedCharacterId}
         inBattle={inBattle}
+        modsDisabled={modsDisabled}
+        modsDisabledTooltip={modsDisabledTooltip}
         squadLocked={squadLocked}
         onEquip={(itemId, slot) => onEquip(selectedCharacterId, itemId, slot)}
         onUnequip={(slot) => onUnequip(selectedCharacterId, slot)}
@@ -77,6 +102,18 @@ export function CampaignCharacterTab({
         }
         onSetSquadSlot={onSetSquadSlot}
         onSwapSquadSlots={onSwapSquadSlots}
+        onPickModOffer={(_kind, carrierId, slotIndex, modTemplateId) =>
+          onPickModOffer(
+            selectedCharacterId,
+            'item',
+            carrierId,
+            slotIndex,
+            modTemplateId,
+          )
+        }
+        onRemoveMod={(_kind, carrierId, slotIndex) =>
+          onRemoveMod(selectedCharacterId, 'item', carrierId, slotIndex)
+        }
         dndBeforeContent={(activeDragId) => (
           <Space orientation="vertical" size="middle" style={{ width: '100%', marginBottom: 16 }}>
             <SquadSlotRow
@@ -126,10 +163,24 @@ export function CampaignCharacterTab({
           campaign={campaign}
           characterId={selectedCharacterId}
           inBattle={inBattle}
+          modsDisabled={modsDisabled}
+          modsDisabledTooltip={modsDisabledTooltip}
           gearCardLevelBonus={gearCardPreview}
           onReorderCards={(cardIds) => onReorderCards(selectedCharacterId, cardIds)}
           onSetBattleLoadout={(slotIndex, cardId) =>
             onSetBattleLoadout(selectedCharacterId, slotIndex, cardId)
+          }
+          onPickModOffer={(_kind, carrierId, slotIndex, modTemplateId) =>
+            onPickModOffer(
+              selectedCharacterId,
+              'card',
+              carrierId,
+              slotIndex,
+              modTemplateId,
+            )
+          }
+          onRemoveMod={(_kind, carrierId, slotIndex) =>
+            onRemoveMod(selectedCharacterId, 'card', carrierId, slotIndex)
           }
         />
       </div>

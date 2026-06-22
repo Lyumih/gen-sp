@@ -17,35 +17,68 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Space, Tooltip, Typography } from 'antd'
+import { App, Divider, Space, Tooltip, Typography } from 'antd'
 import { getCardAttackTemplate } from '../../game/content/cardTemplates'
 import { getCharacter } from '../../game/character/selectors'
 import { describeCardCombatStats } from '../../game/descriptions/cardText'
-import type { CampaignState, CardInstance } from '../../game/types'
+import type { CampaignState, CardInstance, ModOffer } from '../../game/types'
 import { UI_DAMAGE, UI_HEART, UI_LEVEL } from '../../game/ui/labels'
 import { InventoryCell } from './InventoryCell'
 import { InventoryGrid } from './InventoryGrid'
+import { ModOfferPicker } from './ModOfferPicker'
 import { cardDragId, loadoutDragId, parseDragId } from './inventoryDnD'
 import { resolveCardEmoji } from './inventoryEmoji'
+import {
+  CarrierModPopoverSection,
+  ModSlotDots,
+  hasPendingModOffer,
+  removeModConfirmText,
+} from './modSlotBadges'
 import './inventory.css'
+
+type ModCarrierKind = 'card' | 'item'
+
+type PickerState = {
+  carrierKind: ModCarrierKind
+  carrierId: string
+  slotIndex: number
+  offer: ModOffer
+} | null
 
 type CardsInventoryViewProps = {
   campaign: CampaignState
   characterId: string
   inBattle: boolean
+  modsDisabled?: boolean
+  modsDisabledTooltip?: string
   gearCardLevelBonus: number
   onReorderCards: (cardIds: string[]) => void
   onSetBattleLoadout: (slotIndex: 0 | 1, cardId: string | null) => void
+  onPickModOffer: (
+    carrierKind: 'card',
+    carrierId: string,
+    slotIndex: number,
+    modTemplateId: string,
+  ) => void
+  onRemoveMod: (carrierKind: 'card', carrierId: string, slotIndex: number) => void
 }
 
 function SortableCardCell({
   card,
   inBattle,
+  modsDisabled,
   gearCardLevelBonus,
+  onOpenPicker,
+  onConfirmRemove,
+  modsDisabledTooltip,
 }: {
   card: CardInstance
   inBattle: boolean
+  modsDisabled: boolean
+  modsDisabledTooltip?: string
   gearCardLevelBonus: number
+  onOpenPicker: (carrierId: string, slotIndex: number, offer: ModOffer) => void
+  onConfirmRemove: (card: CardInstance, slotIndex: number) => void
 }) {
   const tmpl = getCardAttackTemplate(card.templateId)
   const stats = describeCardCombatStats(card, gearCardLevelBonus)
@@ -55,15 +88,32 @@ function SortableCardCell({
   })
 
   const effectUi = tmpl?.kind === 'heal' ? UI_HEART : UI_DAMAGE
+  const showModBadge = !modsDisabled && hasPendingModOffer(card.modSlots)
+  const hasModUi = card.modSlots.length > 0 || card.global_level > 0
 
   const popover = (
-    <ul style={{ margin: 0, paddingLeft: 16, maxWidth: 320 }}>
-      {stats.lines.map((line, idx) => (
-        <li key={idx}>
-          <Typography.Text style={{ fontSize: 12 }}>{line}</Typography.Text>
-        </li>
-      ))}
-    </ul>
+    <Space orientation="vertical" size="small" style={{ maxWidth: 320 }}>
+      <ul style={{ margin: 0, paddingLeft: 16 }}>
+        {stats.lines.map((line, idx) => (
+          <li key={idx}>
+            <Typography.Text style={{ fontSize: 12 }}>{line}</Typography.Text>
+          </li>
+        ))}
+      </ul>
+      {hasModUi ? (
+        <>
+          <Divider style={{ margin: '4px 0' }} />
+          <CarrierModPopoverSection
+            modSlots={card.modSlots}
+            carrierLevel={card.global_level}
+            modsDisabled={modsDisabled}
+            modsDisabledTooltip={modsDisabledTooltip}
+            onOpenPicker={(slotIndex, offer) => onOpenPicker(card.id, slotIndex, offer)}
+            onConfirmRemove={(slotIndex) => onConfirmRemove(card, slotIndex)}
+          />
+        </>
+      ) : null}
+    </Space>
   )
 
   return (
@@ -81,6 +131,8 @@ function SortableCardCell({
       contextBadge={
         stats.expectedDamage !== null ? `${effectUi}${stats.expectedDamage}` : undefined
       }
+      showModPendingBadge={showModBadge}
+      slotDots={card.modSlots.length > 0 ? <ModSlotDots modSlots={card.modSlots} /> : undefined}
       state={inBattle ? 'disabled' : 'filled'}
       popoverTitle={stats.displayLabel}
       popoverContent={popover}
@@ -93,12 +145,20 @@ function LoadoutSlotCell({
   slotIndex,
   card,
   inBattle,
+  modsDisabled,
   gearCardLevelBonus,
+  onOpenPicker,
+  onConfirmRemove,
+  modsDisabledTooltip,
 }: {
   slotIndex: 0 | 1
   card: CardInstance | null
   inBattle: boolean
+  modsDisabled: boolean
+  modsDisabledTooltip?: string
   gearCardLevelBonus: number
+  onOpenPicker: (carrierId: string, slotIndex: number, offer: ModOffer) => void
+  onConfirmRemove: (card: CardInstance, slotIndex: number) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: loadoutDragId(slotIndex),
@@ -111,7 +171,11 @@ function LoadoutSlotCell({
         <SortableCardCell
           card={card}
           inBattle={inBattle}
+          modsDisabled={modsDisabled}
+          modsDisabledTooltip={modsDisabledTooltip}
           gearCardLevelBonus={gearCardLevelBonus}
+          onOpenPicker={onOpenPicker}
+          onConfirmRemove={onConfirmRemove}
         />
       </div>
     )
@@ -132,16 +196,22 @@ export function CardsInventoryView({
   campaign,
   characterId,
   inBattle,
+  modsDisabled = false,
+  modsDisabledTooltip,
   gearCardLevelBonus,
   onReorderCards,
   onSetBattleLoadout,
+  onPickModOffer,
+  onRemoveMod,
 }: CardsInventoryViewProps) {
+  const { modal } = App.useApp()
   const hero = getCharacter(campaign, characterId)
   const loadout = hero?.battleLoadout ?? [null, null]
   const loadoutIds = new Set(loadout.filter((id): id is string => id !== null))
   const collectionCards = hero?.cards.filter((c) => !loadoutIds.has(c.id)) ?? []
   const cardIds = collectionCards.map((c) => c.id)
   const [activeCardId, setActiveCardId] = useState<string | null>(null)
+  const [picker, setPicker] = useState<PickerState>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -149,6 +219,21 @@ export function CardsInventoryView({
 
   function resolveCard(cardId: string): CardInstance | undefined {
     return hero?.cards.find((c) => c.id === cardId)
+  }
+
+  function openPicker(carrierId: string, slotIndex: number, offer: ModOffer) {
+    setPicker({ carrierKind: 'card', carrierId, slotIndex, offer })
+  }
+
+  function confirmRemoveMod(card: CardInstance, slotIndex: number) {
+    modal.confirm({
+      title: 'Удалить модификатор?',
+      content: removeModConfirmText(card.global_level, slotIndex),
+      okText: 'Удалить',
+      cancelText: 'Отмена',
+      okButtonProps: { danger: true },
+      onOk: () => onRemoveMod('card', card.id, slotIndex),
+    })
   }
 
   function handleDragStart(event: DragStartEvent) {
@@ -196,7 +281,11 @@ export function CardsInventoryView({
         slotIndex={slotIndex}
         card={card ?? null}
         inBattle={inBattle}
+        modsDisabled={modsDisabled}
+        modsDisabledTooltip={modsDisabledTooltip}
         gearCardLevelBonus={gearCardLevelBonus}
+        onOpenPicker={openPicker}
+        onConfirmRemove={confirmRemoveMod}
       />
     )
   }
@@ -226,12 +315,26 @@ export function CardsInventoryView({
                 key={card.id}
                 card={card}
                 inBattle={inBattle}
+                modsDisabled={modsDisabled}
+                modsDisabledTooltip={modsDisabledTooltip}
                 gearCardLevelBonus={gearCardLevelBonus}
+                onOpenPicker={openPicker}
+                onConfirmRemove={confirmRemoveMod}
               />
             )
           }}
         />
       </SortableContext>
+      <ModOfferPicker
+        open={picker !== null}
+        offer={picker?.offer ?? null}
+        onCancel={() => setPicker(null)}
+        onPick={(modTemplateId) => {
+          if (!picker) return
+          onPickModOffer('card', picker.carrierId, picker.slotIndex, modTemplateId)
+          setPicker(null)
+        }}
+      />
     </Space>
   )
 
