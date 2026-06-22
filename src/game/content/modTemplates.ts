@@ -5,6 +5,10 @@ export type ModTemplate = {
   label: string
   emoji?: string
   descriptionLines: readonly string[]
+  /** All carrier tags must be present for the mod to appear in offers. */
+  requires?: readonly string[]
+  /** Mod is excluded when the carrier has any of these tags. */
+  excludes?: readonly string[]
 }
 
 export const MOD_TEMPLATES: Readonly<Record<string, ModTemplate>> = {
