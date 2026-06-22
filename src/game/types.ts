@@ -170,7 +170,7 @@ export type BattleAction =
       fromCard?: { cardId: string; templateId: string }
     }
 
-export type RunPhase = 'hub' | 'battle' | 'victory' | 'defeat'
+export type RunPhase = 'hub' | 'battle' | 'victory' | 'defeat' | 'inter_battle'
 
 /** Снимок мета-состояния на начало попытки боя (retry откатывает сюда). */
 export type BattleAttemptSnapshot = {

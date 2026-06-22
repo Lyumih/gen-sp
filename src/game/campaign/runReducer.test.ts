@@ -919,3 +919,273 @@ describe('scenarios', () => {
     expect(SCENARIOS.length).toBeLessThanOrEqual(3)
   })
 })
+
+describe('expedition state machine', () => {
+  function hubState(): CampaignState {
+    return initialCampaignState()
+  }
+
+  function winCurrentBattle(s: CampaignState): CampaignState {
+    let current = s
+    let guard = 0
+    while (current.battle?.phase === 'ongoing' && guard < 128) {
+      guard++
+      const b = current.battle!
+      const actorId = b.turnOrder[b.currentTurnIndex]
+      const before = current
+      if (actorId === 'hero') {
+        const hero = b.units.find((u) => u.id === 'hero' && u.hp > 0)
+        const enemy = b.units.find((u) => u.side === 'enemy' && u.hp > 0)
+        if (!hero || !enemy) break
+        current = applyRunAction(current, {
+          type: 'BATTLE_DISPATCH',
+          battleAction: {
+            type: 'attack',
+            attackerId: 'hero',
+            targetId: enemy.id,
+            damage: 999,
+            kind: 'ranged',
+            maxRange: 10,
+          },
+        })
+        if (current === before) {
+          current = applyRunAction(current, {
+            type: 'BATTLE_DISPATCH',
+            battleAction: {
+              type: 'attack',
+              attackerId: 'hero',
+              targetId: enemy.id,
+              damage: 999,
+              kind: 'melee',
+            },
+          })
+        }
+        if (current === before) {
+          const dx = enemy.x > hero.x ? 1 : enemy.x < hero.x ? -1 : 0
+          const dy = enemy.y > hero.y ? 1 : enemy.y < hero.y ? -1 : 0
+          current = applyRunAction(current, {
+            type: 'BATTLE_DISPATCH',
+            battleAction: {
+              type: 'move',
+              unitId: 'hero',
+              toX: hero.x + dx,
+              toY: hero.y + dy,
+            },
+          })
+        }
+        if (current === before) {
+          current = applyRunAction(current, {
+            type: 'BATTLE_DISPATCH',
+            battleAction: {
+              type: 'move',
+              unitId: 'hero',
+              toX: hero.x,
+              toY: hero.y + (enemy.y !== hero.y ? (enemy.y > hero.y ? 1 : -1) : 1),
+            },
+          })
+        }
+      } else {
+        const actor = b.units.find((u) => u.id === actorId)
+        if (!actor) break
+        current = applyRunAction(current, {
+          type: 'BATTLE_DISPATCH',
+          battleAction: {
+            type: 'move',
+            unitId: actorId,
+            toX: Math.max(0, actor.x - 1),
+            toY: actor.y,
+          },
+        })
+        if (current === before) {
+          current = applyRunAction(current, {
+            type: 'BATTLE_DISPATCH',
+            battleAction: {
+              type: 'move',
+              unitId: actorId,
+              toX: Math.min(b.width - 1, actor.x + 1),
+              toY: actor.y,
+            },
+          })
+        }
+      }
+      if (current === before) break
+    }
+    return current
+  }
+
+  function loseCurrentBattle(s: CampaignState): CampaignState {
+    let current = s
+    const b = current.battle!
+    if (b.turnOrder[b.currentTurnIndex] === 'hero') {
+      current = applyRunAction(current, {
+        type: 'BATTLE_DISPATCH',
+        battleAction: { type: 'move', unitId: 'hero', toX: 1, toY: 2 },
+      })
+    }
+    const enemy = current.battle!.units.find((u) => u.side === 'enemy' && u.hp > 0)
+    if (!enemy) return current
+    return applyRunAction(current, {
+      type: 'BATTLE_DISPATCH',
+      battleAction: {
+        type: 'attack',
+        attackerId: enemy.id,
+        targetId: 'hero',
+        damage: 999,
+        kind: 'ranged',
+        maxRange: 10,
+      },
+    })
+  }
+
+  it('START_EXPEDITION freezes squad and starts first battle', () => {
+    const state = hubState()
+    const next = applyRunAction(state, {
+      type: 'START_EXPEDITION',
+      chainId: 'campaign-main',
+      selectedCharacterIds: [HERO_ID],
+    })
+
+    expect(next.expedition).not.toBeNull()
+    expect(next.expedition!.battleIndex).toBe(0)
+    expect(next.battle).not.toBeNull()
+    expect(next.phase).toBe('battle')
+    expect(next.expedition!.scenarioChainId).toBe('campaign-main')
+
+    const frozen = applyRunAction(next, {
+      type: 'BUY_ITEM',
+      characterId: HERO_ID,
+      templateId: 'wooden_sword',
+    })
+    expect(frozen).toBe(next)
+  })
+
+  it('mid-chain victory enters inter_battle and ADVANCE starts next battle', () => {
+    let s = applyRunAction(hubState(), {
+      type: 'START_EXPEDITION',
+      chainId: 'campaign-main',
+      selectedCharacterIds: [HERO_ID],
+    })
+
+    s = winCurrentBattle(s)
+    expect(s.phase).toBe('inter_battle')
+    expect(s.battle).toBeNull()
+    expect(s.expedition!.battleIndex).toBe(1)
+
+    s = applyRunAction(s, { type: 'ADVANCE_EXPEDITION_BATTLE' })
+    expect(s.phase).toBe('battle')
+    expect(s.battle).not.toBeNull()
+    expect(s.expedition!.battleIndex).toBe(1)
+    expect(s.battle!.units.some((u) => u.id === 'e2')).toBe(true)
+  })
+
+  it('interBattleReviveAllDowned revives squad on camp between battles', () => {
+    let s = applyRunAction(hubState(), {
+      type: 'START_EXPEDITION',
+      chainId: 'campaign-main',
+      selectedCharacterIds: [HERO_ID],
+    })
+
+    s = loseCurrentBattle(s)
+    expect(s.phase).toBe('defeat')
+
+    s = applyRunAction(s, { type: 'RETRY_CURRENT_BATTLE' })
+    s = winCurrentBattle(s)
+
+    expect(s.phase).toBe('inter_battle')
+    expect(s.expedition!.squadSnapshot[0]!.metaStatus).toBe('active')
+  })
+
+  it('INTER_BATTLE_REVIVE_ALL revives downed when camp rule enabled', () => {
+    let s: CampaignState = {
+      ...hubState(),
+      phase: 'inter_battle',
+      expedition: {
+        scenarioChainId: 'campaign-main',
+        partySize: 1,
+        squadSnapshot: [
+          {
+            characterId: HERO_ID,
+            equipment: { weapon: null, armor: null, accessory: null },
+            battleLoadout: ['c1', 'c2'],
+            metaStatus: 'downed',
+          },
+        ],
+        battleIndex: 1,
+        battleCount: 3,
+        shopLocked: true,
+        interBattleReviveAllDowned: true,
+      },
+    }
+
+    s = applyRunAction(s, { type: 'INTER_BATTLE_REVIVE_ALL' })
+    expect(s.expedition!.squadSnapshot[0]!.metaStatus).toBe('active')
+  })
+
+  it('last battle victory then FINALIZE_VICTORY clears expedition and grants rewards', () => {
+    let s = applyRunAction(hubState(), {
+      type: 'START_EXPEDITION',
+      chainId: 'test-single-battle',
+      selectedCharacterIds: [HERO_ID],
+    })
+
+    s = winCurrentBattle(s)
+
+    expect(s.phase).toBe('victory')
+    expect(s.expedition).not.toBeNull()
+
+    s = applyRunAction(s, {
+      type: 'FINALIZE_VICTORY',
+      itemLevelRolls: [],
+      playerUnitLevelRoll: 50,
+    })
+
+    expect(s.phase).toBe('hub')
+    expect(s.expedition).toBeNull()
+    expect(s.battle).toBeNull()
+    expect(s.gold).toBe(55)
+    expect(hero(s).unitLevel).toBe(2)
+  })
+
+  it('defeat keeps expedition for retry', () => {
+    let s = applyRunAction(hubState(), {
+      type: 'START_EXPEDITION',
+      chainId: 'campaign-main',
+      selectedCharacterIds: [HERO_ID],
+    })
+
+    s = loseCurrentBattle(s)
+    expect(s.phase).toBe('defeat')
+    expect(s.expedition).not.toBeNull()
+    expect(s.expedition!.battleIndex).toBe(0)
+
+    s = applyRunAction(s, { type: 'RETRY_CURRENT_BATTLE' })
+    expect(s.phase).toBe('battle')
+    expect(s.expedition!.battleIndex).toBe(0)
+  })
+
+  it('FINISH_EXPEDITION clears expedition and returns to hub', () => {
+    const s: CampaignState = {
+      ...hubState(),
+      phase: 'inter_battle',
+      expedition: {
+        scenarioChainId: 'campaign-main',
+        partySize: 1,
+        squadSnapshot: [
+          {
+            characterId: HERO_ID,
+            equipment: { weapon: null, armor: null, accessory: null },
+            battleLoadout: ['c1', 'c2'],
+            metaStatus: 'active',
+          },
+        ],
+        battleIndex: 1,
+        battleCount: 3,
+        shopLocked: true,
+      },
+    }
+
+    const next = applyRunAction(s, { type: 'FINISH_EXPEDITION' })
+    expect(next.expedition).toBeNull()
+    expect(next.phase).toBe('hub')
+  })
+})

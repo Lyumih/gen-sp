@@ -1,8 +1,10 @@
+import { getCharacter } from '../character/selectors'
 import type {
   BattleAttemptSnapshot,
   BattleLoadout,
   CampaignState,
   CardInstance,
+  Expedition,
   ItemInstance,
 } from '../types'
 import { getPrimaryCharacter } from './selectors'
@@ -33,6 +35,42 @@ export function buildBattleAttemptSnapshot(
     gold: state.gold,
     items: cloneItems(hero.items),
     equipment: { ...hero.equipment },
+  }
+}
+
+/** First squad member eligible to fight (active, non-null). */
+export function getExpeditionBattleCharacterId(expedition: Expedition): string | null {
+  const active = expedition.squadSnapshot.find(
+    (slot) => slot !== null && slot.metaStatus === 'active',
+  )
+  if (active) return active.characterId
+  const any = expedition.squadSnapshot.find((slot) => slot !== null)
+  return any?.characterId ?? null
+}
+
+export function buildExpeditionBattleSnapshot(
+  state: CampaignState,
+  expedition: Expedition,
+  scenarioSlotIndex: number,
+): BattleAttemptSnapshot | null {
+  const characterId = getExpeditionBattleCharacterId(expedition)
+  if (!characterId) return null
+
+  const slot = expedition.squadSnapshot.find(
+    (s) => s !== null && s.characterId === characterId,
+  )
+  const character = getCharacter(state, characterId) ?? getPrimaryCharacter(state)
+
+  return {
+    worldPower: state.worldPower,
+    cards: cloneCards(character.cards),
+    battleLoadout: slot ? ([...slot.battleLoadout] as BattleLoadout) : [...character.battleLoadout],
+    playerUnitLevel: character.unitLevel,
+    modKillTargetCardId: state.modKillTargetCardId,
+    scenarioSlotIndex,
+    gold: state.gold,
+    items: cloneItems(character.items),
+    equipment: slot ? { ...slot.equipment } : { ...character.equipment },
   }
 }
 

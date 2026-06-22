@@ -38,13 +38,15 @@ import type {
 } from '../types'
 import {
   buildBattleAttemptSnapshot,
+  buildExpeditionBattleSnapshot,
   cloneCards,
   cloneItems,
   copyBattleAttemptSnapshot,
+  getExpeditionBattleCharacterId,
 } from './battleSnapshot'
 import { mergeBattleCardsIntoCollection } from './mergeBattleCards'
 import { goldForScenarioVictory } from './scenarioRewards'
-import { SCENARIOS, battleStateFromScenario } from './scenarios'
+import { getScenarioById, getScenarioIndexById, SCENARIOS, battleStateFromScenario } from './scenarios'
 import {
   getCharacter,
   getPrimaryCharacter,
@@ -53,6 +55,9 @@ import {
 } from '../character/selectors'
 import { DEFAULT_SQUAD_SLOTS, LEGACY_HERO_CHARACTER_ID } from '../character/constants'
 import { assertHubActionAllowed } from '../expedition/freeze'
+import { buildExpeditionSnapshot } from '../expedition/snapshot'
+import { getExpeditionChainById, resolvePartySize } from '../expedition/config'
+import type { Expedition } from '../types'
 
 export type RunAction =
   | { type: 'START_OR_CONTINUE_BATTLE' }
@@ -97,6 +102,10 @@ export type RunAction =
       toCharacterId: string
     }
   | { type: 'MARK_CODEX_SEEN' }
+  | { type: 'START_EXPEDITION'; chainId: string; selectedCharacterIds: readonly string[] }
+  | { type: 'ADVANCE_EXPEDITION_BATTLE' }
+  | { type: 'INTER_BATTLE_REVIVE_ALL' }
+  | { type: 'FINISH_EXPEDITION' }
 
 export { cloneCards, cloneItems }
 
@@ -122,6 +131,119 @@ function withCodexDiscoveries(state: CampaignState, ids: readonly string[]): Cam
   }
   if (codexDiscovered === state.codexDiscovered) return state
   return { ...state, codexDiscovered }
+}
+
+function expeditionRng(): () => number {
+  return () => 0
+}
+
+function syncExpeditionDownedFromBattle(expedition: Expedition, battle: BattleState): Expedition {
+  const squadSnapshot = expedition.squadSnapshot.map((slot) => {
+    if (!slot) return null
+    const playerUnit = battle.units.find(
+      (u) =>
+        u.side === 'player' &&
+        (u.id === slot.characterId || u.id === 'hero'),
+    )
+    if (playerUnit && playerUnit.hp <= 0) {
+      return { ...slot, metaStatus: 'downed' as const }
+    }
+    return slot
+  })
+  return { ...expedition, squadSnapshot }
+}
+
+function applyInterBattleCampRevive(expedition: Expedition): Expedition {
+  if (!expedition.interBattleReviveAllDowned) return expedition
+  return {
+    ...expedition,
+    squadSnapshot: expedition.squadSnapshot.map((slot) =>
+      slot && slot.metaStatus === 'downed' ? { ...slot, metaStatus: 'active' } : slot,
+    ),
+  }
+}
+
+function mergeExpeditionBattleProgress(state: CampaignState, battle: BattleState): CampaignState {
+  const expedition = state.expedition
+  if (!expedition) return state
+  const characterId = getExpeditionBattleCharacterId(expedition)
+  if (!characterId) return state
+  return updateCharacter(state, characterId, (c) => ({
+    ...c,
+    cards: mergeBattleCardsIntoCollection(c.cards, battle.playerCards),
+  }))
+}
+
+function startExpeditionBattle(
+  state: CampaignState,
+  expedition: Expedition,
+): CampaignState {
+  const chain = getExpeditionChainById(expedition.scenarioChainId)
+  if (!chain) return state
+
+  const scenarioId = chain.battleScenarioIds[expedition.battleIndex]
+  if (!scenarioId) return state
+
+  const scenario = getScenarioById(scenarioId)
+  const scenarioSlotIndex = getScenarioIndexById(scenarioId)
+  if (!scenario || scenarioSlotIndex < 0) return state
+
+  const snapshot = buildExpeditionBattleSnapshot(state, expedition, scenarioSlotIndex)
+  if (!snapshot) return state
+
+  const battle = battleStateFromScenario(scenario, snapshot)
+
+  return {
+    ...state,
+    expedition,
+    phase: 'battle',
+    battle,
+    battleAttemptSnapshot: snapshot,
+    battleAttemptId: state.battleAttemptId + 1,
+  }
+}
+
+function handleExpeditionBattleVictory(state: CampaignState): CampaignState {
+  const expedition = state.expedition
+  const battle = state.battle
+  if (!expedition || !battle || battle.phase !== 'victory') return state
+
+  const isLastBattle = expedition.battleIndex + 1 >= expedition.battleCount
+
+  let nextExpedition = syncExpeditionDownedFromBattle(expedition, battle)
+  nextExpedition = applyInterBattleCampRevive(nextExpedition)
+  nextExpedition = { ...nextExpedition, battleIndex: nextExpedition.battleIndex + 1 }
+
+  let nextState = mergeExpeditionBattleProgress(state, battle)
+  nextState = { ...nextState, worldPower: battle.worldPower }
+
+  if (isLastBattle) {
+    return {
+      ...nextState,
+      expedition: nextExpedition,
+      battle,
+      phase: 'victory',
+    }
+  }
+
+  return {
+    ...nextState,
+    expedition: nextExpedition,
+    battle: null,
+    battleAttemptSnapshot: null,
+    phase: 'inter_battle',
+  }
+}
+
+function finishExpedition(state: CampaignState): CampaignState {
+  if (!state.expedition) return state
+  return {
+    ...state,
+    expedition: null,
+    battle: null,
+    battleAttemptSnapshot: null,
+    phase: 'hub',
+  }
 }
 
 function startBattleFromScenario(state: CampaignState): CampaignState {
@@ -175,7 +297,11 @@ function finalizeVictory(
     state.battleAttemptSnapshot?.scenarioSlotIndex ?? state.scenarioIndex
   const goldGain = goldForScenarioVictory(scenarioSlot)
   const nextScenarioIndex =
-    state.scenarioIndex >= SCENARIOS.length ? state.scenarioIndex : state.scenarioIndex + 1
+    state.expedition !== null
+      ? state.scenarioIndex
+      : state.scenarioIndex >= SCENARIOS.length
+        ? state.scenarioIndex
+        : state.scenarioIndex + 1
 
   return updatePrimaryCharacter(
     {
@@ -185,6 +311,7 @@ function finalizeVictory(
       battle: null,
       phase: 'hub',
       battleAttemptSnapshot: null,
+      expedition: null,
       gold: state.gold + goldGain,
     },
     (c) => ({
@@ -208,6 +335,15 @@ function applyBattleOutcome(
   const nextState = withCodexDiscoveries(state, [
     ...mergeBattleCodexDiscoveries(prevBattle, battle, state.codexDiscovered),
   ].filter((id) => !state.codexDiscovered.includes(id)))
+  if (state.expedition) {
+    if (battle.phase === 'victory') {
+      return handleExpeditionBattleVictory({ ...nextState, battle })
+    }
+    if (battle.phase === 'defeat') {
+      return { ...nextState, battle, phase: 'defeat' }
+    }
+    return { ...nextState, battle, phase: 'battle' }
+  }
   if (battle.phase === 'victory') {
     return { ...nextState, battle, phase: 'victory' }
   }
@@ -693,6 +829,51 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       if (!state.battle || state.battle.phase !== 'victory') return state
       return finalizeVictory(state, action.itemLevelRolls, action.playerUnitLevelRoll)
     }
+    case 'START_EXPEDITION': {
+      if (state.battle !== null || state.expedition !== null) return state
+      if (state.phase !== 'hub') return state
+
+      const chain = getExpeditionChainById(action.chainId)
+      if (!chain) return state
+
+      const rng = expeditionRng()
+      const partySize = resolvePartySize(chain.partySize, rng)
+      if (action.selectedCharacterIds.length !== partySize) return state
+
+      for (const id of action.selectedCharacterIds) {
+        if (!getCharacter(state, id)) return state
+      }
+
+      const expedition = buildExpeditionSnapshot(
+        state,
+        chain,
+        action.selectedCharacterIds,
+        rng,
+      )
+
+      return startExpeditionBattle({ ...state, expedition }, expedition)
+    }
+    case 'ADVANCE_EXPEDITION_BATTLE': {
+      if (state.phase !== 'inter_battle' || !state.expedition || state.battle !== null) {
+        return state
+      }
+      if (!getExpeditionBattleCharacterId(state.expedition)) return state
+      return startExpeditionBattle(state, state.expedition)
+    }
+    case 'INTER_BATTLE_REVIVE_ALL': {
+      if (state.phase !== 'inter_battle' || !state.expedition) return state
+      if (!state.expedition.interBattleReviveAllDowned) return state
+
+      const expedition: Expedition = {
+        ...state.expedition,
+        squadSnapshot: state.expedition.squadSnapshot.map((slot) =>
+          slot && slot.metaStatus === 'downed' ? { ...slot, metaStatus: 'active' } : slot,
+        ),
+      }
+      return { ...state, expedition }
+    }
+    case 'FINISH_EXPEDITION':
+      return finishExpedition(state)
   }
 }
 

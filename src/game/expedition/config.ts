@@ -42,6 +42,12 @@ export const EXPEDITION_CHAINS: readonly ExpeditionChainConfig[] = [
     interBattleReviveAllDowned: true,
     battleScenarioIds: ['tutorial', 'two-front', 'boss-lite'],
   },
+  {
+    id: 'test-single-battle',
+    partySize: 1,
+    battleCount: 1,
+    battleScenarioIds: ['tutorial'],
+  },
 ]
 
 export function getExpeditionChainById(id: string): ExpeditionChainConfig | undefined {

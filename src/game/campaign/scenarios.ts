@@ -26,6 +26,14 @@ export type BattleScenario = {
   enemies: readonly BattleScenarioEnemy[]
 }
 
+export function getScenarioById(id: string): BattleScenario | undefined {
+  return SCENARIOS.find((s) => s.id === id)
+}
+
+export function getScenarioIndexById(id: string): number {
+  return SCENARIOS.findIndex((s) => s.id === id)
+}
+
 export const SCENARIOS: readonly BattleScenario[] = [
   {
     id: 'tutorial',
