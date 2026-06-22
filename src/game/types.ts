@@ -48,6 +48,12 @@ export type ModificationInstance = {
   level: number
 }
 
+export type ModOffer = { modIds: [string, string, string]; rollSeed: number }
+
+export type ModSlotState =
+  | { status: 'empty'; offer: ModOffer | null }
+  | { status: 'filled'; templateId: string; lm: number }
+
 export type CardInstance = {
   id: string
   templateId: string
