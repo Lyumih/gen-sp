@@ -1,6 +1,7 @@
 import { computeUnitStat } from '../balance'
 import { getItemTemplate } from '../content/itemTemplates'
 import { aggregateGearCardLevelBonus } from '../equipment/aggregates'
+import { buildRoundTurnOrder } from '../battle/initiative'
 import { computeCharacterMaxHpForScenario } from './heroMaxHp'
 import { playerCardsFromLoadout } from './playerCardsFromLoadout'
 import type { BattleAttemptSnapshot, BattleState, PartyMemberBattleSnapshot, Unit } from '../types'
@@ -91,6 +92,7 @@ export function makePlayerUnits(
         hp: maxHp,
         maxHp,
         unitLevel: member.unitLevel,
+        initiativeBase: member.initiativeBase ?? 10,
       }
     })
 }
@@ -114,6 +116,7 @@ function makeEnemies(
       maxHp,
       unitLevel: e.unitLevel,
       archetypeId: e.archetypeId,
+      initiativeBase: 10,
     }
   })
 }
@@ -122,14 +125,6 @@ function primaryActiveMember(
   snapshot: BattleAttemptSnapshot,
 ): PartyMemberBattleSnapshot | undefined {
   return snapshot.party.find((member) => member.metaStatus === 'active') ?? snapshot.party[0]
-}
-
-/** Очередь: союзники по порядку в party, затем враги по порядку в сценарии. */
-function defaultTurnOrder(
-  playerIds: readonly string[],
-  enemyIds: readonly string[],
-): readonly string[] {
-  return [...playerIds, ...enemyIds]
 }
 
 /**
@@ -148,11 +143,9 @@ export function battleStateFromScenario(
     height: scenario.height,
     walls: scenario.walls,
     units,
-    turnOrder: defaultTurnOrder(
-      players.map((u) => u.id),
-      scenario.enemies.map((e) => e.id),
-    ),
+    turnOrder: buildRoundTurnOrder(units),
     currentTurnIndex: 0,
+    roundNumber: 1,
     phase: 'ongoing',
     worldPower: snapshot.worldPower,
     playerCards: primary

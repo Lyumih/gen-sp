@@ -32,6 +32,7 @@ export function partyMemberFromCharacter(
   return {
     characterId: character.id,
     unitLevel: character.unitLevel,
+    initiativeBase: character.initiativeBase,
     items: cloneItems(character.items),
     equipment: { ...character.equipment },
     cards: cloneCards(character.cards),
@@ -45,6 +46,7 @@ export function clonePartyMember(member: PartyMemberBattleSnapshot): PartyMember
   return {
     characterId: member.characterId,
     unitLevel: member.unitLevel,
+    initiativeBase: member.initiativeBase,
     items: cloneItems(member.items),
     equipment: { ...member.equipment },
     cards: cloneCards(member.cards),
@@ -100,6 +102,7 @@ export function buildExpeditionBattleSnapshot(
     party.push({
       characterId: slot.characterId,
       unitLevel: character.unitLevel,
+      initiativeBase: character.initiativeBase,
       items: cloneItems(character.items),
       equipment: { ...slot.equipment },
       cards: cloneCards(character.cards),

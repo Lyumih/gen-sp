@@ -203,6 +203,10 @@ function normalizeCampaignEconomy(c: CampaignState): CampaignState {
     c.battle !== null
       ? {
           ...c.battle,
+          roundNumber:
+            typeof c.battle.roundNumber === 'number' && Number.isFinite(c.battle.roundNumber)
+              ? c.battle.roundNumber
+              : 1,
           gearCardLevelBonus:
             typeof c.battle.gearCardLevelBonus === 'number' &&
             Number.isFinite(c.battle.gearCardLevelBonus)

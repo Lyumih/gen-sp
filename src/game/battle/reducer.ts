@@ -2,6 +2,7 @@ import type { BattleAction, BattleLogEntry, BattleState, Unit } from '../types'
 import { applyModKillReward } from '../memento/modifications'
 import { canMeleeAttack, canRangedAttack, withDamage, withHeal } from './combat'
 import { cellKey, manhattan, wallSet } from './grid'
+import { advanceTurn } from './initiative'
 import { hasLineOfSight } from './lineOfSight'
 import { cellsInAoE, reachableMoveCells } from './rangeOverlay'
 
@@ -44,19 +45,6 @@ function resolveActorPointer(state: BattleState): number {
 function actorIdAtPointer(state: BattleState, ptr: number): string | undefined {
   const id = state.turnOrder[ptr]
   return isAliveUnit(getUnit(state, id)) ? id : undefined
-}
-
-function advanceTurnFrom(state: BattleState, fromPtr: number): BattleState {
-  const n = state.turnOrder.length
-  if (n === 0) return state
-  for (let step = 1; step <= n; step++) {
-    const idx = (fromPtr + step) % n
-    const id = state.turnOrder[idx]
-    if (isAliveUnit(getUnit(state, id))) {
-      return { ...state, currentTurnIndex: idx }
-    }
-  }
-  return { ...state, currentTurnIndex: (fromPtr + 1) % n }
 }
 
 function applyEnemyKillRewards(state: BattleState, killedEnemy: Unit): BattleState {
@@ -133,7 +121,7 @@ function tryMove(state: BattleState, action: Extract<BattleAction, { type: 'move
   }
   next = afterHpChange(next, null)
   if (next.phase !== 'ongoing') return next
-  return advanceTurnFrom(next, ptr)
+  return advanceTurn(next)
 }
 
 function tryAttack(state: BattleState, action: Extract<BattleAction, { type: 'attack' }>): BattleState {
@@ -174,7 +162,7 @@ function tryAttack(state: BattleState, action: Extract<BattleAction, { type: 'at
   }
   next = afterHpChange(next, killed)
   if (next.phase !== 'ongoing') return next
-  return advanceTurnFrom(next, ptr)
+  return advanceTurn(next)
 }
 
 function tryAoEStrike(
@@ -234,7 +222,7 @@ function tryAoEStrike(
   const enemiesAlive = next.units.some((u) => u.side === 'enemy' && u.hp > 0)
   if (!playersAlive) return { ...next, phase: 'defeat' }
   if (!enemiesAlive) return { ...next, phase: 'victory' }
-  return advanceTurnFrom(next, ptr)
+  return advanceTurn(next)
 }
 
 function tryHeal(state: BattleState, action: Extract<BattleAction, { type: 'heal' }>): BattleState {
@@ -268,7 +256,7 @@ function tryHeal(state: BattleState, action: Extract<BattleAction, { type: 'heal
   }
   next = afterHpChange(next, null)
   if (next.phase !== 'ongoing') return next
-  return advanceTurnFrom(next, ptr)
+  return advanceTurn(next)
 }
 
 export function applyAction(state: BattleState, action: BattleAction): BattleState {

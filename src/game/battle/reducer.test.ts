@@ -37,6 +37,7 @@ function battle(overrides: Partial<BattleState> = {}): BattleState {
     ],
     turnOrder: [HERO_ID, 'e1'],
     currentTurnIndex: 0,
+    roundNumber: 1,
     phase: 'ongoing',
     worldPower: 0,
     playerCards: [],
@@ -353,6 +354,28 @@ describe('applyAction aoe_strike', () => {
     const strikes = next.battleLog.filter((e) => e.type === 'strike')
     expect(strikes).toHaveLength(3)
     expect(next.battleLog.every((e) => e.type === 'strike' && e.attackKind === 'aoe')).toBe(true)
+  })
+})
+
+describe('applyAction turn order / initiative', () => {
+  it('starts round 2 with rebuilt initiative order after full round', () => {
+    const s = battle({
+      units: [
+        unit({ id: HERO_ID, side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1, initiativeBase: 8 }),
+        unit({ id: 'e1', side: 'enemy', x: 3, y: 0, hp: 5, maxHp: 5, unitLevel: 1, initiativeBase: 12 }),
+      ],
+      turnOrder: [HERO_ID, 'e1'],
+      currentTurnIndex: 0,
+      roundNumber: 1,
+    })
+    const afterHero = applyAction(s, { type: 'move', unitId: HERO_ID, toX: 1, toY: 0 })
+    expect(afterHero.roundNumber).toBe(1)
+    expect(afterHero.currentTurnIndex).toBe(1)
+
+    const afterEnemy = applyAction(afterHero, { type: 'move', unitId: 'e1', toX: 2, toY: 0 })
+    expect(afterEnemy.roundNumber).toBe(2)
+    expect(afterEnemy.turnOrder).toEqual(['e1', HERO_ID])
+    expect(afterEnemy.currentTurnIndex).toBe(0)
   })
 })
 

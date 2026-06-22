@@ -17,6 +17,8 @@ export type Unit = {
   maxHp: number
   unitLevel: number
   archetypeId?: string
+  /** Snapshot at spawn; defaults to 10 when missing. */
+  initiativeBase?: number
 }
 
 export type ModificationInstance = {
@@ -119,6 +121,8 @@ export type BattleState = {
   units: Unit[]
   turnOrder: readonly string[]
   currentTurnIndex: number
+  /** 1-based round counter; turn order is rebuilt at the start of each new round. */
+  roundNumber: number
   phase: BattlePhase
   /** Сила мира кампании; в бою может расти при смерти врага (§6). */
   worldPower: number
@@ -175,6 +179,8 @@ export type RunPhase = 'hub' | 'battle' | 'victory' | 'defeat' | 'inter_battle'
 export type PartyMemberBattleSnapshot = {
   characterId: string
   unitLevel: number
+  /** Copied from Character at snapshot; defaults to 10 at spawn when missing. */
+  initiativeBase?: number
   items: ItemInstance[]
   equipment: Record<EquipmentSlot, string | null>
   cards: CardInstance[]

@@ -31,6 +31,7 @@ function battle(overrides: Partial<BattleState> = {}): BattleState {
     units: [],
     turnOrder: [],
     currentTurnIndex: 0,
+    roundNumber: 1,
     phase: 'ongoing',
     worldPower: 0,
     playerCards: [],

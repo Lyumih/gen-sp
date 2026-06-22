@@ -24,6 +24,7 @@ function baseState(playerCards: BattlePlayerCard[]): BattleState {
     units: [],
     turnOrder: [HERO_ID],
     currentTurnIndex: 0,
+    roundNumber: 1,
     phase: 'ongoing',
     worldPower: 0,
     playerCards,
