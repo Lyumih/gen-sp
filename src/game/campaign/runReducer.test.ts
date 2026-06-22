@@ -1632,3 +1632,155 @@ describe('character appearance actions', () => {
     expect(getCharacter(next, id)?.iconAccent).toBe('green')
   })
 })
+
+describe('victory mod Lm rolls', () => {
+  it('rolls lm on filled card mod slots when battle becomes victory', () => {
+    const modSlots: ModSlotState[] = [
+      { status: 'filled', templateId: 'mod-damage-up', lm: 0 },
+    ]
+    const b = makeBattle({
+      phase: 'ongoing',
+      playerCards: [
+        {
+          id: 'c1',
+          templateId: 'strike',
+          global_level: 50,
+          uses_count: 0,
+          modSlots,
+          cooldownRemaining: 0,
+        },
+      ],
+    })
+    let s = campaignWithBattle(b)
+    s = applyRunAction(s, {
+      type: 'BATTLE_DISPATCH',
+      battleAction: {
+        type: 'attack',
+        attackerId: HERO_ID,
+        targetId: 'e1',
+        damage: 999,
+        kind: 'ranged',
+        maxRange: 10,
+      },
+    })
+    expect(s.phase).toBe('victory')
+    const battleCard = heroBattleCards(s.battle!)[0]!
+    expect(battleCard.modSlots[0]).toEqual({
+      status: 'filled',
+      templateId: 'mod-damage-up',
+      lm: 1,
+    })
+  })
+
+  it('discovers mod codex entry when lm goes from 0 to 1 on victory', () => {
+    const modSlots: ModSlotState[] = [
+      { status: 'filled', templateId: 'mod-damage-up', lm: 0 },
+    ]
+    const b = makeBattle({
+      phase: 'ongoing',
+      playerCards: [
+        {
+          id: 'c1',
+          templateId: 'strike',
+          global_level: 50,
+          uses_count: 0,
+          modSlots,
+          cooldownRemaining: 0,
+        },
+      ],
+    })
+    let s = campaignWithBattle(b)
+    s = applyRunAction(s, {
+      type: 'BATTLE_DISPATCH',
+      battleAction: {
+        type: 'attack',
+        attackerId: HERO_ID,
+        targetId: 'e1',
+        damage: 999,
+        kind: 'ranged',
+        maxRange: 10,
+      },
+    })
+    expect(s.codexDiscovered).toContain(codexEntryId('mod', 'mod-damage-up'))
+  })
+
+  it('rolls lm on equipped item mod slots on victory', () => {
+    const modSlots: ModSlotState[] = [
+      { status: 'filled', templateId: 'mod-hp-bonus-armor', lm: 0 },
+    ]
+    const init = initialCampaignState()
+    const items = [
+      { id: 'w1', templateId: 'wooden_sword', itemLevel: 1, modSlots },
+    ]
+    const s0 = withHero(init, {
+      items,
+      equipment: { weapon: 'w1', armor: null, accessory: null },
+    })
+    const b = makeBattle({ phase: 'ongoing' })
+    const snap = battleSnapshotFromHero(s0)
+    let s: CampaignState = {
+      ...s0,
+      phase: 'battle',
+      battle: b,
+      battleAttemptSnapshot: snap,
+    }
+    s = applyRunAction(s, {
+      type: 'BATTLE_DISPATCH',
+      battleAction: {
+        type: 'attack',
+        attackerId: HERO_ID,
+        targetId: 'e1',
+        damage: 999,
+        kind: 'ranged',
+        maxRange: 10,
+      },
+    })
+    const item = hero(s).items.find((i) => i.id === 'w1')!
+    expect(item.modSlots[0]).toEqual({
+      status: 'filled',
+      templateId: 'mod-hp-bonus-armor',
+      lm: 1,
+    })
+  })
+
+  it('persists rolled modSlots through FINALIZE_VICTORY merge', () => {
+    const modSlots: ModSlotState[] = [
+      { status: 'filled', templateId: 'mod-damage-up', lm: 0 },
+    ]
+    const b = makeBattle({
+      phase: 'victory',
+      playerCards: [
+        {
+          id: 'c1',
+          templateId: 'strike',
+          global_level: 50,
+          uses_count: 0,
+          modSlots: [{ status: 'filled', templateId: 'mod-damage-up', lm: 1 }],
+          cooldownRemaining: 0,
+        },
+      ],
+    })
+    const init = initialCampaignState()
+    const cards = init.characters[0]!.cards.map((c) =>
+      c.id === 'c1' ? { ...c, modSlots } : c,
+    )
+    let s: CampaignState = {
+      ...init,
+      characters: [{ ...init.characters[0]!, cards }],
+      phase: 'victory',
+      battle: b,
+      battleAttemptSnapshot: battleSnapshotFromHero(init),
+    }
+    s = applyRunAction(s, {
+      type: 'FINALIZE_VICTORY',
+      itemLevelRolls: [],
+      playerUnitLevelRoll: 50,
+    })
+    const card = hero(s).cards.find((c) => c.id === 'c1')!
+    expect(card.modSlots[0]).toEqual({
+      status: 'filled',
+      templateId: 'mod-damage-up',
+      lm: 1,
+    })
+  })
+})

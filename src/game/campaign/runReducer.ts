@@ -53,6 +53,7 @@ import {
   getExpeditionBattleCharacterId,
 } from './battleSnapshot'
 import { mergeBattleCardsToParty, updateActorPlayerCards } from '../battle/playerCards'
+import { applyVictoryModRollsToPartyBattle } from './applyVictoryModRolls'
 import { goldForScenarioVictory } from './scenarioRewards'
 import { getScenarioById, getScenarioIndexById, SCENARIOS, battleStateFromScenario } from './scenarios'
 import {
@@ -432,9 +433,21 @@ function applyBattleOutcome(
     const prevActorId = prevBattle.turnOrder[prevBattle.currentTurnIndex]
     battle = tickHeroCardCooldowns(battle, prevActorId)
   }
-  const nextState = withCodexDiscoveries(state, [
-    ...mergeBattleCodexDiscoveries(prevBattle, battle, state.codexDiscovered),
-  ].filter((id) => !state.codexDiscovered.includes(id)))
+
+  let rollState = state
+  if (prevBattle.phase !== 'victory' && battle.phase === 'victory') {
+    const rolled = applyVictoryModRollsToPartyBattle(
+      state.characters,
+      battle,
+      state.battleAttemptId,
+    )
+    rollState = { ...state, characters: rolled.characters }
+    battle = rolled.battle
+  }
+
+  const nextState = withCodexDiscoveries(rollState, [
+    ...mergeBattleCodexDiscoveries(prevBattle, battle, rollState.codexDiscovered),
+  ].filter((id) => !rollState.codexDiscovered.includes(id)))
   const syncedState = applyBattleEndDownedSync(nextState, battle)
   if (state.expedition) {
     if (battle.phase === 'victory') {

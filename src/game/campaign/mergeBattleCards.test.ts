@@ -14,12 +14,15 @@ describe('mergeBattleCardsIntoCollection', () => {
         templateId: 'strike',
         global_level: 1,
         uses_count: 5,
-        modSlots: [],
+        modSlots: [{ status: 'filled', templateId: 'mod-damage-up', lm: 2 }],
         cooldownRemaining: 2,
       },
     ]
     const merged = mergeBattleCardsIntoCollection(collection, battle)
     expect(merged.find((c) => c.id === 'c1')!.uses_count).toBe(5)
+    expect(merged.find((c) => c.id === 'c1')!.modSlots).toEqual([
+      { status: 'filled', templateId: 'mod-damage-up', lm: 2 },
+    ])
     expect(merged.find((c) => c.id === 'c3')).toBeDefined()
     expect(merged[0]).not.toHaveProperty('cooldownRemaining')
   })

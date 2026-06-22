@@ -15,7 +15,7 @@ export function mergeBattleCardsIntoCollection(
       templateId: fromBattle.templateId,
       global_level: fromBattle.global_level,
       uses_count: fromBattle.uses_count,
-      modSlots: cloneModSlots(c.modSlots),
+      modSlots: cloneModSlots(fromBattle.modSlots),
     }
     if (fromBattle.global_level > c.global_level) {
       return afterCarrierLevelChange(
