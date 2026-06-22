@@ -5,6 +5,7 @@ import type {
   CardInstance,
   ItemInstance,
 } from '../types'
+import { getPrimaryCharacter } from './selectors'
 
 export function cloneCards(cards: readonly CardInstance[]): CardInstance[] {
   return cards.map((c) => ({
@@ -21,16 +22,17 @@ export function buildBattleAttemptSnapshot(
   state: CampaignState,
   scenarioSlotIndex: number,
 ): BattleAttemptSnapshot {
+  const hero = getPrimaryCharacter(state)
   return {
     worldPower: state.worldPower,
-    cards: cloneCards(state.cards),
-    battleLoadout: [...state.battleLoadout] as BattleLoadout,
-    playerUnitLevel: state.playerUnitLevel,
+    cards: cloneCards(hero.cards),
+    battleLoadout: [...hero.battleLoadout] as BattleLoadout,
+    playerUnitLevel: hero.unitLevel,
     modKillTargetCardId: state.modKillTargetCardId,
     scenarioSlotIndex,
     gold: state.gold,
-    items: cloneItems(state.items),
-    equipment: { ...state.equipment },
+    items: cloneItems(hero.items),
+    equipment: { ...hero.equipment },
   }
 }
 

@@ -31,6 +31,7 @@ import {
   sortStashIdsBySlot,
   stashItemsFromCampaign,
 } from '../../game/equipment/stashOrder'
+import { getPrimaryCharacter } from '../../game/campaign/selectors'
 import type { CampaignState, EquipmentSlot, ItemInstance } from '../../game/types'
 import { UI_HEART, UI_DAMAGE, UI_LEVEL } from '../../game/ui/labels'
 import { SLOT_LABEL } from '../campaign/campaignHubShared'
@@ -243,9 +244,10 @@ export function EquipmentInventoryView({
   onReorderStash,
   onInvalidSlot,
 }: EquipmentInventoryViewProps) {
+  const hero = getPrimaryCharacter(campaign)
   const stash = useMemo(
-    () => stashItemsFromCampaign(campaign.items, campaign.equipment),
-    [campaign.items, campaign.equipment],
+    () => stashItemsFromCampaign(hero.items, hero.equipment),
+    [hero.items, hero.equipment],
   )
   const stashIds = stash.map((i) => i.id)
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
@@ -325,10 +327,10 @@ export function EquipmentInventoryView({
         </Typography.Text>
         <div className="inv-slot-row">
           {EQUIPMENT_ROLL_ORDER.map((slot) => {
-            const equippedId = campaign.equipment[slot]
+            const equippedId = hero.equipment[slot]
             const item =
               equippedId !== null
-                ? campaign.items.find((x) => x.id === equippedId)
+                ? hero.items.find((x) => x.id === equippedId)
                 : undefined
             const dragOver =
               activeTmpl?.slot === slot ||

@@ -28,6 +28,7 @@ import { applyCardUse } from '../memento/cardProgress'
 import { rollMementoLevelUp } from '../memento/rollMementoLevelUp'
 import type {
   BattleAction,
+  BattleLoadout,
   BattlePlayerCard,
   BattleState,
   CampaignState,
@@ -44,6 +45,8 @@ import {
 import { mergeBattleCardsIntoCollection } from './mergeBattleCards'
 import { goldForScenarioVictory } from './scenarioRewards'
 import { SCENARIOS, battleStateFromScenario } from './scenarios'
+import { getPrimaryCharacter, updatePrimaryCharacter } from './selectors'
+import { DEFAULT_SQUAD_SLOTS, LEGACY_HERO_CHARACTER_ID } from '../character/constants'
 
 export type RunAction =
   | { type: 'START_OR_CONTINUE_BATTLE' }
@@ -126,12 +129,13 @@ function finalizeVictory(
 ): CampaignState {
   if (!state.battle || state.battle.phase !== 'victory') return state
 
-  const expected = occupiedEquipmentSlotsInOrder(state.equipment).length
+  const hero = getPrimaryCharacter(state)
+  const expected = occupiedEquipmentSlotsInOrder(hero.equipment).length
   if (itemLevelRolls.length !== expected) return state
 
   const b = state.battle
-  const ordered = occupiedEquipmentSlotsInOrder(state.equipment)
-  let items = cloneItems(state.items)
+  const ordered = occupiedEquipmentSlotsInOrder(hero.equipment)
+  let items = cloneItems(hero.items)
   for (let i = 0; i < ordered.length; i++) {
     const { itemId } = ordered[i]!
     const roll = itemLevelRolls[i]!
@@ -144,9 +148,9 @@ function finalizeVictory(
     }
   }
 
-  let playerUnitLevel = state.playerUnitLevel
-  if (rollMementoLevelUp(playerUnitLevel, playerUnitLevelRoll)) {
-    playerUnitLevel += 1
+  let unitLevel = hero.unitLevel
+  if (rollMementoLevelUp(unitLevel, playerUnitLevelRoll)) {
+    unitLevel += 1
   }
 
   const scenarioSlot =
@@ -155,18 +159,23 @@ function finalizeVictory(
   const nextScenarioIndex =
     state.scenarioIndex >= SCENARIOS.length ? state.scenarioIndex : state.scenarioIndex + 1
 
-  return {
-    ...state,
-    worldPower: b.worldPower,
-    cards: mergeBattleCardsIntoCollection(state.cards, b.playerCards),
-    scenarioIndex: nextScenarioIndex,
-    battle: null,
-    phase: 'hub',
-    battleAttemptSnapshot: null,
-    items,
-    gold: state.gold + goldGain,
-    playerUnitLevel,
-  }
+  return updatePrimaryCharacter(
+    {
+      ...state,
+      worldPower: b.worldPower,
+      scenarioIndex: nextScenarioIndex,
+      battle: null,
+      phase: 'hub',
+      battleAttemptSnapshot: null,
+      gold: state.gold + goldGain,
+    },
+    (c) => ({
+      ...c,
+      unitLevel,
+      items,
+      cards: mergeBattleCardsIntoCollection(c.cards, b.playerCards),
+    }),
+  )
 }
 
 function applyBattleOutcome(
@@ -439,15 +448,17 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       if (!inHub(state)) return state
       const { slotIndex, cardId } = action
       if (slotIndex !== 0 && slotIndex !== 1) return state
-      if (cardId !== null && !state.cards.some((c) => c.id === cardId)) return state
-      const next: CampaignState['battleLoadout'] = [...state.battleLoadout]
-      if (cardId !== null) {
-        for (let i = 0; i < 2; i++) {
-          if (i !== slotIndex && next[i] === cardId) next[i] = null
+      return updatePrimaryCharacter(state, (hero) => {
+        if (cardId !== null && !hero.cards.some((c) => c.id === cardId)) return hero
+        const next: BattleLoadout = [...hero.battleLoadout]
+        if (cardId !== null) {
+          for (let i = 0; i < 2; i++) {
+            if (i !== slotIndex && next[i] === cardId) next[i] = null
+          }
         }
-      }
-      next[slotIndex] = cardId
-      return { ...state, battleLoadout: next }
+        next[slotIndex] = cardId
+        return { ...hero, battleLoadout: next }
+      })
     }
     case 'BUY_ITEM': {
       const tmpl = getItemTemplate(action.templateId)
@@ -459,76 +470,88 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         itemLevel: 1,
       }
       return withCodexDiscoveries(
-        {
-        ...state,
-        gold: state.gold - tmpl.shopPrice,
-        items: [...state.items, inst],
-        },
+        updatePrimaryCharacter(
+          {
+            ...state,
+            gold: state.gold - tmpl.shopPrice,
+          },
+          (hero) => ({ ...hero, items: [...hero.items, inst] }),
+        ),
         [codexEntryId('item', action.templateId)],
       )
     }
     case 'EQUIP_ITEM': {
       const { itemId, slot } = action
-      const item = state.items.find((i) => i.id === itemId)
+      const hero = getPrimaryCharacter(state)
+      const item = hero.items.find((i) => i.id === itemId)
       if (!item) return state
       const tmpl = getItemTemplate(item.templateId)
       if (!tmpl || tmpl.slot !== slot) return state
-      if (state.equipment[slot] === itemId) return state
+      if (hero.equipment[slot] === itemId) return state
       for (const s of EQUIPMENT_ROLL_ORDER) {
-        if (s !== slot && state.equipment[s] === itemId) return state
+        if (s !== slot && hero.equipment[s] === itemId) return state
       }
-      return {
-        ...state,
-        equipment: { ...state.equipment, [slot]: itemId },
-      }
+      return updatePrimaryCharacter(state, (c) => ({
+        ...c,
+        equipment: { ...c.equipment, [slot]: itemId },
+      }))
     }
     case 'UNEQUIP_ITEM': {
-      return {
-        ...state,
-        equipment: { ...state.equipment, [action.slot]: null },
-      }
+      return updatePrimaryCharacter(state, (hero) => ({
+        ...hero,
+        equipment: { ...hero.equipment, [action.slot]: null },
+      }))
     }
     case 'REORDER_CARDS': {
       if (!inHub(state)) return state
-      const currentIds = state.cards.map((c) => c.id)
+      const hero = getPrimaryCharacter(state)
+      const currentIds = hero.cards.map((c) => c.id)
       if (action.cardIds.length !== currentIds.length) return state
       const currentSet = new Set(currentIds)
       for (const id of action.cardIds) {
         if (!currentSet.has(id)) return state
       }
-      const byId = new Map(state.cards.map((c) => [c.id, c]))
+      const byId = new Map(hero.cards.map((c) => [c.id, c]))
       const reordered = action.cardIds.map((id) => byId.get(id)!)
-      return { ...state, cards: reordered }
+      return updatePrimaryCharacter(state, (c) => ({ ...c, cards: reordered }))
     }
     case 'SET_MOD_KILL_TARGET': {
       if (!inHub(state)) return state
-      if (action.cardId !== null && !state.cards.some((c) => c.id === action.cardId)) {
+      const hero = getPrimaryCharacter(state)
+      if (action.cardId !== null && !hero.cards.some((c) => c.id === action.cardId)) {
         return state
       }
       return { ...state, modKillTargetCardId: action.cardId }
     }
     case 'SELL_ITEM': {
       if (!inHub(state)) return state
-      const item = state.items.find((i) => i.id === action.itemId)
+      const hero = getPrimaryCharacter(state)
+      const item = hero.items.find((i) => i.id === action.itemId)
       if (!item) return state
-      if (isItemEquipped(action.itemId, state.equipment)) return state
+      if (isItemEquipped(action.itemId, hero.equipment)) return state
       const price = sellPriceForItem(item, getItemTemplate)
       if (price <= 0) return state
-      return {
-        ...state,
-        gold: state.gold + price,
-        items: state.items.filter((i) => i.id !== action.itemId),
-      }
+      return updatePrimaryCharacter(
+        {
+          ...state,
+          gold: state.gold + price,
+        },
+        (c) => ({
+          ...c,
+          items: c.items.filter((i) => i.id !== action.itemId),
+        }),
+      )
     }
     case 'REORDER_STASH': {
       if (!inHub(state)) return state
+      const hero = getPrimaryCharacter(state)
       const nextItems = buildItemsWithStashOrder(
-        state.items,
-        state.equipment,
+        hero.items,
+        hero.equipment,
         action.itemIds,
       )
       if (nextItems === null) return state
-      return { ...state, items: nextItems }
+      return updatePrimaryCharacter(state, (c) => ({ ...c, items: nextItems }))
     }
     case 'MARK_CODEX_SEEN':
       return markCodexSeen(state)
@@ -539,39 +562,48 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       if (!scenario) return state
 
       const snapCopy = copyBattleAttemptSnapshot(snap)
-      const restored: CampaignState = {
-        ...state,
-        worldPower: snap.worldPower,
-        cards: cloneCards(snap.cards),
-        battleLoadout: [...snap.battleLoadout],
-        playerUnitLevel: snap.playerUnitLevel,
-        modKillTargetCardId: snap.modKillTargetCardId,
-        gold: snap.gold,
-        items: cloneItems(snap.items),
-        equipment: { ...snap.equipment },
-        phase: 'battle',
-        battle: battleStateFromScenario(scenario, snapCopy),
-        battleAttemptId: state.battleAttemptId + 1,
-        battleAttemptSnapshot: snapCopy,
-      }
-      return restored
+      return updatePrimaryCharacter(
+        {
+          ...state,
+          worldPower: snap.worldPower,
+          modKillTargetCardId: snap.modKillTargetCardId,
+          gold: snap.gold,
+          phase: 'battle',
+          battle: battleStateFromScenario(scenario, snapCopy),
+          battleAttemptId: state.battleAttemptId + 1,
+          battleAttemptSnapshot: snapCopy,
+        },
+        (hero) => ({
+          ...hero,
+          cards: cloneCards(snap.cards),
+          battleLoadout: [...snap.battleLoadout],
+          unitLevel: snap.playerUnitLevel,
+          items: cloneItems(snap.items),
+          equipment: { ...snap.equipment },
+        }),
+      )
     }
     case 'ABANDON_BATTLE': {
       const snap = state.battleAttemptSnapshot
       if (!state.battle || !snap) return state
-      return {
-        ...state,
-        worldPower: snap.worldPower,
-        cards: cloneCards(snap.cards),
-        playerUnitLevel: snap.playerUnitLevel,
-        modKillTargetCardId: snap.modKillTargetCardId,
-        gold: snap.gold,
-        items: cloneItems(snap.items),
-        equipment: { ...snap.equipment },
-        battle: null,
-        phase: 'hub',
-        battleAttemptSnapshot: null,
-      }
+      return updatePrimaryCharacter(
+        {
+          ...state,
+          worldPower: snap.worldPower,
+          modKillTargetCardId: snap.modKillTargetCardId,
+          gold: snap.gold,
+          battle: null,
+          phase: 'hub',
+          battleAttemptSnapshot: null,
+        },
+        (hero) => ({
+          ...hero,
+          cards: cloneCards(snap.cards),
+          unitLevel: snap.playerUnitLevel,
+          items: cloneItems(snap.items),
+          equipment: { ...snap.equipment },
+        }),
+      )
     }
     case 'FINALIZE_VICTORY': {
       if (!state.battle || state.battle.phase !== 'victory') return state
@@ -605,21 +637,34 @@ export const STARTER_CARDS: CardInstance[] = [
 ]
 
 export function initialCampaignState(): CampaignState {
+  const heroCards = cloneCards(STARTER_CARDS)
+  const hero = {
+    id: LEGACY_HERO_CHARACTER_ID,
+    name: 'Герой',
+    classId: 'warrior',
+    unitLevel: 1,
+    initiativeBase: 10,
+    cards: heroCards,
+    battleLoadout: ['c1', 'c2'] as BattleLoadout,
+    items: [] as ItemInstance[],
+    equipment: { ...EMPTY_EQUIPMENT },
+  }
+  const squad: (string | null)[] = [LEGACY_HERO_CHARACTER_ID]
+  while (squad.length < DEFAULT_SQUAD_SLOTS) squad.push(null)
+
   return {
     scenarioIndex: 0,
     worldPower: 0,
-    playerUnitLevel: 1,
-    cards: cloneCards(STARTER_CARDS),
-    battleLoadout: ['c1', 'c2'],
     modKillTargetCardId: 'c1',
     gold: 0,
-    items: [],
-    equipment: { ...EMPTY_EQUIPMENT },
     phase: 'hub',
     battle: null,
     battleAttemptId: 0,
     battleAttemptSnapshot: null,
     codexDiscovered: [],
     codexSeenEntryIds: [],
+    characters: [hero],
+    squad,
+    expedition: null,
   }
 }

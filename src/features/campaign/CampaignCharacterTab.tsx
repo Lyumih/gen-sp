@@ -1,6 +1,7 @@
 import { Divider, Space, Typography } from 'antd'
 import { HeroProfileContent } from '../profile/HeroProfileContent'
 import { aggregateGearCardLevelBonus } from '../../game/equipment/aggregates'
+import { getPrimaryCharacter } from '../../game/campaign/selectors'
 import { getItemTemplate } from '../../game/content/itemTemplates'
 import type { CampaignState, EquipmentSlot } from '../../game/types'
 import { CardsInventoryView } from '../inventory/CardsInventoryView'
@@ -30,9 +31,10 @@ export function CampaignCharacterTab({
   onSetBattleLoadout,
   onInvalidSlot,
 }: CampaignCharacterTabProps) {
+  const hero = getPrimaryCharacter(campaign)
   const gearCardPreview = aggregateGearCardLevelBonus(
-    campaign.items,
-    campaign.equipment,
+    hero.items,
+    hero.equipment,
     getItemTemplate,
   )
 

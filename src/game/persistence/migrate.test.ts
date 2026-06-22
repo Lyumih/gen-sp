@@ -1,16 +1,56 @@
 import { describe, expect, it } from 'vitest'
 import { applyRunAction, initialCampaignState } from '../campaign/runReducer'
+import { getPrimaryCharacter } from '../campaign/selectors'
 import type { CampaignState } from '../types'
 import { SCENARIOS } from '../campaign/scenarios'
 import { DEFAULT_MOD_KILL_TEMPLATE_ID } from '../content/modTemplates'
 import { EMPTY_EQUIPMENT } from '../equipment/equipmentOrder'
 import { migrateFromUnknown, normalizeLoadedCampaign } from './migrate'
 
+function hero(c: CampaignState) {
+  return getPrimaryCharacter(c)
+}
+
+describe('migrateFromUnknown v2 → v3', () => {
+  it('migrates v2 save with flat hero fields to v3 Character roster', () => {
+    const v2 = {
+      version: 2,
+      campaign: {
+        scenarioIndex: 0,
+        worldPower: 2,
+        playerUnitLevel: 3,
+        cards: [{ id: 'c1', templateId: 'strike', global_level: 1, uses_count: 0, modifications: [] }],
+        battleLoadout: ['c1', null] as const,
+        modKillTargetCardId: 'c1',
+        gold: 50,
+        items: [],
+        equipment: { weapon: null, armor: null, accessory: null },
+        phase: 'hub',
+        battle: null,
+        battleAttemptId: 0,
+        battleAttemptSnapshot: null,
+        codexDiscovered: [],
+        codexSeenEntryIds: [],
+      },
+    }
+    const c = migrateFromUnknown(v2)
+    expect(c).not.toBeNull()
+    expect(c!.characters).toHaveLength(1)
+    expect(c!.characters[0].id).toBe('char-hero-1')
+    expect(c!.characters[0].unitLevel).toBe(3)
+    expect(c!.characters[0].cards[0].id).toBe('c1')
+    expect(c!.squad).toEqual(['char-hero-1', null, null, null])
+    expect(c!.expedition).toBeNull()
+    expect('playerUnitLevel' in c!).toBe(false)
+  })
+})
+
 describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
   it('fills missing scenarioSlotIndex from scenarioIndex when campaign in progress', () => {
+    const init = initialCampaignState()
     const snap = {
       worldPower: 0,
-      cards: initialCampaignState().cards,
+      cards: hero(init).cards,
       playerUnitLevel: 1,
       modKillTargetCardId: 'c1' as const,
       gold: 0,
@@ -18,7 +58,7 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
       equipment: { ...EMPTY_EQUIPMENT },
     }
     const c = {
-      ...initialCampaignState(),
+      ...init,
       scenarioIndex: 1,
       battleAttemptSnapshot: snap,
     } as unknown as CampaignState
@@ -27,9 +67,10 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
   })
 
   it('fills missing scenarioSlotIndex with 0 when campaign finished', () => {
+    const init = initialCampaignState()
     const snap = {
       worldPower: 0,
-      cards: initialCampaignState().cards,
+      cards: hero(init).cards,
       playerUnitLevel: 1,
       modKillTargetCardId: 'c1' as const,
       gold: 0,
@@ -37,7 +78,7 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
       equipment: { ...EMPTY_EQUIPMENT },
     }
     const c = {
-      ...initialCampaignState(),
+      ...init,
       scenarioIndex: SCENARIOS.length,
       battleAttemptSnapshot: snap,
     } as unknown as CampaignState
@@ -51,7 +92,7 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
       scenarioIndex: SCENARIOS.length,
       battleAttemptSnapshot: {
         worldPower: 0,
-        cards: initialCampaignState().cards,
+        cards: hero(initialCampaignState()).cards,
         battleLoadout: ['c1', 'c2'] as [string | null, string | null],
         playerUnitLevel: 1,
         modKillTargetCardId: 'c1',
@@ -66,32 +107,43 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
   })
 
   it('clears equipment slot when item id is missing from items', () => {
+    const init = initialCampaignState()
     const c: CampaignState = {
-      ...initialCampaignState(),
-      items: [],
-      equipment: { ...EMPTY_EQUIPMENT, weapon: 'missing-id' },
+      ...init,
+      characters: [
+        {
+          ...hero(init),
+          items: [],
+          equipment: { ...EMPTY_EQUIPMENT, weapon: 'missing-id' },
+        },
+      ],
     }
     const out = normalizeLoadedCampaign(c)
-    expect(out.equipment.weapon).toBeNull()
+    expect(hero(out).equipment.weapon).toBeNull()
   })
 
   it('adds missing starter cards from old saves', () => {
-    const strikeOnly = initialCampaignState().cards.filter((c) => c.id === 'c1')
+    const init = initialCampaignState()
+    const strikeOnly = hero(init).cards.filter((c) => c.id === 'c1')
     const c: CampaignState = {
-      ...initialCampaignState(),
-      cards: strikeOnly,
+      ...init,
+      characters: [{ ...hero(init), cards: strikeOnly }],
     }
     const out = normalizeLoadedCampaign(c)
-    expect(out.cards.map((card) => card.id)).toEqual(['c1', 'c2', 'c3'])
-    expect(out.cards.find((card) => card.id === 'c2')?.templateId).toBe('fireball')
-    expect(out.cards.find((card) => card.id === 'c3')?.templateId).toBe('heal')
-    expect(out.battleLoadout).toEqual(['c1', 'c2'])
+    expect(hero(out).cards.map((card) => card.id)).toEqual(['c1', 'c2', 'c3'])
+    expect(hero(out).cards.find((card) => card.id === 'c2')?.templateId).toBe('fireball')
+    expect(hero(out).cards.find((card) => card.id === 'c3')?.templateId).toBe('heal')
+    expect(hero(out).battleLoadout).toEqual(['c1', 'c2'])
   })
 
   it('adds missing starter cards to active battle playerCards', () => {
-    const strikeOnly = initialCampaignState().cards.filter((c) => c.id === 'c1')
+    const init = initialCampaignState()
+    const strikeOnly = hero(init).cards.filter((c) => c.id === 'c1')
     const withBattle = applyRunAction(
-      { ...initialCampaignState(), cards: strikeOnly },
+      {
+        ...init,
+        characters: [{ ...hero(init), cards: strikeOnly }],
+      },
       { type: 'START_OR_CONTINUE_BATTLE' },
     )
     const out = normalizeLoadedCampaign(withBattle)
@@ -99,35 +151,60 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
   })
 
   it('adds battleLoadout default when missing', () => {
-    const legacy = { ...initialCampaignState(), battleLoadout: undefined } as unknown as CampaignState
+    const init = initialCampaignState()
+    const legacy = {
+      ...init,
+      characters: [{ ...hero(init), battleLoadout: undefined }],
+    } as unknown as CampaignState
     const out = normalizeLoadedCampaign(legacy)
-    expect(out.battleLoadout).toEqual(['c1', 'c2'])
+    expect(hero(out).battleLoadout).toEqual(['c1', 'c2'])
   })
 })
 
 describe('normalizeLoadedCampaign legacy codex and mod fields', () => {
   it('v1 envelope without codex fields gets empty arrays after migrateFromUnknown', () => {
-    const v1 = { version: 1, campaign: { ...initialCampaignState() } }
-    delete (v1.campaign as Record<string, unknown>).codexDiscovered
-    delete (v1.campaign as Record<string, unknown>).codexSeenEntryIds
+    const v1 = {
+      version: 1,
+      campaign: {
+        scenarioIndex: 0,
+        worldPower: 0,
+        playerUnitLevel: 1,
+        cards: hero(initialCampaignState()).cards,
+        battleLoadout: ['c1', 'c2'],
+        modKillTargetCardId: 'c1',
+        gold: 0,
+        items: [],
+        equipment: { ...EMPTY_EQUIPMENT },
+        phase: 'hub',
+        battle: null,
+        battleAttemptId: 0,
+        battleAttemptSnapshot: null,
+      },
+    }
     const out = migrateFromUnknown(v1)
     expect(out?.codexDiscovered).toEqual([])
     expect(out?.codexSeenEntryIds).toEqual([])
   })
 
   it('campaign with modification { level: 0 } only gets templateId backfilled', () => {
+    const init = initialCampaignState()
     const c = {
-      ...initialCampaignState(),
-      cards: [
+      ...init,
+      characters: [
         {
-          ...initialCampaignState().cards[0],
-          modifications: [{ level: 0 }],
+          ...hero(init),
+          cards: [
+            {
+              ...hero(init).cards[0],
+              modifications: [{ level: 0 }],
+            },
+            ...hero(init).cards.slice(1),
+          ],
         },
-        ...initialCampaignState().cards.slice(1),
       ],
     } as unknown as CampaignState
     const out = normalizeLoadedCampaign(c)
-    expect(out.cards[0].modifications).toEqual([
+    expect(hero(out).cards[0].modifications).toEqual([
       { templateId: DEFAULT_MOD_KILL_TEMPLATE_ID, level: 0 },
     ])
   })

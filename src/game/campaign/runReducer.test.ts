@@ -8,6 +8,24 @@ import {
   initialCampaignState,
 } from './runReducer'
 import { SCENARIOS } from './scenarios'
+import { getPrimaryCharacter } from './selectors'
+
+function hero(c: CampaignState) {
+  return getPrimaryCharacter(c)
+}
+
+function withHero(
+  c: CampaignState,
+  patch: Partial<ReturnType<typeof getPrimaryCharacter>>,
+): CampaignState {
+  const primary = getPrimaryCharacter(c)
+  return {
+    ...c,
+    characters: c.characters.map((ch) =>
+      ch.id === primary.id ? { ...ch, ...patch } : ch,
+    ),
+  }
+}
 
 function unit(p: Unit): Unit {
   return p
@@ -61,6 +79,7 @@ function makeBattle(overrides: Partial<BattleState> = {}): BattleState {
 
 function campaignWithBattle(b: BattleState): CampaignState {
   const init = initialCampaignState()
+  const h = hero(init)
   return {
     ...init,
     phase: 'battle',
@@ -69,12 +88,12 @@ function campaignWithBattle(b: BattleState): CampaignState {
       worldPower: b.worldPower,
       cards: cloneCards(b.playerCards),
       battleLoadout: ['c1', 'c2'],
-      playerUnitLevel: 1,
+      playerUnitLevel: h.unitLevel,
       modKillTargetCardId: 'c1',
       scenarioSlotIndex: 0,
       gold: init.gold,
-      items: cloneItems(init.items),
-      equipment: { ...init.equipment },
+      items: cloneItems(h.items),
+      equipment: { ...h.equipment },
     },
   }
 }
@@ -113,7 +132,7 @@ describe('runReducer', () => {
     expect(s.battleAttemptSnapshot).toBeNull()
     expect(s.worldPower).toBe(1)
     expect(s.gold).toBe(55)
-    expect(s.playerUnitLevel).toBe(2)
+    expect(hero(s).unitLevel).toBe(2)
   })
 
   it('defeat then retry resets battle meta from snapshot (no dup rewards)', () => {
@@ -242,7 +261,7 @@ describe('runReducer', () => {
     expect(s.battleAttemptSnapshot).toBeNull()
     expect(s.worldPower).toBe(1)
     expect(s.gold).toBe(55)
-    expect(s.playerUnitLevel).toBe(2)
+    expect(hero(s).unitLevel).toBe(2)
   })
 
   it('replay defeat then retry uses same scenario slot', () => {
@@ -511,11 +530,12 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
 
   it('FINALIZE_VICTORY no-op when itemLevelRolls length mismatches equipped count', () => {
     const init = initialCampaignState()
+    const h = hero(init)
     const items = [{ id: 'w1', templateId: 'wooden_sword', itemLevel: 1 }]
-    const equipment = { ...init.equipment, weapon: 'w1' as const }
+    const equipment = { ...h.equipment, weapon: 'w1' as const }
     const snap = {
       worldPower: 0,
-      cards: cloneCards(init.cards),
+      cards: cloneCards(h.cards),
       battleLoadout: ['c1', 'c2'] as [string | null, string | null],
       playerUnitLevel: 1,
       modKillTargetCardId: 'c1' as const,
@@ -525,15 +545,10 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
       equipment: { ...equipment },
     }
     const b = makeBattle({ phase: 'victory' })
-    const s: CampaignState = {
-      ...init,
-      gold: 100,
-      items,
-      equipment,
-      phase: 'victory',
-      battle: b,
-      battleAttemptSnapshot: snap,
-    }
+    const s: CampaignState = withHero(
+      { ...init, gold: 100, phase: 'victory', battle: b, battleAttemptSnapshot: snap },
+      { items, equipment },
+    )
     const next = applyRunAction(s, {
       type: 'FINALIZE_VICTORY',
       itemLevelRolls: [],
@@ -542,17 +557,18 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
     expect(next.phase).toBe('victory')
     expect(next.gold).toBe(100)
     expect(next.scenarioIndex).toBe(init.scenarioIndex)
-    expect(next.items[0]!.itemLevel).toBe(1)
-    expect(next.playerUnitLevel).toBe(1)
+    expect(hero(next).items[0]!.itemLevel).toBe(1)
+    expect(hero(next).unitLevel).toBe(1)
   })
 
   it('FINALIZE_VICTORY applies memento roll and gold when length matches', () => {
     const init = initialCampaignState()
+    const h = hero(init)
     const items = [{ id: 'w1', templateId: 'wooden_sword', itemLevel: 1 }]
-    const equipment = { ...init.equipment, weapon: 'w1' as const }
+    const equipment = { ...h.equipment, weapon: 'w1' as const }
     const snap = {
       worldPower: 0,
-      cards: cloneCards(init.cards),
+      cards: cloneCards(h.cards),
       battleLoadout: ['c1', 'c2'] as [string | null, string | null],
       playerUnitLevel: 1,
       modKillTargetCardId: 'c1' as const,
@@ -562,65 +578,63 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
       equipment: { ...equipment },
     }
     const b = makeBattle({ phase: 'victory' })
-    let s: CampaignState = {
-      ...init,
-      gold: 10,
-      items,
-      equipment,
-      phase: 'victory',
-      battle: b,
-      battleAttemptSnapshot: snap,
-    }
+    let s: CampaignState = withHero(
+      { ...init, gold: 10, phase: 'victory', battle: b, battleAttemptSnapshot: snap },
+      { items, equipment },
+    )
     s = applyRunAction(s, {
       type: 'FINALIZE_VICTORY',
       itemLevelRolls: [100],
       playerUnitLevelRoll: 100,
     })
     expect(s.phase).toBe('hub')
-    expect(s.items.find((i) => i.id === 'w1')!.itemLevel).toBe(2)
+    expect(hero(s).items.find((i) => i.id === 'w1')!.itemLevel).toBe(2)
     expect(s.gold).toBe(10 + 55)
-    expect(s.playerUnitLevel).toBe(2)
+    expect(hero(s).unitLevel).toBe(2)
   })
 
   it('FINALIZE_VICTORY hero level memento uses same curve as cards/items', () => {
     const init = initialCampaignState()
+    const h = hero(init)
     const b = makeBattle({ phase: 'victory' })
-    const s: CampaignState = {
-      ...init,
-      playerUnitLevel: 50,
-      phase: 'victory',
-      battle: b,
-      battleAttemptSnapshot: {
-        worldPower: 0,
-        cards: cloneCards(init.cards),
-        battleLoadout: ['c1', 'c2'],
-        playerUnitLevel: 50,
-        modKillTargetCardId: 'c1',
-        scenarioSlotIndex: 0,
-        gold: 0,
-        items: [],
-        equipment: { ...init.equipment },
+    const s: CampaignState = withHero(
+      {
+        ...init,
+        phase: 'victory',
+        battle: b,
+        battleAttemptSnapshot: {
+          worldPower: 0,
+          cards: cloneCards(h.cards),
+          battleLoadout: ['c1', 'c2'],
+          playerUnitLevel: 50,
+          modKillTargetCardId: 'c1',
+          scenarioSlotIndex: 0,
+          gold: 0,
+          items: [],
+          equipment: { ...h.equipment },
+        },
       },
-    }
+      { unitLevel: 50 },
+    )
     const noUp = applyRunAction(s, {
       type: 'FINALIZE_VICTORY',
       itemLevelRolls: [],
       playerUnitLevelRoll: 49,
     })
-    expect(noUp.playerUnitLevel).toBe(50)
+    expect(hero(noUp).unitLevel).toBe(50)
     const up = applyRunAction(s, {
       type: 'FINALIZE_VICTORY',
       itemLevelRolls: [],
       playerUnitLevelRoll: 50,
     })
-    expect(up.playerUnitLevel).toBe(51)
+    expect(hero(up).unitLevel).toBe(51)
   })
 
   it('BUY_ITEM then defeat then RETRY restores gold and items from snapshot', () => {
     let s = { ...initialCampaignState(), gold: 100 }
     s = applyRunAction(s, { type: 'BUY_ITEM', templateId: 'wooden_sword' })
     expect(s.gold).toBe(90)
-    expect(s.items).toHaveLength(1)
+    expect(hero(s).items).toHaveLength(1)
 
     s = applyRunAction(s, { type: 'START_OR_CONTINUE_BATTLE' })
     const goldAtStart = s.gold
@@ -645,7 +659,7 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
     s = applyRunAction(s, { type: 'RETRY_CURRENT_BATTLE' })
     expect(s.phase).toBe('battle')
     expect(s.gold).toBe(goldAtStart)
-    expect(s.items).toHaveLength(1)
+    expect(hero(s).items).toHaveLength(1)
   })
 
   it('BATTLE_DISPATCH discovers killed enemy archetype in codex', () => {
@@ -691,16 +705,16 @@ describe('inventory grid actions', () => {
   it('SELL_ITEM refunds half price and removes stash item', () => {
     let s = { ...initialCampaignState(), gold: 100 }
     s = applyRunAction(s, { type: 'BUY_ITEM', templateId: 'wooden_sword' })
-    const id = s.items[0]!.id
+    const id = hero(s).items[0]!.id
     s = applyRunAction(s, { type: 'SELL_ITEM', itemId: id })
-    expect(s.items).toHaveLength(0)
+    expect(hero(s).items).toHaveLength(0)
     expect(s.gold).toBe(95)
   })
 
   it('SELL_ITEM no-op for equipped item', () => {
     let s = { ...initialCampaignState(), gold: 100 }
     s = applyRunAction(s, { type: 'BUY_ITEM', templateId: 'wooden_sword' })
-    const id = s.items[0]!.id
+    const id = hero(s).items[0]!.id
     s = applyRunAction(s, { type: 'EQUIP_ITEM', itemId: id, slot: 'weapon' })
     const before = s
     s = applyRunAction(s, { type: 'SELL_ITEM', itemId: id })
@@ -710,7 +724,7 @@ describe('inventory grid actions', () => {
   it('REORDER_CARDS changes card order when multiple cards', () => {
     let s = initialCampaignState()
     s = applyRunAction(s, { type: 'REORDER_CARDS', cardIds: ['c2', 'c1', 'c3'] })
-    expect(s.cards.map((c) => c.id)).toEqual(['c2', 'c1', 'c3'])
+    expect(hero(s).cards.map((c) => c.id)).toEqual(['c2', 'c1', 'c3'])
   })
 
   it('SET_MOD_KILL_TARGET updates target', () => {
@@ -724,12 +738,12 @@ describe('inventory grid actions', () => {
   it('REORDER_STASH persists stash order after equipped block', () => {
     let s = { ...initialCampaignState(), gold: 100 }
     s = applyRunAction(s, { type: 'BUY_ITEM', templateId: 'wooden_sword' })
-    const swordId = s.items[0]!.id
+    const swordId = hero(s).items[0]!.id
     s = applyRunAction(s, { type: 'BUY_ITEM', templateId: 'leather_armor' })
-    const armorId = s.items.find((i) => i.templateId === 'leather_armor')!.id
+    const armorId = hero(s).items.find((i) => i.templateId === 'leather_armor')!.id
     s = applyRunAction(s, { type: 'EQUIP_ITEM', itemId: swordId, slot: 'weapon' })
     s = applyRunAction(s, { type: 'REORDER_STASH', itemIds: [armorId] })
-    expect(s.items.map((i) => i.id)).toEqual([swordId, armorId])
+    expect(hero(s).items.map((i) => i.id)).toEqual([swordId, armorId])
   })
 
   it('inventory actions no-op in battle', () => {
@@ -739,7 +753,7 @@ describe('inventory grid actions', () => {
     })
     s = applyRunAction(s, { type: 'START_OR_CONTINUE_BATTLE' })
     const before = s
-    s = applyRunAction(s, { type: 'SELL_ITEM', itemId: before.items[0]!.id })
+    s = applyRunAction(s, { type: 'SELL_ITEM', itemId: hero(before).items[0]!.id })
     expect(s).toEqual(before)
   })
 })

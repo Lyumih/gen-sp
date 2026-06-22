@@ -1,5 +1,6 @@
 import { Space, Typography } from 'antd'
 import type { CampaignState } from '../../game/types'
+import { getPrimaryCharacter } from '../../game/campaign/selectors'
 import { UI_LEVEL } from '../../game/ui/labels'
 
 type CampaignHubHudProps = {
@@ -7,11 +8,12 @@ type CampaignHubHudProps = {
 }
 
 export function CampaignHubHud({ campaign }: CampaignHubHudProps) {
+  const hero = getPrimaryCharacter(campaign)
   return (
     <Space wrap size="middle" style={{ width: '100%', justifyContent: 'center' }}>
       <Typography.Text>
         {UI_LEVEL}
-        <strong>{campaign.playerUnitLevel}</strong>
+        <strong>{hero.unitLevel}</strong>
       </Typography.Text>
       <Typography.Text>
         <span style={{ fontSize: 28, lineHeight: 1, verticalAlign: '-0.18em' }} aria-hidden>

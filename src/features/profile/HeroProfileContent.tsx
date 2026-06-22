@@ -1,6 +1,7 @@
 import { Collapse, Divider, Typography } from 'antd'
 import { buildBattleAttemptSnapshot } from '../../game/campaign/battleSnapshot'
 import { computeHeroMaxHpForScenario } from '../../game/campaign/heroMaxHp'
+import { getPrimaryCharacter } from '../../game/campaign/selectors'
 import { SCENARIOS } from '../../game/campaign/scenarios'
 import { describeCardCombatStats, getCardDisplayLabel } from '../../game/descriptions/cardText'
 import {
@@ -33,13 +34,14 @@ export function HeroProfileContent({
   includeEquipmentReadout = true,
   includeCardsCollapse = true,
 }: HeroProfileContentProps) {
+  const hero = getPrimaryCharacter(campaign)
   const hubSnapshot = buildBattleAttemptSnapshot(campaign, campaign.scenarioIndex)
   const hubScenario = SCENARIOS[campaign.scenarioIndex]
 
-  const gearHpHub = aggregateGearHpBonus(campaign.items, campaign.equipment, getItemTemplate)
+  const gearHpHub = aggregateGearHpBonus(hero.items, hero.equipment, getItemTemplate)
   const gearCardHub = aggregateGearCardLevelBonus(
-    campaign.items,
-    campaign.equipment,
+    hero.items,
+    hero.equipment,
     getItemTemplate,
   )
 
@@ -54,7 +56,7 @@ export function HeroProfileContent({
       {includeResourceStats ? (
         <Typography.Paragraph style={{ marginBottom: 8 }}>
           Герой: {UI_LEVEL}
-          <strong>{campaign.playerUnitLevel}</strong>
+          <strong>{hero.unitLevel}</strong>
           <br />
           worldPower: <strong>{campaign.worldPower}</strong>
           <br />
@@ -101,7 +103,7 @@ export function HeroProfileContent({
           <Divider plain>Экипировка</Divider>
           <ul style={{ margin: '0 0 12px', paddingLeft: 20 }}>
             {EQUIPMENT_ROLL_ORDER.map((slot) => {
-              const itemId = campaign.equipment[slot]
+              const itemId = hero.equipment[slot]
               if (itemId === null) {
                 return (
                   <li key={slot}>
@@ -110,7 +112,7 @@ export function HeroProfileContent({
                   </li>
                 )
               }
-              const inst = campaign.items.find((i) => i.id === itemId)
+              const inst = hero.items.find((i) => i.id === itemId)
               if (!inst) {
                 return (
                   <li key={slot}>
@@ -141,7 +143,7 @@ export function HeroProfileContent({
           <Divider plain>Карты</Divider>
           <Collapse
             size="small"
-            items={campaign.cards.map((c) => {
+            items={hero.cards.map((c) => {
               const gear =
                 mode === 'battle' && battle ? battle.gearCardLevelBonus : gearCardHub
               const desc = describeCardCombatStats(c, gear)

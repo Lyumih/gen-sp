@@ -41,6 +41,7 @@ import {
   validSingleTargetCells,
 } from '../../game/battle/rangeOverlay'
 import { occupiedEquipmentSlotsInOrder } from '../../game/equipment/equipmentOrder'
+import { getPrimaryCharacter } from '../../game/campaign/selectors'
 import { randomInt1to100 } from '../../game/rng'
 import { cellBackgroundStyle, OVERLAY_LEGEND } from './cellOverlayStyle'
 import { pickEnemyAiAction } from './enemyAi'
@@ -338,7 +339,8 @@ export function BattleScreen() {
     mode === 'move' || mode === 'melee' || mode === 'ranged' ? mode : undefined
 
   const finalizeVictoryToHub = () => {
-    const n = occupiedEquipmentSlotsInOrder(campaign.equipment).length
+    const hero = getPrimaryCharacter(campaign)
+    const n = occupiedEquipmentSlotsInOrder(hero.equipment).length
     const rolls = Array.from({ length: n }, () => randomInt1to100())
     dispatchRun({
       type: 'FINALIZE_VICTORY',

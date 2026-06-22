@@ -5,19 +5,35 @@ import type {
   BattlePlayerCard,
   CampaignState,
   CardInstance,
+  Character,
   EquipmentSlot,
   ItemInstance,
   ModificationInstance,
 } from '../types'
 import { cloneCards } from '../campaign/battleSnapshot'
 import { playerCardsFromLoadout } from '../campaign/playerCardsFromLoadout'
+import { getPrimaryCharacter } from '../campaign/selectors'
 import { STARTER_CARDS } from '../campaign/runReducer'
 import { SCENARIOS } from '../campaign/scenarios'
+import { createCharacter } from '../character/createCharacter'
+import { DEFAULT_SQUAD_SLOTS, LEGACY_HERO_CHARACTER_ID } from '../character/constants'
 import { DEFAULT_MOD_KILL_TEMPLATE_ID } from '../content/modTemplates'
 import {
   EMPTY_EQUIPMENT,
   EQUIPMENT_ROLL_ORDER,
 } from '../equipment/equipmentOrder'
+
+/** v2 campaign with flat hero fields before Character roster migration. */
+export type LegacyCampaignStateV2 = Omit<
+  CampaignState,
+  'characters' | 'squad' | 'expedition'
+> & {
+  playerUnitLevel?: number
+  cards?: CardInstance[]
+  items?: ItemInstance[]
+  equipment?: Record<EquipmentSlot, string | null>
+  battleLoadout?: BattleLoadout
+}
 
 function isItemInstance(x: unknown): x is ItemInstance {
   if (!x || typeof x !== 'object') return false
@@ -48,11 +64,48 @@ function normalizeEquipmentRecord(
   return base
 }
 
+function normalizeBattleLoadout(
+  raw: unknown,
+  fallback: BattleLoadout = ['c1', 'c2'],
+): BattleLoadout {
+  if (
+    Array.isArray(raw) &&
+    raw.length === 2 &&
+    (raw[0] === null || typeof raw[0] === 'string') &&
+    (raw[1] === null || typeof raw[1] === 'string')
+  ) {
+    return [raw[0], raw[1]]
+  }
+  return fallback
+}
+
+function normalizeCharacter(char: Character): Character {
+  const items = (Array.isArray(char.items) ? char.items : [])
+    .filter(isItemInstance)
+    .map((i) => ({ ...i }))
+  const equipment = normalizeEquipmentRecord(char.equipment, items)
+  const cards = Array.isArray(char.cards)
+    ? char.cards.map((c) => ({ ...c, modifications: c.modifications.map((m) => ({ ...m })) }))
+    : []
+  const battleLoadout = normalizeBattleLoadout(char.battleLoadout, [
+    cards[0]?.id ?? null,
+    cards[1]?.id ?? null,
+  ])
+  const unitLevel =
+    typeof char.unitLevel === 'number' && Number.isFinite(char.unitLevel) ? char.unitLevel : 1
+  return {
+    ...char,
+    unitLevel,
+    items,
+    equipment,
+    cards,
+    battleLoadout,
+  }
+}
+
 function normalizeCampaignEconomy(c: CampaignState): CampaignState {
   const gold = typeof c.gold === 'number' && Number.isFinite(c.gold) ? c.gold : 0
-  const rawItems = Array.isArray(c.items) ? c.items : []
-  const items = rawItems.filter(isItemInstance).map((i) => ({ ...i }))
-  const equipment = normalizeEquipmentRecord(c.equipment, items)
+  const characters = c.characters.map(normalizeCharacter)
 
   let snap: BattleAttemptSnapshot | null = c.battleAttemptSnapshot
   if (snap) {
@@ -75,7 +128,7 @@ function normalizeCampaignEconomy(c: CampaignState): CampaignState {
         }
       : null
 
-  return { ...c, gold, items, equipment, battleAttemptSnapshot: snap, battle }
+  return { ...c, gold, characters, battleAttemptSnapshot: snap, battle }
 }
 
 function withDefaultScenarioSlotIndex(c: CampaignState): CampaignState {
@@ -99,16 +152,16 @@ function mergeMissingStarterCards(cards: readonly CardInstance[]): CardInstance[
 }
 
 function withDefaultBattleLoadout(c: CampaignState): CampaignState {
-  const raw = c.battleLoadout as unknown
-  if (
-    Array.isArray(raw) &&
-    raw.length === 2 &&
-    (raw[0] === null || typeof raw[0] === 'string') &&
-    (raw[1] === null || typeof raw[1] === 'string')
-  ) {
-    return { ...c, battleLoadout: [raw[0], raw[1]] as BattleLoadout }
-  }
-  return { ...c, battleLoadout: ['c1', 'c2'] }
+  const characters = c.characters.map((char) => ({
+    ...char,
+    battleLoadout: normalizeBattleLoadout(char.battleLoadout, [
+      char.cards[0]?.id ?? null,
+      char.cards[1]?.id ?? null,
+    ]),
+  }))
+  const changed = characters.some((char, i) => char !== c.characters[i])
+  if (!changed) return c
+  return { ...c, characters }
 }
 
 function normalizeBattlePlayerCards(c: CampaignState): CampaignState {
@@ -148,8 +201,8 @@ function withSnapshotBattleLoadout(c: CampaignState): CampaignState {
 
 function normalizeBattleFromLoadout(c: CampaignState): CampaignState {
   if (!c.battle) return c
-  const loadout = c.battleLoadout
-  const playerCards = playerCardsFromLoadout(c.cards, loadout)
+  const hero = getPrimaryCharacter(c)
+  const playerCards = playerCardsFromLoadout(hero.cards, hero.battleLoadout)
   const same =
     playerCards.length === c.battle.playerCards.length &&
     playerCards.every(
@@ -161,26 +214,26 @@ function normalizeBattleFromLoadout(c: CampaignState): CampaignState {
   return { ...c, battle: { ...c.battle, playerCards } }
 }
 
-/** Старые сохранения без новых стартовых карт — дополняем из STARTER_CARDS. */
 function withMissingStarterCards(c: CampaignState): CampaignState {
-  const cards = mergeMissingStarterCards(c.cards)
-  const cardsChanged = cards.length !== c.cards.length
-
-  let battle = c.battle
-  // playerCards в бою — только loadout; не дополняем коллекционными стартовыми картами.
+  let changed = false
+  const characters = c.characters.map((char) => {
+    const cards = mergeMissingStarterCards(char.cards)
+    if (cards.length === char.cards.length) return char
+    changed = true
+    return { ...char, cards }
+  })
 
   let battleAttemptSnapshot = c.battleAttemptSnapshot
   if (c.battleAttemptSnapshot) {
     const snapCards = mergeMissingStarterCards(c.battleAttemptSnapshot.cards)
     if (snapCards.length !== c.battleAttemptSnapshot.cards.length) {
       battleAttemptSnapshot = { ...c.battleAttemptSnapshot, cards: snapCards }
+      changed = true
     }
   }
 
-  if (!cardsChanged && battle === c.battle && battleAttemptSnapshot === c.battleAttemptSnapshot) {
-    return c
-  }
-  return { ...c, cards, battle, battleAttemptSnapshot }
+  if (!changed) return c
+  return { ...c, characters, battleAttemptSnapshot }
 }
 
 function normalizeCardModifications(card: CardInstance): CardInstance {
@@ -207,8 +260,13 @@ function normalizeCardModifications(card: CardInstance): CardInstance {
 }
 
 function withLegacyCardModTemplateIds(c: CampaignState): CampaignState {
-  const cards = c.cards.map(normalizeCardModifications)
-  const cardsChanged = cards.some((card, i) => card !== c.cards[i])
+  let changed = false
+  const characters = c.characters.map((char) => {
+    const cards = char.cards.map(normalizeCardModifications)
+    if (cards.every((card, i) => card === char.cards[i])) return char
+    changed = true
+    return { ...char, cards }
+  })
 
   let battle = c.battle
   if (c.battle) {
@@ -219,6 +277,7 @@ function withLegacyCardModTemplateIds(c: CampaignState): CampaignState {
     const battleCardsChanged = playerCards.some((card, i) => card !== c.battle!.playerCards[i])
     if (battleCardsChanged) {
       battle = { ...c.battle, playerCards }
+      changed = true
     }
   }
 
@@ -230,13 +289,12 @@ function withLegacyCardModTemplateIds(c: CampaignState): CampaignState {
     )
     if (snapChanged) {
       battleAttemptSnapshot = { ...c.battleAttemptSnapshot, cards: snapCards }
+      changed = true
     }
   }
 
-  if (!cardsChanged && battle === c.battle && battleAttemptSnapshot === c.battleAttemptSnapshot) {
-    return c
-  }
-  return { ...c, cards, battle, battleAttemptSnapshot }
+  if (!changed) return c
+  return { ...c, characters, battle, battleAttemptSnapshot }
 }
 
 function withLegacyCodexFields(c: CampaignState): CampaignState {
@@ -246,6 +304,19 @@ function withLegacyCodexFields(c: CampaignState): CampaignState {
     return c
   }
   return { ...c, codexDiscovered, codexSeenEntryIds }
+}
+
+function withDefaultSquad(c: CampaignState): CampaignState {
+  const squad = Array.isArray(c.squad) ? [...c.squad] : []
+  while (squad.length < DEFAULT_SQUAD_SLOTS) squad.push(null)
+  if (squad.length > DEFAULT_SQUAD_SLOTS) squad.length = DEFAULT_SQUAD_SLOTS
+  if (squad === c.squad) return c
+  return { ...c, squad }
+}
+
+function withDefaultExpedition(c: CampaignState): CampaignState {
+  if (c.expedition === undefined) return { ...c, expedition: null }
+  return c
 }
 
 /** Старые сохранения без `battle.battleLog` — подставляем пустой массив. */
@@ -261,6 +332,8 @@ export function normalizeLoadedCampaign(c: CampaignState): CampaignState {
       battle: { ...c.battle, battleLog: [] },
     }
   }
+  out = withDefaultExpedition(out)
+  out = withDefaultSquad(out)
   out = withDefaultScenarioSlotIndex(out)
   out = withDefaultBattleLoadout(out)
   out = withSnapshotBattleLoadout(out)
@@ -273,8 +346,75 @@ export function normalizeLoadedCampaign(c: CampaignState): CampaignState {
   return out
 }
 
+export function migrateV2CampaignToV3(c: LegacyCampaignStateV2): CampaignState {
+  const raw = c as Record<string, unknown>
+  const hero = createCharacter({
+    id: LEGACY_HERO_CHARACTER_ID,
+    name: 'Герой',
+    classId: 'warrior',
+    initiativeBase: 10,
+    unitLevel: typeof raw.playerUnitLevel === 'number' ? raw.playerUnitLevel : 1,
+  })
+  hero.cards = Array.isArray(raw.cards)
+    ? (raw.cards as CardInstance[]).map((x) => ({
+        ...x,
+        modifications: x.modifications.map((m) => ({ ...m })),
+      }))
+    : hero.cards
+  hero.items = Array.isArray(raw.items)
+    ? (raw.items as ItemInstance[]).map((x) => ({ ...x }))
+    : []
+  hero.equipment = normalizeEquipmentRecord(raw.equipment, hero.items)
+  hero.battleLoadout = normalizeBattleLoadout(raw.battleLoadout, [
+    hero.cards[0]?.id ?? null,
+    hero.cards[1]?.id ?? null,
+  ])
+
+  const {
+    playerUnitLevel: _playerUnitLevel,
+    cards: _cards,
+    items: _items,
+    equipment: _equipment,
+    battleLoadout: _battleLoadout,
+    ...rest
+  } = c as LegacyCampaignStateV2 & Record<string, unknown>
+
+  const squad: (string | null)[] = [LEGACY_HERO_CHARACTER_ID]
+  while (squad.length < DEFAULT_SQUAD_SLOTS) squad.push(null)
+
+  return normalizeLoadedCampaign({
+    ...(rest as CampaignState),
+    characters: [hero],
+    squad,
+    expedition: null,
+  })
+}
+
 function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null && !Array.isArray(x)
+}
+
+function isLegacyFlatCampaign(raw: Record<string, unknown>): boolean {
+  return (
+    !Array.isArray(raw.characters) &&
+    (typeof raw.playerUnitLevel === 'number' ||
+      Array.isArray(raw.cards) ||
+      Array.isArray(raw.items))
+  )
+}
+
+function campaignFromRaw(raw: Record<string, unknown>): CampaignState {
+  if (isLegacyFlatCampaign(raw)) {
+    return migrateV2CampaignToV3(raw as LegacyCampaignStateV2)
+  }
+  return normalizeLoadedCampaign({
+    ...(raw as unknown as CampaignState),
+    codexDiscovered: Array.isArray(raw.codexDiscovered) ? raw.codexDiscovered : [],
+    codexSeenEntryIds: Array.isArray(raw.codexSeenEntryIds) ? raw.codexSeenEntryIds : [],
+    characters: Array.isArray(raw.characters) ? (raw.characters as Character[]) : [],
+    squad: Array.isArray(raw.squad) ? (raw.squad as (string | null)[]) : [],
+    expedition: raw.expedition === undefined ? null : (raw.expedition as CampaignState['expedition']),
+  })
 }
 
 /**
@@ -287,9 +427,9 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
     return null
   }
   const version = raw.version
-  if (version !== 1 && version !== 2) {
+  if (version !== 1 && version !== 2 && version !== 3) {
     console.warn(
-      `[gen-sp] save: unsupported version ${String(version)}, expected 1 or 2`,
+      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, or 3`,
     )
     return null
   }
@@ -298,13 +438,7 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
     console.warn('[gen-sp] save: missing campaign object')
     return null
   }
-  let campaign = campaignRaw as unknown as CampaignState
-  campaign = normalizeLoadedCampaign({
-    ...campaign,
-    codexDiscovered: Array.isArray(campaign.codexDiscovered) ? campaign.codexDiscovered : [],
-    codexSeenEntryIds: Array.isArray(campaign.codexSeenEntryIds) ? campaign.codexSeenEntryIds : [],
-  })
-  return campaign
+  return campaignFromRaw(campaignRaw)
 }
 
 export function assertEnvelopeV1(e: SaveEnvelopeV1): CampaignState {

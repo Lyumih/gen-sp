@@ -4,6 +4,7 @@ import { App, Card, Divider, Space } from 'antd'
 import { SCENARIOS } from '../../game/campaign/scenarios'
 import { unreadCodexEntryIds } from '../../game/codex/discovery'
 import { getItemTemplate } from '../../game/content/itemTemplates'
+import { getPrimaryCharacter } from '../../game/campaign/selectors'
 import { isItemEquipped } from '../../game/equipment/stashOrder'
 import type { EquipmentSlot } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
@@ -53,7 +54,8 @@ export function CampaignHub() {
   }
 
   const sellItem = (itemId: string) => {
-    if (isItemEquipped(itemId, campaign.equipment)) {
+    const hero = getPrimaryCharacter(campaign)
+    if (isItemEquipped(itemId, hero.equipment)) {
       message.warning('Сначала снимите предмет')
       return
     }

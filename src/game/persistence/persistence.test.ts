@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { initialCampaignState } from '../campaign/runReducer'
+import { getPrimaryCharacter } from '../campaign/selectors'
 import { migrateFromUnknown } from './migrate'
 import { parseSave, serializeCampaign } from './serialize'
 import { loadSave, saveSave, createDebouncedSave } from './localStorage'
@@ -11,7 +12,7 @@ describe('serialize / parse round-trip', () => {
     expect(back).not.toBeNull()
     expect(back!.scenarioIndex).toBe(s.scenarioIndex)
     expect(back!.worldPower).toBe(s.worldPower)
-    expect(back!.cards).toEqual(s.cards)
+    expect(getPrimaryCharacter(back!).cards).toEqual(getPrimaryCharacter(s).cards)
     expect(back!.battleAttemptSnapshot).toBeNull()
   })
 })

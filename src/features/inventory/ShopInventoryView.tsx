@@ -8,6 +8,7 @@ import {
   itemPriceLine,
   itemSellPrice,
 } from '../../game/descriptions/itemText'
+import { getPrimaryCharacter } from '../../game/campaign/selectors'
 import type { CampaignState, ItemInstance } from '../../game/types'
 import { UI_LEVEL } from '../../game/ui/labels'
 import { stashItemsFromCampaign } from '../../game/equipment/stashOrder'
@@ -181,7 +182,8 @@ export function ShopInventoryView({
   onInsufficientGold,
   onSell,
 }: ShopInventoryViewProps) {
-  const stash = stashItemsFromCampaign(campaign.items, campaign.equipment)
+  const hero = getPrimaryCharacter(campaign)
+  const stash = stashItemsFromCampaign(hero.items, hero.equipment)
   const [quickSellMode, setQuickSellMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
 

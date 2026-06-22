@@ -190,14 +190,8 @@ export type BattleAttemptSnapshot = {
 export type CampaignState = {
   scenarioIndex: number
   worldPower: number
-  playerUnitLevel: number
-  cards: CardInstance[]
-  /** Две карты, активные в следующем бою. */
-  battleLoadout: BattleLoadout
   modKillTargetCardId: string | null
   gold: number
-  items: ItemInstance[]
-  equipment: Record<EquipmentSlot, string | null>
   phase: RunPhase
   /** Активный бой; null в хабе после победы / до старта. */
   battle: BattleState | null
@@ -207,4 +201,8 @@ export type CampaignState = {
   battleAttemptSnapshot: BattleAttemptSnapshot | null
   codexDiscovered: readonly string[]
   codexSeenEntryIds: readonly string[]
+  characters: Character[]
+  /** Слоты отряда в хабе; null = пустой слот. */
+  squad: (string | null)[]
+  expedition: Expedition | null
 }

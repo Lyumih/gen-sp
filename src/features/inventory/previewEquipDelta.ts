@@ -3,6 +3,7 @@ import {
   aggregateGearCardLevelBonus,
   aggregateGearHpBonus,
 } from '../../game/equipment/aggregates'
+import { getPrimaryCharacter } from '../../game/campaign/selectors'
 import type { CampaignState, EquipmentSlot } from '../../game/types'
 
 export type EquipDelta = { deltaHp: number; deltaCardLevel: number }
@@ -13,21 +14,22 @@ export function previewEquipDelta(
   slot: EquipmentSlot,
   getTemplate: (templateId: string) => ItemTemplate | undefined,
 ): EquipDelta | null {
-  const item = campaign.items.find((i) => i.id === itemId)
+  const hero = getPrimaryCharacter(campaign)
+  const item = hero.items.find((i) => i.id === itemId)
   if (!item) return null
   const tmpl = getTemplate(item.templateId)
   if (!tmpl || tmpl.slot !== slot) return null
 
-  const beforeHp = aggregateGearHpBonus(campaign.items, campaign.equipment, getTemplate)
+  const beforeHp = aggregateGearHpBonus(hero.items, hero.equipment, getTemplate)
   const beforeCard = aggregateGearCardLevelBonus(
-    campaign.items,
-    campaign.equipment,
+    hero.items,
+    hero.equipment,
     getTemplate,
   )
 
-  const nextEquipment = { ...campaign.equipment, [slot]: itemId }
-  const afterHp = aggregateGearHpBonus(campaign.items, nextEquipment, getTemplate)
-  const afterCard = aggregateGearCardLevelBonus(campaign.items, nextEquipment, getTemplate)
+  const nextEquipment = { ...hero.equipment, [slot]: itemId }
+  const afterHp = aggregateGearHpBonus(hero.items, nextEquipment, getTemplate)
+  const afterCard = aggregateGearCardLevelBonus(hero.items, nextEquipment, getTemplate)
 
   return {
     deltaHp: afterHp - beforeHp,
