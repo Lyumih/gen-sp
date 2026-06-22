@@ -492,6 +492,78 @@ describe('USE_CARD_ATTACK', () => {
   })
 })
 
+describe('item L triggers', () => {
+  it('increments weapon itemLevel on strike when roll succeeds', () => {
+    const b = makeBattle()
+    let s = withHero(campaignWithBattle(b), {
+      items: [{ id: 'w1', templateId: 'wooden_sword', itemLevel: 50, modSlots: [] }],
+      equipment: { weapon: 'w1', armor: null, accessory: null },
+    })
+    s = applyRunAction(s, {
+      type: 'USE_CARD_ATTACK',
+      cardId: 'c1',
+      targetId: 'e1',
+      randomInt1to100: 50,
+    })
+    expect(hero(s).items.find((i) => i.id === 'w1')!.itemLevel).toBe(51)
+  })
+
+  it('skips weapon progression when weapon slot is empty (fists)', () => {
+    const b = makeBattle()
+    let s = campaignWithBattle(b)
+    expect(hero(s).equipment.weapon).toBeNull()
+    s = applyRunAction(s, {
+      type: 'USE_CARD_ATTACK',
+      cardId: 'c1',
+      targetId: 'e1',
+      randomInt1to100: 100,
+    })
+    expect(hero(s).items).toHaveLength(0)
+  })
+
+  it('increments armor itemLevel when player takes enemy damage', () => {
+    const b = makeBattle({
+      units: [
+        unit({
+          id: HERO_ID,
+          side: 'player',
+          x: 2,
+          y: 2,
+          hp: 100,
+          maxHp: 100,
+          unitLevel: 1,
+        }),
+        unit({
+          id: 'e1',
+          side: 'enemy',
+          x: 3,
+          y: 2,
+          hp: 500,
+          maxHp: 500,
+          unitLevel: 1,
+        }),
+      ],
+      currentTurnIndex: 0,
+      turnOrder: ['e1', HERO_ID],
+    })
+    let s = withHero(campaignWithBattle(b), {
+      items: [{ id: 'a1', templateId: 'leather_armor', itemLevel: 1, modSlots: [] }],
+      equipment: { weapon: null, armor: 'a1', accessory: null },
+    })
+    s = applyRunAction(s, {
+      type: 'BATTLE_DISPATCH',
+      battleAction: {
+        type: 'attack',
+        attackerId: 'e1',
+        targetId: HERO_ID,
+        damage: 5,
+        kind: 'melee',
+      },
+    })
+    expect(hero(s).items.find((i) => i.id === 'a1')!.itemLevel).toBe(2)
+  })
+})
+
 describe('USE_CARD_AOE', () => {
   it('applies damage in 3x3 and increments uses_count', () => {
     const b = makeBattle({

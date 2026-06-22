@@ -26,6 +26,7 @@ import {
 } from '../equipment/stashOrder'
 import { applyCardUse } from '../memento/cardProgress'
 import { afterCarrierLevelChange, modOfferSeed, occupiedModTemplateIds } from '../memento/carrierLevelChange'
+import { applyItemUseRoll } from '../memento/itemProgress'
 import { generateOffer } from '../memento/modOffers'
 import { rollbackCarrierLevel } from '../memento/modSlots'
 import { resolveCarrierTags } from '../mods/carrierTags'
@@ -431,6 +432,94 @@ function finalizeVictory(
   }
 }
 
+const GEAR_HIT_SLOTS: readonly EquipmentSlot[] = ['armor', 'accessory']
+
+function updateCharacterItem(
+  state: CampaignState,
+  characterId: string,
+  itemId: string,
+  nextItem: ItemInstance,
+): CampaignState {
+  return updateCharacter(state, characterId, (c) => ({
+    ...c,
+    items: c.items.map((i) => (i.id === itemId ? nextItem : i)),
+  }))
+}
+
+function itemHitRollSeed(
+  state: CampaignState,
+  characterId: string,
+  itemId: string,
+  logIndex: number,
+): number {
+  return (modOfferSeed(`${state.battleAttemptId}:${characterId}:${itemId}:${logIndex}`, 0, 0) % 100) + 1
+}
+
+function applyGearHitItemRolls(
+  state: CampaignState,
+  characterId: string,
+  rollForItem: (itemId: string) => number,
+): CampaignState {
+  let next = state
+  for (const slot of GEAR_HIT_SLOTS) {
+    const char = getCharacter(next, characterId)
+    if (!char) return next
+    const itemId = char.equipment[slot]
+    if (itemId === null) continue
+    const item = char.items.find((i) => i.id === itemId)
+    if (!item) continue
+    const rolled = applyItemUseRoll(item, rollForItem(itemId))
+    const { leveledUp: _leveledUp, ...nextItem } = rolled
+    next = updateCharacterItem(next, characterId, itemId, nextItem)
+  }
+  return next
+}
+
+function applyWeaponStrikeItemProgress(
+  state: CampaignState,
+  characterId: string,
+  randomInt1to100: number,
+): CampaignState {
+  const char = getCharacter(state, characterId)
+  if (!char) return state
+  const weaponId = char.equipment.weapon
+  if (weaponId === null) return state
+
+  const item = char.items.find((i) => i.id === weaponId)
+  if (!item) return state
+
+  const rolled = applyItemUseRoll(item, randomInt1to100)
+  const { leveledUp: _leveledUp, ...nextItem } = rolled
+  return updateCharacterItem(state, characterId, weaponId, nextItem)
+}
+
+function applyPlayerHitItemProgressFromBattleLog(
+  state: CampaignState,
+  prevBattle: BattleState,
+  nextBattle: BattleState,
+): CampaignState {
+  const prevLen = prevBattle.battleLog.length
+  const newEntries = nextBattle.battleLog.slice(prevLen)
+  let next = state
+
+  for (let i = 0; i < newEntries.length; i++) {
+    const entry = newEntries[i]!
+    if (entry.type !== 'strike') continue
+
+    const target = nextBattle.units.find((u) => u.id === entry.targetId)
+    const attacker = nextBattle.units.find((u) => u.id === entry.attackerId)
+    if (!target || target.side !== 'player') continue
+    if (!attacker || attacker.side !== 'enemy') continue
+    if (entry.damage <= 0) continue
+
+    const logIndex = prevLen + i
+    next = applyGearHitItemRolls(next, entry.targetId, (itemId) =>
+      itemHitRollSeed(state, entry.targetId, itemId, logIndex),
+    )
+  }
+  return next
+}
+
 function applyBattleOutcome(
   state: CampaignState,
   prevBattle: BattleState,
@@ -442,14 +531,14 @@ function applyBattleOutcome(
     battle = tickHeroCardCooldowns(battle, prevActorId)
   }
 
-  let rollState = state
+  let rollState = applyPlayerHitItemProgressFromBattleLog(state, prevBattle, battle)
   if (prevBattle.phase !== 'victory' && battle.phase === 'victory') {
     const rolled = applyVictoryModRollsToPartyBattle(
-      state.characters,
+      rollState.characters,
       battle,
-      state.battleAttemptId,
+      rollState.battleAttemptId,
     )
-    rollState = { ...state, characters: rolled.characters }
+    rollState = { ...rollState, characters: rolled.characters }
     battle = rolled.battle
   }
 
@@ -590,7 +679,11 @@ function tryUseCardAttack(
     nextBattle = appendCardLevelUpLog(nextBattle, card, used, action.randomInt1to100)
   }
   nextBattle = withCardCooldownSkip(nextBattle, cd)
-  return applyBattleOutcome(state, b, nextBattle)
+  let nextState = state
+  if (card.templateId === 'strike') {
+    nextState = applyWeaponStrikeItemProgress(state, actorId!, action.randomInt1to100)
+  }
+  return applyBattleOutcome(nextState, b, nextBattle)
 }
 
 function tryUseCardAoE(
