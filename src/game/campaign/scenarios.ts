@@ -21,7 +21,7 @@ export type BattleScenario = {
   width: number
   height: number
   walls: readonly string[]
-  heroStart: { x: number; y: number }
+  playerSpawns: { x: number; y: number }[]
   heroBaseHpStat: number
   enemies: readonly BattleScenarioEnemy[]
 }
@@ -32,7 +32,7 @@ export const SCENARIOS: readonly BattleScenario[] = [
     width: 5,
     height: 5,
     walls: [cellKey(2, 1), cellKey(2, 3)],
-    heroStart: { x: 0, y: 2 },
+    playerSpawns: [{ x: 0, y: 2 }],
     heroBaseHpStat: 20,
     enemies: [{ id: 'e1', x: 4, y: 2, baseHpStat: 8, unitLevel: 1, archetypeId: 'grunt' }],
   },
@@ -41,7 +41,7 @@ export const SCENARIOS: readonly BattleScenario[] = [
     width: 6,
     height: 4,
     walls: [],
-    heroStart: { x: 0, y: 1 },
+    playerSpawns: [{ x: 0, y: 1 }],
     heroBaseHpStat: 22,
     enemies: [
       { id: 'e1', x: 5, y: 0, baseHpStat: 7, unitLevel: 1, archetypeId: 'grunt' },
@@ -53,7 +53,7 @@ export const SCENARIOS: readonly BattleScenario[] = [
     width: 5,
     height: 5,
     walls: [cellKey(2, 2)],
-    heroStart: { x: 0, y: 2 },
+    playerSpawns: [{ x: 0, y: 2 }],
     heroBaseHpStat: 24,
     enemies: [{ id: 'boss', x: 4, y: 2, baseHpStat: 18, unitLevel: 2, archetypeId: 'boss' }],
   },
@@ -64,8 +64,8 @@ function makeHero(snapshot: BattleAttemptSnapshot, scenario: BattleScenario): Un
   return {
     id: 'hero',
     side: 'player',
-    x: scenario.heroStart.x,
-    y: scenario.heroStart.y,
+    x: scenario.playerSpawns[0]!.x,
+    y: scenario.playerSpawns[0]!.y,
     hp: maxHp,
     maxHp,
     unitLevel: snapshot.playerUnitLevel,

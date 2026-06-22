@@ -52,6 +52,7 @@ import {
   updatePrimaryCharacter,
 } from '../character/selectors'
 import { DEFAULT_SQUAD_SLOTS, LEGACY_HERO_CHARACTER_ID } from '../character/constants'
+import { assertHubActionAllowed } from '../expedition/freeze'
 
 export type RunAction =
   | { type: 'START_OR_CONTINUE_BATTLE' }
@@ -101,11 +102,6 @@ export { cloneCards, cloneItems }
 
 function inHub(state: CampaignState): boolean {
   return state.battle === null
-}
-
-/** Stub until Task 4 adds assertHubActionAllowed. */
-function isExpeditionFrozen(state: CampaignState): boolean {
-  return state.expedition !== null
 }
 
 function isValidSquadSlotIndex(state: CampaignState, slotIndex: number): boolean {
@@ -468,6 +464,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       return tryUseCardHeal(state, action)
     case 'SET_BATTLE_LOADOUT': {
       if (!inHub(state)) return state
+      if (!assertHubActionAllowed(state, 'equip')) return state
       const { characterId, slotIndex, cardId } = action
       if (slotIndex !== 0 && slotIndex !== 1) return state
       const hero = getCharacter(state, characterId)
@@ -485,6 +482,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       })
     }
     case 'BUY_ITEM': {
+      if (!assertHubActionAllowed(state, 'shop')) return state
       const { characterId, templateId } = action
       if (!getCharacter(state, characterId)) return state
       const tmpl = getItemTemplate(templateId)
@@ -508,6 +506,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       )
     }
     case 'EQUIP_ITEM': {
+      if (!assertHubActionAllowed(state, 'equip')) return state
       const { characterId, itemId, slot } = action
       const hero = getCharacter(state, characterId)
       if (!hero) return state
@@ -525,6 +524,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       }))
     }
     case 'UNEQUIP_ITEM': {
+      if (!assertHubActionAllowed(state, 'equip')) return state
       const hero = getCharacter(state, action.characterId)
       if (!hero) return state
       return updateCharacter(state, action.characterId, (c) => ({
@@ -534,6 +534,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
     }
     case 'REORDER_CARDS': {
       if (!inHub(state)) return state
+      if (!assertHubActionAllowed(state, 'equip')) return state
       const hero = getCharacter(state, action.characterId)
       if (!hero) return state
       const currentIds = hero.cards.map((c) => c.id)
@@ -556,6 +557,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
     }
     case 'SELL_ITEM': {
       if (!inHub(state)) return state
+      if (!assertHubActionAllowed(state, 'shop')) return state
       const hero = getCharacter(state, action.characterId)
       if (!hero) return state
       const item = hero.items.find((i) => i.id === action.itemId)
@@ -588,7 +590,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       return updateCharacter(state, action.characterId, (c) => ({ ...c, items: nextItems }))
     }
     case 'SET_SQUAD_SLOT': {
-      if (isExpeditionFrozen(state)) return state
+      if (!assertHubActionAllowed(state, 'squad')) return state
       const { slotIndex, characterId } = action
       if (!isValidSquadSlotIndex(state, slotIndex)) return state
       if (characterId !== null && !getCharacter(state, characterId)) return state
@@ -604,7 +606,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       return { ...state, squad: nextSquad }
     }
     case 'SWAP_SQUAD_SLOTS': {
-      if (isExpeditionFrozen(state)) return state
+      if (!assertHubActionAllowed(state, 'squad')) return state
       const { from, to } = action
       if (!isValidSquadSlotIndex(state, from) || !isValidSquadSlotIndex(state, to)) {
         return state
@@ -617,7 +619,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       return { ...state, squad: nextSquad }
     }
     case 'TRANSFER_ITEM': {
-      if (isExpeditionFrozen(state)) return state
+      if (!assertHubActionAllowed(state, 'transfer')) return state
       const { itemId, fromCharacterId, toCharacterId } = action
       if (fromCharacterId === toCharacterId) return state
       const fromHero = getCharacter(state, fromCharacterId)
