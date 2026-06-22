@@ -5,6 +5,7 @@ import { canMeleeAttack, canRangedAttack, withDamage, withHeal } from './combat'
 import { cellKey, manhattan, wallSet } from './grid'
 import { advanceTurn } from './initiative'
 import { hasLineOfSight } from './lineOfSight'
+import { isPartyWipe } from './outcomes'
 import { cellsInAoE, reachableMoveCells } from './rangeOverlay'
 
 /** Приращение worldPower за смерть врага (MVP-заглушка §6). */
@@ -79,9 +80,8 @@ function afterHpChange(state: BattleState, killedUnit: Unit | null): BattleState
   if (killedUnit && killedUnit.side === 'enemy' && killedUnit.hp <= 0) {
     next = applyEnemyKillRewards(next, killedUnit)
   }
-  const playersAlive = next.units.some((u) => u.side === 'player' && u.hp > 0)
   const enemiesAlive = next.units.some((u) => u.side === 'enemy' && u.hp > 0)
-  if (!playersAlive) return { ...next, phase: 'defeat' }
+  if (isPartyWipe(next)) return { ...next, phase: 'defeat' }
   if (!enemiesAlive) return { ...next, phase: 'victory' }
   return next
 }
@@ -219,9 +219,8 @@ function tryAoEStrike(
     next = afterHpChange(next, killed)
     if (next.phase !== 'ongoing') return next
   }
-  const playersAlive = next.units.some((u) => u.side === 'player' && u.hp > 0)
   const enemiesAlive = next.units.some((u) => u.side === 'enemy' && u.hp > 0)
-  if (!playersAlive) return { ...next, phase: 'defeat' }
+  if (isPartyWipe(next)) return { ...next, phase: 'defeat' }
   if (!enemiesAlive) return { ...next, phase: 'victory' }
   return advanceTurn(next)
 }

@@ -1,4 +1,5 @@
 import { applyAction, getCurrentActorId } from '../battle/reducer'
+import { syncDownedAfterBattle } from '../battle/outcomes'
 import { heroTurnAdvanced, tickHeroCardCooldowns } from '../battle/cardCooldown'
 import { canMeleeAttack, canRangedAttack } from '../battle/combat'
 import { cellKey, inBounds, wallSet } from '../battle/grid'
@@ -137,18 +138,43 @@ function expeditionRng(): () => number {
   return () => 0
 }
 
-function syncExpeditionDownedFromBattle(expedition: Expedition, battle: BattleState): Expedition {
-  const squadSnapshot = expedition.squadSnapshot.map((slot) => {
-    if (!slot) return null
-    const playerUnit = battle.units.find(
-      (u) => u.side === 'player' && u.id === slot.characterId,
-    )
-    if (playerUnit && playerUnit.hp <= 0) {
-      return { ...slot, metaStatus: 'downed' as const }
+function mementoDeathRoll(): number {
+  return Math.floor(Math.random() * 100) + 1
+}
+
+export function applyMementoDeathRollsForDowned(
+  state: CampaignState,
+  battle: BattleState,
+  rollForCharacter: (characterId: string) => number = () => mementoDeathRoll(),
+): CampaignState {
+  let next = state
+  for (const unit of battle.units) {
+    if (unit.side !== 'player' || unit.hp > 0) continue
+    const char = getCharacter(next, unit.id)
+    if (!char) continue
+    if (rollMementoLevelUp(char.unitLevel, rollForCharacter(unit.id))) {
+      next = updateCharacter(next, unit.id, (c) => ({ ...c, unitLevel: c.unitLevel + 1 }))
     }
-    return slot
-  })
-  return { ...expedition, squadSnapshot }
+  }
+  return next
+}
+
+function withExpeditionDownedSync(state: CampaignState, battle: BattleState): CampaignState {
+  if (!state.expedition) return state
+  return {
+    ...state,
+    expedition: {
+      ...state.expedition,
+      squadSnapshot: [...syncDownedAfterBattle(state.expedition, battle)],
+    },
+  }
+}
+
+function applyBattleEndDownedSync(state: CampaignState, battle: BattleState): CampaignState {
+  if (battle.phase !== 'victory' && battle.phase !== 'defeat') return state
+  let next = applyMementoDeathRollsForDowned(state, battle)
+  next = withExpeditionDownedSync(next, battle)
+  return next
 }
 
 function isLivingPlayerActor(b: BattleState, unitId: string | undefined): boolean {
@@ -228,7 +254,7 @@ function handleExpeditionBattleVictory(state: CampaignState): CampaignState {
 
   const isLastBattle = expedition.battleIndex + 1 >= expedition.battleCount
 
-  let nextExpedition = syncExpeditionDownedFromBattle(expedition, battle)
+  let nextExpedition = state.expedition!
   nextExpedition = applyInterBattleCampRevive(nextExpedition)
   nextExpedition = { ...nextExpedition, battleIndex: nextExpedition.battleIndex + 1 }
 
@@ -351,22 +377,23 @@ function applyBattleOutcome(
   const nextState = withCodexDiscoveries(state, [
     ...mergeBattleCodexDiscoveries(prevBattle, battle, state.codexDiscovered),
   ].filter((id) => !state.codexDiscovered.includes(id)))
+  const syncedState = applyBattleEndDownedSync(nextState, battle)
   if (state.expedition) {
     if (battle.phase === 'victory') {
-      return handleExpeditionBattleVictory({ ...nextState, battle })
+      return handleExpeditionBattleVictory({ ...syncedState, battle })
     }
     if (battle.phase === 'defeat') {
-      return { ...nextState, battle, phase: 'defeat' }
+      return { ...syncedState, battle, phase: 'defeat' }
     }
-    return { ...nextState, battle, phase: 'battle' }
+    return { ...syncedState, battle, phase: 'battle' }
   }
   if (battle.phase === 'victory') {
-    return { ...nextState, battle, phase: 'victory' }
+    return { ...syncedState, battle, phase: 'victory' }
   }
   if (battle.phase === 'defeat') {
-    return { ...nextState, battle, phase: 'defeat' }
+    return { ...syncedState, battle, phase: 'defeat' }
   }
-  return { ...nextState, battle, phase: 'battle' }
+  return { ...syncedState, battle, phase: 'battle' }
 }
 
 function appendCardLevelUpLog(

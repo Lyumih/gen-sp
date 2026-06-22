@@ -9,6 +9,7 @@ import type {
   Unit,
 } from '../types'
 import {
+  applyMementoDeathRollsForDowned,
   applyRunAction,
   cloneCards,
   cloneItems,
@@ -1226,6 +1227,48 @@ describe('expedition state machine', () => {
     s = applyRunAction(s, { type: 'RETRY_CURRENT_BATTLE' })
     expect(s.phase).toBe('battle')
     expect(s.expedition!.battleIndex).toBe(0)
+  })
+
+  it('defeat syncs expedition squad metaStatus to downed', () => {
+    let s = applyRunAction(hubState(), {
+      type: 'START_EXPEDITION',
+      chainId: 'campaign-main',
+      selectedCharacterIds: [HERO_ID],
+    })
+
+    s = loseCurrentBattle(s)
+    expect(s.expedition!.squadSnapshot[0]!.metaStatus).toBe('downed')
+  })
+
+  it('applyMementoDeathRollsForDowned levels up downed character on successful roll', () => {
+    const s = hubState()
+    const battle: BattleState = {
+      width: 4,
+      height: 4,
+      walls: [],
+      units: [
+        {
+          id: HERO_ID,
+          side: 'player',
+          x: 0,
+          y: 0,
+          hp: 0,
+          maxHp: 10,
+          unitLevel: 1,
+        },
+      ],
+      turnOrder: [HERO_ID],
+      currentTurnIndex: 0,
+      roundNumber: 1,
+      phase: 'defeat',
+      worldPower: 0,
+      playerCardsByUnitId: {},
+      modKillTargetCardId: null,
+      battleLog: [],
+      gearCardLevelBonus: 0,
+    }
+    const next = applyMementoDeathRollsForDowned(s, battle, () => 50)
+    expect(hero(next).unitLevel).toBe(2)
   })
 
   it('FINISH_EXPEDITION clears expedition and returns to hub', () => {
