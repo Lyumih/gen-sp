@@ -382,7 +382,7 @@ describe('USE_CARD_ATTACK', () => {
     const card = heroBattleCards(s.battle!).find((c) => c.id === 'c1')!
     expect(card.uses_count).toBe(1)
     expect(card.global_level).toBe(50)
-    expect(s.battle!.units.find((u) => u.id === 'e1')!.hp).toBe(440)
+    expect(s.battle!.units.find((u) => u.id === 'e1')!.hp).toBe(460)
   })
 
   it('does not consume use when out of melee range', () => {
@@ -441,10 +441,10 @@ describe('USE_CARD_ATTACK', () => {
       targetId: 'e1',
       randomInt1to100: 48,
     })
-    expect(s.battle!.units.find((u) => u.id === 'e1')!.hp).toBe(438)
+    expect(s.battle!.units.find((u) => u.id === 'e1')!.hp).toBe(458)
   })
 
-  it('appends card_level_up to battleLog when level increases', () => {
+  it('does not level strike card — channel only increments uses_count', () => {
     const b = makeBattle({
       playerCards: [
         {
@@ -458,19 +458,45 @@ describe('USE_CARD_ATTACK', () => {
       ],
     })
     let s = campaignWithBattle(b)
-    const roll = 42
     s = applyRunAction(s, {
       type: 'USE_CARD_ATTACK',
       cardId: 'c1',
       targetId: 'e1',
+      randomInt1to100: 100,
+    })
+    expect(heroBattleCards(s.battle!)[0]!.global_level).toBe(1)
+    expect(heroBattleCards(s.battle!)[0]!.uses_count).toBe(1)
+    expect(s.battle!.battleLog.some((e) => e.type === 'card_level_up')).toBe(false)
+  })
+
+  it('appends card_level_up to battleLog when level increases', () => {
+    const b = makeBattle({
+      playerCards: [
+        {
+          id: 'c2',
+          templateId: 'fireball',
+          global_level: 1,
+          uses_count: 0,
+          modSlots: [],
+          cooldownRemaining: 0,
+        },
+      ],
+    })
+    let s = campaignWithBattle(b)
+    const roll = 42
+    s = applyRunAction(s, {
+      type: 'USE_CARD_AOE',
+      cardId: 'c2',
+      targetX: 4,
+      targetY: 2,
       randomInt1to100: roll,
     })
     expect(heroBattleCards(s.battle!)[0]!.global_level).toBe(2)
     const up = s.battle!.battleLog.find((e) => e.type === 'card_level_up')
     expect(up).toMatchObject({
       type: 'card_level_up',
-      cardId: 'c1',
-      templateId: 'strike',
+      cardId: 'c2',
+      templateId: 'fireball',
       fromLevel: 1,
       toLevel: 2,
       roll,
@@ -489,6 +515,64 @@ describe('USE_CARD_ATTACK', () => {
     })
 
     expect(s.codexDiscovered).toContain(codexEntryId('card', 'strike'))
+  })
+})
+
+describe('strike weapon channel', () => {
+  it('fists baseline damage uses virtual itemLevel 0', () => {
+    const b = makeBattle()
+    let s = campaignWithBattle(b)
+    expect(hero(s).equipment.weapon).toBeNull()
+    s = applyRunAction(s, {
+      type: 'USE_CARD_ATTACK',
+      cardId: 'c1',
+      targetId: 'e1',
+      randomInt1to100: 50,
+    })
+    expect(s.battle!.units.find((u) => u.id === 'e1')!.hp).toBe(460)
+  })
+
+  it('equipped sword itemLevel drives strike damage and weapon mods', () => {
+    const modSlots: ModSlotState[] = [
+      { status: 'filled', templateId: 'mod-weapon-damage', lm: 0 },
+    ]
+    const b = makeBattle()
+    let s = withHero(campaignWithBattle(b), {
+      items: [{ id: 'w1', templateId: 'wooden_sword', itemLevel: 50, modSlots }],
+      equipment: { weapon: 'w1', armor: null, accessory: null },
+    })
+    s = applyRunAction(s, {
+      type: 'USE_CARD_ATTACK',
+      cardId: 'c1',
+      targetId: 'e1',
+      randomInt1to100: 50,
+    })
+    expect(s.battle!.units.find((u) => u.id === 'e1')!.hp).toBe(416)
+    expect(hero(s).items.find((i) => i.id === 'w1')!.itemLevel).toBe(51)
+  })
+
+  it('ignores strike card modSlots for damage', () => {
+    const b = makeBattle({
+      playerCards: [
+        {
+          id: 'c1',
+          templateId: 'strike',
+          global_level: 50,
+          uses_count: 0,
+          modSlots: [{ status: 'filled', templateId: 'mod-damage-up', lm: 0 }],
+          cooldownRemaining: 0,
+        },
+      ],
+    })
+    let s = campaignWithBattle(b)
+    s = applyRunAction(s, {
+      type: 'USE_CARD_ATTACK',
+      cardId: 'c1',
+      targetId: 'e1',
+      randomInt1to100: 50,
+    })
+    expect(s.battle!.units.find((u) => u.id === 'e1')!.hp).toBe(460)
+    expect(heroBattleCards(s.battle!)[0]!.modSlots).toEqual([])
   })
 })
 

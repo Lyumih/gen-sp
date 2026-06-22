@@ -24,6 +24,10 @@ import {
   isItemEquipped,
   sellPriceForItem,
 } from '../equipment/stashOrder'
+import {
+  resolveStrikeWeaponChannel,
+  type StrikeWeaponChannel,
+} from '../equipment/virtualFists'
 import { applyCardUse } from '../memento/cardProgress'
 import { afterCarrierLevelChange, modOfferSeed, occupiedModTemplateIds } from '../memento/carrierLevelChange'
 import { applyItemUseRoll } from '../memento/itemProgress'
@@ -620,6 +624,43 @@ function battleModContext(ctx: ModCombatContext): { modSlots: typeof ctx.modSlot
   return { modSlots: ctx.modSlots, rng: ctx.rng }
 }
 
+function weaponStrikeModCombatContext(
+  state: CampaignState,
+  actorId: string,
+  card: BattlePlayerCard,
+  weaponChannel: StrikeWeaponChannel,
+  cardLevelRoll: number,
+): ModCombatContext {
+  let procIndex = 0
+  return {
+    carrierTags: resolveCarrierTags('item', weaponChannel.templateId),
+    modSlots: weaponChannel.modSlots,
+    rng: () => {
+      procIndex += 1
+      return (
+        (modOfferSeed(
+          `${state.battleAttemptId}:${actorId}:${card.id}:${weaponChannel.itemId ?? 'fists'}:${cardLevelRoll}:proc${procIndex}`,
+          0,
+          0,
+        ) %
+          100) +
+        1
+      )
+    },
+  }
+}
+
+function applyStrikeChannelUse(
+  card: BattlePlayerCard,
+): BattlePlayerCard & { leveledUp: false } {
+  return {
+    ...card,
+    uses_count: card.uses_count + 1,
+    modSlots: [],
+    leveledUp: false,
+  }
+}
+
 function tryUseCardAttack(
   state: CampaignState,
   action: Extract<RunAction, { type: 'USE_CARD_ATTACK' }>,
@@ -645,14 +686,31 @@ function tryUseCardAttack(
 
   if (tmpl.kind === 'melee' && !canMeleeAttack(actor, target)) return state
   const walls = wallSet(b.walls)
-  const modCtx = cardModCombatContext(state, actorId!, card, action.randomInt1to100)
+  const isStrike = card.templateId === 'strike'
+  const actorChar = getCharacter(state, actorId!)
+  const weaponChannel =
+    isStrike && actorChar
+      ? resolveStrikeWeaponChannel(actorChar.equipment.weapon, actorChar.items)
+      : null
+  const modCtx =
+    isStrike && weaponChannel
+      ? weaponStrikeModCombatContext(
+          state,
+          actorId!,
+          card,
+          weaponChannel,
+          action.randomInt1to100,
+        )
+      : cardModCombatContext(state, actorId!, card, action.randomInt1to100)
   const effectiveRange = applyRangeMods(tmpl.maxRange, modCtx)
   if (tmpl.kind === 'ranged' && !canRangedAttack(actor, target, effectiveRange, walls)) {
     return state
   }
   if (tmpl.kind === 'aoe' || tmpl.kind === 'heal') return state
 
-  const used = applyCardUse(card, action.randomInt1to100)
+  const used = isStrike
+    ? applyStrikeChannelUse(card)
+    : applyCardUse(card, action.randomInt1to100)
   const cd = applyCooldownMods(tmpl.cooldownTurns ?? 0, modCtx)
   const nextCard: BattlePlayerCard = {
     id: used.id,
@@ -662,7 +720,10 @@ function tryUseCardAttack(
     modSlots: used.modSlots,
     cooldownRemaining: cd,
   }
-  const levelForDamage = card.global_level + b.gearCardLevelBonus
+  const levelForDamage =
+    isStrike && weaponChannel
+      ? weaponChannel.itemLevel + b.gearCardLevelBonus
+      : card.global_level + b.gearCardLevelBonus
   const baseDamage = computeCardAttackDamage(tmpl, levelForDamage)
   const damage = applyDamageMods(baseDamage, modCtx)
   const bWithCards = updateActorPlayerCards(

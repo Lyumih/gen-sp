@@ -1,6 +1,7 @@
 import { computeCardAttackDamage } from '../content/cardAttackDamage'
 import { computeCardHealAmount } from '../content/cardHealAmount'
 import { getCardAttackTemplate } from '../content/cardTemplates'
+import { resolveStrikeWeaponChannel } from '../equipment/virtualFists'
 import { resolveCarrierTags } from '../mods/carrierTags'
 import {
   applyAoeSizeMods,
@@ -9,7 +10,7 @@ import {
   applyHealMods,
   applyRangeMods,
 } from '../mods/modPipeline'
-import type { CardInstance } from '../types'
+import type { CardInstance, ItemInstance } from '../types'
 import { UI_CELL, UI_DAMAGE, UI_HEART, UI_LEVEL } from '../ui/labels'
 
 export function getCardDisplayLabel(templateId: string): string {
@@ -35,6 +36,7 @@ function modContextForCard(card: CardInstance) {
 export function describeCardCombatStats(
   card: CardInstance,
   gearCardLevelBonus: number,
+  equippedWeapon: ItemInstance | null = null,
 ): CardCombatStatsDescription {
   const displayLabel = getCardDisplayLabel(card.templateId)
   const tmpl = getCardAttackTemplate(card.templateId)
@@ -46,8 +48,22 @@ export function describeCardCombatStats(
     }
   }
 
-  const levelForEffect = card.global_level + gearCardLevelBonus
-  const modCtx = modContextForCard(card)
+  const isStrikeChannel = card.templateId === 'strike'
+  const weaponChannel = isStrikeChannel
+    ? resolveStrikeWeaponChannel(equippedWeapon?.id ?? null, equippedWeapon ? [equippedWeapon] : [])
+    : null
+  const levelForEffect =
+    weaponChannel !== null
+      ? weaponChannel.itemLevel + gearCardLevelBonus
+      : card.global_level + gearCardLevelBonus
+  const modCtx =
+    weaponChannel !== null
+      ? {
+          carrierTags: resolveCarrierTags('item', weaponChannel.templateId),
+          modSlots: weaponChannel.modSlots,
+          rng: () => 50,
+        }
+      : modContextForCard(card)
   const effectiveRange = applyRangeMods(tmpl.maxRange, modCtx)
   const effectiveCd = applyCooldownMods(tmpl.cooldownTurns ?? 0, modCtx)
 
@@ -96,7 +112,14 @@ export function describeCardCombatStats(
   const lines = [
     rangeLine,
     tokenLine,
-    `${UI_LEVEL} карты: ${card.global_level}, бонус экипировки к ${UI_DAMAGE}: +${gearCardLevelBonus}`,
+    ...(isStrikeChannel
+      ? [
+          `Канал оружия: ${weaponChannel!.itemId === null ? 'кулаки' : weaponChannel!.templateId}`,
+          `${UI_LEVEL} оружия: ${weaponChannel!.itemLevel}, бонус экипировки к ${UI_DAMAGE}: +${gearCardLevelBonus}`,
+        ]
+      : [
+          `${UI_LEVEL} карты: ${card.global_level}, бонус экипировки к ${UI_DAMAGE}: +${gearCardLevelBonus}`,
+        ]),
     `Эффективный ${UI_LEVEL} для ${UI_DAMAGE}: ${levelForEffect}`,
     `Ожидаемый ${UI_DAMAGE} сейчас: ${expectedDamage}`,
     ...(cdLine !== null ? [cdLine] : []),
