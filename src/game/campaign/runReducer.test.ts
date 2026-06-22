@@ -26,6 +26,12 @@ import { LEGACY_HERO_CHARACTER_ID, MAX_ROSTER_SIZE } from '../character/constant
 import { getCharacter } from '../character/selectors'
 import { testCreateCharacter } from '../stats/testFixtures'
 import { TAVERN_REFRESH_COST } from '../tavern/generateCandidates'
+import { generateOffer } from '../memento/modOffers'
+import { MOD_OFFER_POOL } from '../content/modTemplates'
+import { resolveCarrierTags } from '../mods/carrierTags'
+import { milestoneThreshold, rollbackCarrierLevel } from '../memento/modSlots'
+import { MOD_SLOT_MILESTONES } from '../config/modSlotMilestones'
+import type { ModOffer, ModSlotState } from '../types'
 
 const HERO_ID = LEGACY_HERO_CHARACTER_ID
 
@@ -1463,6 +1469,142 @@ describe('tavern', () => {
     })
     expect(hireBlocked).toBe(expedition)
     expect(hireBlocked.characters).toHaveLength(1)
+  })
+})
+
+describe('mod hub actions', () => {
+  function fireballOffer(seed: number): ModOffer {
+    return generateOffer(
+      MOD_OFFER_POOL,
+      resolveCarrierTags('card', 'fireball'),
+      [],
+      0,
+      seed,
+    )
+  }
+
+  function hubWithFireballModOffer(offer = fireballOffer(4242)) {
+    const s = initialCampaignState()
+    const cards = s.characters[0]!.cards.map((c) =>
+      c.id === 'c2'
+        ? {
+            ...c,
+            global_level: MOD_SLOT_MILESTONES.firstThreshold,
+            modSlots: [{ status: 'empty' as const, offer }],
+          }
+        : c,
+    )
+    return { ...s, characters: [{ ...s.characters[0]!, cards }] }
+  }
+
+  it('PICK_MOD_OFFER validates modId in pending offer and fills slot with lm=0', () => {
+    const offer = fireballOffer(99)
+    let s = hubWithFireballModOffer(offer)
+    const modId = offer.modIds[1]!
+
+    s = applyRunAction(s, {
+      type: 'PICK_MOD_OFFER',
+      characterId: HERO_ID,
+      carrierKind: 'card',
+      carrierId: 'c2',
+      slotIndex: 0,
+      modTemplateId: modId,
+    })
+
+    const card = hero(s).cards.find((c) => c.id === 'c2')!
+    expect(card.modSlots[0]).toEqual({ status: 'filled', templateId: modId, lm: 0 })
+  })
+
+  it('PICK_MOD_OFFER rejects modId not in offer', () => {
+    const s = hubWithFireballModOffer()
+    const next = applyRunAction(s, {
+      type: 'PICK_MOD_OFFER',
+      characterId: HERO_ID,
+      carrierKind: 'card',
+      carrierId: 'c2',
+      slotIndex: 0,
+      modTemplateId: 'mod-not-in-offer',
+    })
+    expect(next).toEqual(s)
+  })
+
+  it('REMOVE_MOD on slot 1 rolls back L and regenerates offer; higher slot unchanged', () => {
+    const slot2Filled: ModSlotState = {
+      status: 'filled',
+      templateId: 'mod-aoe-size',
+      lm: 5,
+    }
+    const slot1Filled: ModSlotState = {
+      status: 'filled',
+      templateId: 'mod-damage-up',
+      lm: 3,
+    }
+    const startLevel = milestoneThreshold(2) + 7
+    let s = initialCampaignState()
+    const cards = s.characters[0]!.cards.map((c) =>
+      c.id === 'c2'
+        ? {
+            ...c,
+            global_level: startLevel,
+            modSlots: [
+              { status: 'empty' as const, offer: fireballOffer(1) },
+              slot1Filled,
+              slot2Filled,
+            ],
+          }
+        : c,
+    )
+    s = { ...s, characters: [{ ...s.characters[0]!, cards }] }
+
+    s = applyRunAction(s, {
+      type: 'REMOVE_MOD',
+      characterId: HERO_ID,
+      carrierKind: 'card',
+      carrierId: 'c2',
+      slotIndex: 1,
+    })
+
+    const card = hero(s).cards.find((c) => c.id === 'c2')!
+    expect(card.global_level).toBe(rollbackCarrierLevel(1))
+    expect(card.modSlots[1]).toMatchObject({ status: 'empty' })
+    expect(card.modSlots[1]).toHaveProperty('offer')
+    expect((card.modSlots[1] as { offer: ModOffer }).offer?.modIds).toHaveLength(3)
+    expect(card.modSlots[2]).toEqual(slot2Filled)
+  })
+
+  it('mod actions no-op in battle', () => {
+    const s = hubWithFireballModOffer()
+    const inBattle = applyRunAction(s, { type: 'START_OR_CONTINUE_BATTLE' })
+    const offer = fireballOffer(4242)
+    const modId = offer.modIds[0]!
+    const next = applyRunAction(inBattle, {
+      type: 'PICK_MOD_OFFER',
+      characterId: HERO_ID,
+      carrierKind: 'card',
+      carrierId: 'c2',
+      slotIndex: 0,
+      modTemplateId: modId,
+    })
+    expect(next).toEqual(inBattle)
+  })
+
+  it('mod actions blocked during expedition', () => {
+    const hub = hubWithFireballModOffer()
+    const expedition = applyRunAction(hub, {
+      type: 'START_EXPEDITION',
+      chainId: 'campaign-main',
+      selectedCharacterIds: [HERO_ID],
+    })
+    const modId = fireballOffer(4242).modIds[0]!
+    const next = applyRunAction(expedition, {
+      type: 'PICK_MOD_OFFER',
+      characterId: HERO_ID,
+      carrierKind: 'card',
+      carrierId: 'c2',
+      slotIndex: 0,
+      modTemplateId: modId,
+    })
+    expect(next).toEqual(expedition)
   })
 })
 

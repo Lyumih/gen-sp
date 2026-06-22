@@ -25,6 +25,11 @@ import {
   sellPriceForItem,
 } from '../equipment/stashOrder'
 import { applyCardUse } from '../memento/cardProgress'
+import { afterCarrierLevelChange, modOfferSeed, occupiedModTemplateIds } from '../memento/carrierLevelChange'
+import { generateOffer } from '../memento/modOffers'
+import { rollbackCarrierLevel } from '../memento/modSlots'
+import { resolveCarrierTags } from '../mods/carrierTags'
+import { MOD_OFFER_POOL, getModTemplate } from '../content/modTemplates'
 import { rollMementoLevelUp } from '../memento/rollMementoLevelUp'
 import type {
   BattleAction,
@@ -129,6 +134,23 @@ export type RunAction =
       iconAccent?: IconAccentId
       iconSkinTone?: IconSkinToneId
     }
+  | {
+      type: 'PICK_MOD_OFFER'
+      characterId: string
+      carrierKind: 'card' | 'item'
+      carrierId: string
+      slotIndex: number
+      modTemplateId: string
+    }
+  | {
+      type: 'REMOVE_MOD'
+      characterId: string
+      carrierKind: 'card' | 'item'
+      carrierId: string
+      slotIndex: number
+    }
+
+export { afterCarrierLevelChange }
 
 export { cloneCards, cloneItems }
 
@@ -356,7 +378,14 @@ function finalizeVictory(
     if (idx < 0) continue
     const inst = items[idx]!
     if (rollMementoLevelUp(inst.itemLevel, roll)) {
-      const nextInst = { ...inst, itemLevel: inst.itemLevel + 1 }
+      const nextLevel = inst.itemLevel + 1
+      const nextInst = afterCarrierLevelChange(
+        { ...inst, itemLevel: nextLevel },
+        'item',
+        inst.templateId,
+        nextLevel,
+        modOfferSeed(itemId, 0, nextLevel),
+      )
       items = items.map((x, j) => (j === idx ? nextInst : x))
     }
   }
@@ -653,6 +682,117 @@ function normalizeCharacterName(raw: string, fallback: string): string {
   const trimmed = raw.trim()
   if (trimmed.length < 1 || trimmed.length > 20) return fallback
   return trimmed
+}
+
+function updateCarrierModSlots(
+  state: CampaignState,
+  characterId: string,
+  carrierKind: 'card' | 'item',
+  carrierId: string,
+  update: (
+    carrier: CardInstance | ItemInstance,
+    templateId: string,
+  ) => CardInstance | ItemInstance | null,
+): CampaignState {
+  const hero = getCharacter(state, characterId)
+  if (!hero) return state
+
+  if (carrierKind === 'card') {
+    const card = hero.cards.find((c) => c.id === carrierId)
+    if (!card) return state
+    const next = update(card, card.templateId)
+    if (!next) return state
+    return updateCharacter(state, characterId, (c) => ({
+      ...c,
+      cards: c.cards.map((entry) => (entry.id === carrierId ? (next as CardInstance) : entry)),
+    }))
+  }
+
+  const item = hero.items.find((i) => i.id === carrierId)
+  if (!item) return state
+  const next = update(item, item.templateId)
+  if (!next) return state
+  return updateCharacter(state, characterId, (c) => ({
+    ...c,
+    items: c.items.map((entry) => (entry.id === carrierId ? (next as ItemInstance) : entry)),
+  }))
+}
+
+function tryPickModOffer(
+  state: CampaignState,
+  action: Extract<RunAction, { type: 'PICK_MOD_OFFER' }>,
+): CampaignState {
+  if (!inHub(state)) return state
+  if (!assertHubActionAllowed(state, 'equip')) return state
+  if (!getModTemplate(action.modTemplateId)) return state
+
+  return updateCarrierModSlots(
+    state,
+    action.characterId,
+    action.carrierKind,
+    action.carrierId,
+    (carrier, _templateId) => {
+      const slot = carrier.modSlots[action.slotIndex]
+      if (slot?.status !== 'empty' || !slot.offer) return null
+      if (!slot.offer.modIds.includes(action.modTemplateId)) return null
+
+      const modSlots = [...carrier.modSlots]
+      modSlots[action.slotIndex] = {
+        status: 'filled',
+        templateId: action.modTemplateId,
+        lm: 0,
+      }
+      return { ...carrier, modSlots }
+    },
+  )
+}
+
+function tryRemoveMod(
+  state: CampaignState,
+  action: Extract<RunAction, { type: 'REMOVE_MOD' }>,
+): CampaignState {
+  if (!inHub(state)) return state
+  if (!assertHubActionAllowed(state, 'equip')) return state
+
+  return updateCarrierModSlots(
+    state,
+    action.characterId,
+    action.carrierKind,
+    action.carrierId,
+    (carrier, templateId) => {
+      const slot = carrier.modSlots[action.slotIndex]
+      if (slot?.status !== 'filled') return null
+
+      const occupied = occupiedModTemplateIds(carrier.modSlots).filter(
+        (id) => id !== slot.templateId,
+      )
+      const tags = resolveCarrierTags(action.carrierKind, templateId)
+      const offer = generateOffer(
+        MOD_OFFER_POOL,
+        tags,
+        occupied,
+        action.slotIndex,
+        modOfferSeed(action.carrierId, action.slotIndex, Date.now()),
+      )
+
+      const modSlots = [...carrier.modSlots]
+      modSlots[action.slotIndex] = { status: 'empty', offer }
+      const newLevel = rollbackCarrierLevel(action.slotIndex)
+
+      if (action.carrierKind === 'card') {
+        return {
+          ...(carrier as CardInstance),
+          global_level: newLevel,
+          modSlots,
+        }
+      }
+      return {
+        ...(carrier as ItemInstance),
+        itemLevel: newLevel,
+        modSlots,
+      }
+    },
+  )
 }
 
 export function applyRunAction(state: CampaignState, action: RunAction): CampaignState {
@@ -1027,6 +1167,10 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         iconSkinTone,
       }))
     }
+    case 'PICK_MOD_OFFER':
+      return tryPickModOffer(state, action)
+    case 'REMOVE_MOD':
+      return tryRemoveMod(state, action)
   }
 }
 
