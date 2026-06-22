@@ -40,6 +40,37 @@ export type BattlePlayerCard = CardInstance & { cooldownRemaining: number }
 
 export type BattleLoadout = [string | null, string | null]
 
+export type CharacterMetaStatus = 'active' | 'downed'
+
+export type Character = {
+  id: string
+  name: string
+  classId: string
+  unitLevel: number
+  initiativeBase: number
+  equipment: Record<EquipmentSlot, string | null>
+  items: ItemInstance[]
+  cards: CardInstance[]
+  battleLoadout: BattleLoadout
+}
+
+export type CharacterBattleSnapshot = {
+  characterId: string
+  equipment: Record<EquipmentSlot, string | null>
+  battleLoadout: BattleLoadout
+  metaStatus: CharacterMetaStatus
+}
+
+export type Expedition = {
+  scenarioChainId: string
+  partySize: number
+  squadSnapshot: (CharacterBattleSnapshot | null)[]
+  battleIndex: number
+  battleCount: number
+  shopLocked: true
+  interBattleReviveAllDowned?: boolean
+}
+
 export type BattlePhase = 'ongoing' | 'victory' | 'defeat'
 
 export type BattleLogEntry =
