@@ -1,7 +1,13 @@
 import { getModTemplate } from '../content/modTemplates'
 import type { ModOp } from '../content/modTemplates'
 import { scaleModValue } from '../memento/modScaling'
-import type { ModSlotState } from '../types'
+import type { ItemInstance, ModSlotState } from '../types'
+
+export type PassiveModBonuses = {
+  health: number
+  defense: number
+  initiative: number
+}
 
 export type ModCombatContext = {
   carrierTags: readonly string[]
@@ -123,6 +129,21 @@ export function computeHealSplashAmount(primaryHeal: number, ctx: ModCombatConte
   }
   if (ratio <= 0) return 0
   return Math.round(primaryHeal * ratio)
+}
+
+/** Sums passive carrier stats from filled mod slots on equipped items. */
+export function aggregatePassiveModBonuses(
+  equippedItems: readonly ItemInstance[],
+): PassiveModBonuses {
+  let health = 0
+  let defense = 0
+  let initiative = 0
+  for (const item of equippedItems) {
+    health += sumOpsByKind(item.modSlots, 'carrier_hp_add')
+    defense += sumOpsByKind(item.modSlots, 'defense_add')
+    initiative += sumOpsByKind(item.modSlots, 'initiative_add')
+  }
+  return { health, defense, initiative }
 }
 
 /** Independent RNG roll per proc_extra_hit mod (slot order). */

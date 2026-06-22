@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { ModSlotState } from '../types'
+import type { ItemInstance, ModSlotState } from '../types'
 import {
+  aggregatePassiveModBonuses,
   applyAoeCenterDamageMods,
   applyAoeSizeMods,
   applyCooldownMods,
@@ -22,6 +23,49 @@ function ctx(
 ): ModCombatContext {
   return { carrierTags: tags, modSlots: slots, rng: () => 50 }
 }
+
+describe('aggregatePassiveModBonuses', () => {
+  it('sums carrier_hp_add, defense_add, initiative_add from equipped items', () => {
+    const items: ItemInstance[] = [
+      {
+        id: 'armor',
+        templateId: 'leather_armor',
+        itemLevel: 1,
+        modSlots: [
+          { status: 'filled', templateId: 'mod-hp-bonus-armor', lm: 0 },
+          { status: 'filled', templateId: 'mod-armor-bonus', lm: 0 },
+        ],
+      },
+      {
+        id: 'ring',
+        templateId: 'copper_ring',
+        itemLevel: 1,
+        modSlots: [{ status: 'filled', templateId: 'mod-initiative', lm: 0 }],
+      },
+    ]
+    expect(aggregatePassiveModBonuses(items)).toEqual({
+      health: 3,
+      defense: 1,
+      initiative: 2,
+    })
+  })
+
+  it('ignores empty mod slots', () => {
+    const items: ItemInstance[] = [
+      {
+        id: 'armor',
+        templateId: 'leather_armor',
+        itemLevel: 1,
+        modSlots: [{ status: 'empty', offer: null }],
+      },
+    ]
+    expect(aggregatePassiveModBonuses(items)).toEqual({
+      health: 0,
+      defense: 0,
+      initiative: 0,
+    })
+  })
+})
 
 describe('applyDamageMods', () => {
   it('applies +50% damage_mult at lm=0 → 1.5×', () => {

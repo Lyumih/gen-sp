@@ -1,8 +1,8 @@
 import type { ItemTemplate } from '../../game/content/itemTemplates'
 import {
   aggregateGearCardLevelBonus,
-  aggregateGearHpBonus,
 } from '../../game/equipment/aggregates'
+import { computeGearStatBonuses } from '../../game/stats/effectiveStats'
 import { getCharacter } from '../../game/character/selectors'
 import type { CampaignState, EquipmentSlot } from '../../game/types'
 
@@ -22,7 +22,7 @@ export function previewEquipDelta(
   const tmpl = getTemplate(item.templateId)
   if (!tmpl || tmpl.slot !== slot) return null
 
-  const beforeHp = aggregateGearHpBonus(hero.items, hero.equipment, getTemplate)
+  const beforeHp = computeGearStatBonuses(hero.items, hero.equipment, getTemplate).health ?? 0
   const beforeCard = aggregateGearCardLevelBonus(
     hero.items,
     hero.equipment,
@@ -30,7 +30,7 @@ export function previewEquipDelta(
   )
 
   const nextEquipment = { ...hero.equipment, [slot]: itemId }
-  const afterHp = aggregateGearHpBonus(hero.items, nextEquipment, getTemplate)
+  const afterHp = computeGearStatBonuses(hero.items, nextEquipment, getTemplate).health ?? 0
   const afterCard = aggregateGearCardLevelBonus(hero.items, nextEquipment, getTemplate)
 
   return {

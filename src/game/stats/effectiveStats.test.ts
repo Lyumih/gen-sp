@@ -35,4 +35,28 @@ describe('computeCharacterMaxHp', () => {
     )
     expect(hp).toBe(Math.round(20 * (1 + 0.02 + 0)))
   })
+
+  it('adds mod-hp-bonus-armor carrier_hp_add when armor has filled mod', () => {
+    const scaledBase = Math.round(20 * (1 + 0.02 + 0))
+    const templateGearHp = 2 * 1
+    const modHp = 3
+    const hp = computeCharacterMaxHp(
+      {
+        baseStats: sampleBaseStats,
+        unitLevel: 1,
+        items: [
+          {
+            id: 'i1',
+            templateId: 'leather_armor',
+            itemLevel: 1,
+            modSlots: [{ status: 'filled', templateId: 'mod-hp-bonus-armor', lm: 0 }],
+          },
+        ],
+        equipment: { weapon: null, armor: 'i1', accessory: null },
+      },
+      0,
+      getItemTemplate,
+    )
+    expect(hp).toBe(scaledBase + templateGearHp + modHp)
+  })
 })

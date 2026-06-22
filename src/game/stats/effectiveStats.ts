@@ -1,8 +1,37 @@
 import { computeUnitStat } from '../balance'
 import type { BaseStats, StatId } from '../config/baseStats'
 import type { ItemTemplate } from '../content/itemTemplates'
-import type { EquipmentSlot, ItemInstance } from '../types'
 import { aggregateGearHpBonus } from '../equipment/aggregates'
+import { EQUIPMENT_ROLL_ORDER } from '../equipment/equipmentOrder'
+import { aggregatePassiveModBonuses } from '../mods/modPipeline'
+import type { EquipmentSlot, ItemInstance } from '../types'
+
+export function getEquippedItems(
+  items: readonly ItemInstance[],
+  equipment: Record<EquipmentSlot, string | null>,
+): ItemInstance[] {
+  const out: ItemInstance[] = []
+  for (const slot of EQUIPMENT_ROLL_ORDER) {
+    const itemId = equipment[slot]
+    if (itemId === null) continue
+    const inst = items.find((i) => i.id === itemId)
+    if (inst) out.push(inst)
+  }
+  return out
+}
+
+export function computeGearStatBonuses(
+  items: readonly ItemInstance[],
+  equipment: Record<EquipmentSlot, string | null>,
+  getTemplate: (templateId: string) => ItemTemplate | undefined,
+): Partial<Record<StatId, number>> {
+  const passive = aggregatePassiveModBonuses(getEquippedItems(items, equipment))
+  return {
+    health: aggregateGearHpBonus(items, equipment, getTemplate) + passive.health,
+    defense: passive.defense,
+    initiative: passive.initiative,
+  }
+}
 
 export function computeEffectiveStat(
   baseStats: BaseStats,
@@ -49,6 +78,12 @@ export function computeCharacterMaxHp(
   worldPower: number,
   getTemplate: (templateId: string) => ItemTemplate | undefined,
 ): number {
-  const gearHp = aggregateGearHpBonus(member.items, member.equipment, getTemplate)
-  return computeEffectiveStat(member.baseStats, 'health', member.unitLevel, worldPower, gearHp)
+  const gearBonuses = computeGearStatBonuses(member.items, member.equipment, getTemplate)
+  return computeEffectiveStat(
+    member.baseStats,
+    'health',
+    member.unitLevel,
+    worldPower,
+    gearBonuses.health ?? 0,
+  )
 }

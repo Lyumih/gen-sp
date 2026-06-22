@@ -1,6 +1,6 @@
 import type { BaseStats } from '../config/baseStats'
 import { getEnemyTemplate } from '../content/enemyTemplates'
-import { computeEffectiveStat } from '../stats/effectiveStats'
+import { computeEffectiveStat, computeGearStatBonuses } from '../stats/effectiveStats'
 import { buildRoundTurnOrder } from '../battle/initiative'
 import { computeCharacterMaxHpForScenario } from './heroMaxHp'
 import { playerCardsByUnitFromParty } from '../battle/playerCards'
@@ -107,11 +107,17 @@ export function makePlayerUnits(
     .map((member) => {
       const spawn = placements.get(member.characterId)!
       const maxHp = computeCharacterMaxHpForScenario(member, scenario, snapshot.worldPower)
+      const gearBonuses = computeGearStatBonuses(
+        member.items,
+        member.equipment,
+        getItemTemplate,
+      )
       const initiativeBase = computeEffectiveStat(
         member.baseStats,
         'initiative',
         member.unitLevel,
         snapshot.worldPower,
+        gearBonuses.initiative ?? 0,
       )
       return {
         id: member.characterId,

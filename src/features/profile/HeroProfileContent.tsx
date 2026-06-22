@@ -10,9 +10,9 @@ import {
   itemInstanceDescriptionLinesFromInstance,
 } from '../../game/descriptions/itemText'
 import { getItemTemplate } from '../../game/content/itemTemplates'
-import { aggregateGearCardLevelBonus, aggregateGearHpBonus } from '../../game/equipment/aggregates'
+import { aggregateGearCardLevelBonus } from '../../game/equipment/aggregates'
 import { EQUIPMENT_ROLL_ORDER } from '../../game/equipment/equipmentOrder'
-import { computeEffectiveStats } from '../../game/stats/effectiveStats'
+import { computeEffectiveStats, computeGearStatBonuses } from '../../game/stats/effectiveStats'
 import type { BattleState, CampaignState } from '../../game/types'
 import { UI_DAMAGE, UI_HEART, UI_LEVEL } from '../../game/ui/labels'
 import { StatStrip } from '../stats/StatStrip'
@@ -47,7 +47,7 @@ export function HeroProfileContent({
   const hubSnapshot = buildBattleAttemptSnapshot(campaign, campaign.scenarioIndex)
   const hubScenario = SCENARIOS[campaign.scenarioIndex]
 
-  const gearHpHub = aggregateGearHpBonus(hero.items, hero.equipment, getItemTemplate)
+  const gearBonusesHub = computeGearStatBonuses(hero.items, hero.equipment, getItemTemplate)
   const gearCardHub = aggregateGearCardLevelBonus(
     hero.items,
     hero.equipment,
@@ -71,7 +71,7 @@ export function HeroProfileContent({
     hero.baseStats,
     hero.unitLevel,
     campaign.worldPower,
-    { health: gearHpHub },
+    gearBonusesHub,
   )
 
   return (
@@ -99,7 +99,7 @@ export function HeroProfileContent({
       ) : null}
 
       <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
-        Бонусы экипировки: +{gearHpHub} к max {UI_HEART}, +{gearCardHub} к {UI_LEVEL} для {UI_DAMAGE}{' '}
+        Бонусы экипировки: +{gearBonusesHub.health ?? 0} к max {UI_HEART}, +{gearCardHub} к {UI_LEVEL} для {UI_DAMAGE}{' '}
         карт
         {mode === 'battle' && battle ? (
           <>

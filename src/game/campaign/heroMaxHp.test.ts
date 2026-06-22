@@ -63,4 +63,38 @@ describe('computeCharacterMaxHpForScenario', () => {
       computeCharacterMaxHpForScenario(snap.party[0]!, scenario, snap.worldPower),
     ).toBe(player!.maxHp)
   })
+
+  it('matches battle player maxHp with mod-hp-bonus-armor', () => {
+    const scenario = SCENARIOS[0]!
+    const snap = minimalSnapshot({
+      party: [
+        member({
+          items: [
+            {
+              id: 'i1',
+              templateId: 'leather_armor',
+              itemLevel: 1,
+              modSlots: [{ status: 'filled', templateId: 'mod-hp-bonus-armor', lm: 0 }],
+            },
+          ],
+          equipment: { weapon: null, armor: 'i1', accessory: null },
+        }),
+      ],
+    })
+    const battle = battleStateFromScenario(scenario, snap)
+    const player = battle.units.find((u) => u.id === HERO_ID)
+    expect(player!.maxHp).toBeGreaterThan(
+      computeCharacterMaxHpForScenario(
+        member({
+          items: [{ id: 'i1', templateId: 'leather_armor', itemLevel: 1, modSlots: [] }],
+          equipment: { weapon: null, armor: 'i1', accessory: null },
+        }),
+        scenario,
+        snap.worldPower,
+      ),
+    )
+    expect(computeCharacterMaxHpForScenario(snap.party[0]!, scenario, snap.worldPower)).toBe(
+      player!.maxHp,
+    )
+  })
 })
