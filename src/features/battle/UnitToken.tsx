@@ -1,0 +1,166 @@
+import type { CSSProperties, ReactNode } from 'react'
+import { Badge, Typography } from 'antd'
+import type { UnitDisplay } from '../../game/character/display'
+import { accentStyle } from '../../game/character/iconCatalog'
+import { UI_HEART, UI_LEVEL } from '../../game/ui/labels'
+
+export type UnitTokenProps = {
+  display: UnitDisplay
+  variant: 'grid' | 'initiative'
+  unitLevel?: number
+  hp?: number
+  maxHp?: number
+  turnBadge?: string | null
+  highlighted?: boolean
+  isCurrentActor?: boolean
+  isDead?: boolean
+  onMouseEnter?: () => void
+  onMouseLeave?: () => void
+}
+
+const nameStyle: CSSProperties = {
+  maxWidth: '100%',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  fontSize: 9,
+  lineHeight: 1.1,
+  width: '100%',
+  textAlign: 'center',
+}
+
+export function UnitToken({
+  display,
+  variant,
+  unitLevel,
+  hp,
+  maxHp,
+  turnBadge,
+  highlighted,
+  isCurrentActor,
+  isDead,
+  onMouseEnter,
+  onMouseLeave,
+}: UnitTokenProps) {
+  const ring = accentStyle(display.accent)
+  const emojiSize = variant === 'grid' ? 28 : 22
+
+  const emojiNode = (
+    <span
+      className="unit-token__accent-ring"
+      style={{
+        borderColor: ring.borderColor,
+        background: ring.background,
+        filter: ring.filter,
+        fontSize: emojiSize,
+        lineHeight: 1,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderStyle: 'solid',
+        borderRadius: 8,
+        padding: '1px 4px',
+      }}
+      aria-hidden
+    >
+      {display.emoji}
+    </span>
+  )
+
+  const nameNode = (
+    <Typography.Text
+      style={{
+        ...nameStyle,
+        fontSize: variant === 'initiative' ? 10 : 9,
+        opacity: isDead ? 0.45 : 1,
+      }}
+    >
+      {display.name}
+    </Typography.Text>
+  )
+
+  const className = [
+    'unit-token',
+    variant === 'grid' ? 'unit-token--grid' : 'unit-token--initiative',
+    highlighted ? 'unit-token--highlighted' : '',
+    isCurrentActor ? 'unit-token--current' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  const wrapStyle: CSSProperties =
+    variant === 'grid'
+      ? {
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          width: '100%',
+          fontSize: 10,
+          lineHeight: 1.12,
+          opacity: isDead ? 0.45 : 1,
+        }
+      : {
+          display: 'inline-flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 2,
+          padding: '2px 8px',
+          borderRadius: 4,
+          border: isCurrentActor ? '2px solid #1677ff' : '1px solid #d9d9d9',
+          background: isCurrentActor ? '#e6f4ff' : isDead ? '#f5f5f5' : '#fff',
+          opacity: isDead ? 0.45 : 1,
+          fontWeight: isCurrentActor ? 600 : 400,
+          minWidth: 44,
+        }
+
+  let inner: ReactNode
+  if (variant === 'initiative') {
+    inner = (
+      <>
+        {nameNode}
+        {emojiNode}
+      </>
+    )
+  } else {
+    inner = (
+      <>
+        {turnBadge ? (
+          <Badge
+            count={turnBadge}
+            className="unit-token__turn-badge"
+            style={{ position: 'absolute', top: 2, right: 2, pointerEvents: 'none' }}
+          />
+        ) : null}
+        {nameNode}
+        {emojiNode}
+        {unitLevel !== undefined ? (
+          <span>
+            {UI_LEVEL}
+            {unitLevel}
+          </span>
+        ) : null}
+        {hp !== undefined && maxHp !== undefined ? (
+          <span>
+            {UI_HEART}
+            {hp}/{maxHp}
+          </span>
+        ) : null}
+      </>
+    )
+  }
+
+  return (
+    <span
+      className={className}
+      style={wrapStyle}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      {inner}
+    </span>
+  )
+}

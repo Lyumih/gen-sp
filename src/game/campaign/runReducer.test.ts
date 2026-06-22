@@ -23,6 +23,7 @@ import { getCurrentActorId } from '../battle/reducer'
 import { SCENARIOS } from './scenarios'
 import { getPrimaryCharacter } from './selectors'
 import { LEGACY_HERO_CHARACTER_ID, MAX_ROSTER_SIZE } from '../character/constants'
+import { getCharacter } from '../character/selectors'
 import { testCreateCharacter } from '../stats/testFixtures'
 import { TAVERN_REFRESH_COST } from '../tavern/generateCandidates'
 
@@ -1473,5 +1474,30 @@ describe('tavern', () => {
     })
     expect(hireBlocked).toBe(expedition)
     expect(hireBlocked.characters).toHaveLength(1)
+  })
+})
+
+describe('character appearance actions', () => {
+  it('RENAME_CHARACTER trims and enforces length', () => {
+    const s = initialCampaignState()
+    const id = s.characters[0]!.id
+    const next = applyRunAction(s, { type: 'RENAME_CHARACTER', characterId: id, name: '  Bob  ' })
+    expect(getCharacter(next, id)?.name).toBe('Bob')
+    const rejected = applyRunAction(next, { type: 'RENAME_CHARACTER', characterId: id, name: '' })
+    expect(getCharacter(rejected, id)?.name).toBe('Bob')
+  })
+
+  it('SET_CHARACTER_APPEARANCE validates catalog', () => {
+    const s = initialCampaignState()
+    const id = s.characters[0]!.id
+    const next = applyRunAction(s, {
+      type: 'SET_CHARACTER_APPEARANCE',
+      characterId: id,
+      iconEmoji: '🗡️',
+      iconAccent: 'green',
+      iconSkinTone: 'medium',
+    })
+    expect(getCharacter(next, id)?.iconEmoji).toBe('🗡️')
+    expect(getCharacter(next, id)?.iconAccent).toBe('green')
   })
 })

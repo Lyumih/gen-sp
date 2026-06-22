@@ -1,6 +1,7 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { Button, Tag, Typography } from 'antd'
 import { getCharacter } from '../../game/character/selectors'
+import { getCharacterDisplay } from '../../game/character/display'
 import { getCharacterClass } from '../../game/content/characterClasses'
 import type { CampaignState } from '../../game/types'
 import { UI_LEVEL } from '../../game/ui/labels'
@@ -43,6 +44,7 @@ function SquadSlotCell({
 
   const character = characterId !== null ? getCharacter(campaign, characterId) : undefined
   const cls = character ? getCharacterClass(character.classId) : undefined
+  const display = character ? getCharacterDisplay(character) : undefined
 
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
     id:
@@ -79,7 +81,7 @@ function SquadSlotCell({
         }}
       >
         <InventoryCell
-          emoji={character ? '🧙' : '➕'}
+          emoji={display?.emoji ?? (character ? '🧙' : '➕')}
           levelBadge={character ? `${UI_LEVEL}${character.unitLevel}` : undefined}
           state={state}
           ariaLabel={

@@ -1,28 +1,25 @@
 import { Typography } from 'antd'
-import type { Unit } from '../../game/types'
+import { getUnitDisplay } from '../../game/character/display'
+import type { CampaignState, Unit } from '../../game/types'
+import { UnitToken } from './UnitToken'
 
 type InitiativeQueueProps = {
   turnOrder: readonly string[]
   currentActorId: string | undefined
   units: readonly Unit[]
-  unitLabel?: (unitId: string) => string
-}
-
-function defaultLabel(units: readonly Unit[], unitId: string): string {
-  const unit = units.find((u) => u.id === unitId)
-  if (!unit) return unitId
-  if (unit.side === 'player') return '🛡️'
-  return '👾'
+  campaign: CampaignState
+  highlightedUnitId?: string | null
+  onHighlight?: (unitId: string | null) => void
 }
 
 export function InitiativeQueue({
   turnOrder,
   currentActorId,
   units,
-  unitLabel,
+  campaign,
+  highlightedUnitId,
+  onHighlight,
 }: InitiativeQueueProps) {
-  const labelFor = unitLabel ?? ((id) => defaultLabel(units, id))
-
   if (turnOrder.length === 0) {
     return <Typography.Text type="secondary">Очередь пуста</Typography.Text>
   }
@@ -42,27 +39,21 @@ export function InitiativeQueue({
         const unit = units.find((u) => u.id === unitId)
         const isCurrent = unitId === currentActorId
         const isDead = unit !== undefined && unit.hp <= 0
-        const glyph = labelFor(unitId)
+        const display = unit
+          ? getUnitDisplay(unit, campaign)
+          : { name: unitId, emoji: '❓', accent: 'default' as const }
 
         return (
           <span key={`${unitId}-${index}`} role="listitem">
-            <Typography.Text
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                padding: '2px 8px',
-                borderRadius: 4,
-                fontSize: 12,
-                border: isCurrent ? '2px solid #1677ff' : '1px solid #d9d9d9',
-                background: isCurrent ? '#e6f4ff' : isDead ? '#f5f5f5' : '#fff',
-                opacity: isDead ? 0.45 : 1,
-                fontWeight: isCurrent ? 600 : 400,
-              }}
-            >
-              {glyph}
-              <span>{unitId}</span>
-            </Typography.Text>
+            <UnitToken
+              display={display}
+              variant="initiative"
+              isCurrentActor={isCurrent}
+              isDead={isDead}
+              highlighted={highlightedUnitId === unitId}
+              onMouseEnter={() => onHighlight?.(unitId)}
+              onMouseLeave={() => onHighlight?.(null)}
+            />
             {index < turnOrder.length - 1 ? (
               <Typography.Text type="secondary" style={{ margin: '0 2px', fontSize: 11 }}>
                 →

@@ -73,7 +73,7 @@ const CLASS_DEFAULT_ICON: Readonly<Record<string, string>> = {
 
 const CHARACTER_ICON_SET = new Set<string>(CHARACTER_ICON_CATALOG);
 
-const ICON_ACCENT_IDS: readonly IconAccentId[] = [
+export const ICON_ACCENT_IDS: readonly IconAccentId[] = [
   "default",
   "green",
   "gray",
@@ -91,6 +91,8 @@ const FITZPATRICK_MODIFIER: Readonly<
   medium: "\u{1F3FD}",
   dark: "\u{1F3FF}",
 };
+
+export const ICON_SKIN_TONE_IDS = ['default', 'light', 'medium', 'dark'] as const satisfies readonly IconSkinToneId[]
 
 export function defaultIconEmojiForClass(classId: string): string {
   return CLASS_DEFAULT_ICON[classId] ?? "👤";

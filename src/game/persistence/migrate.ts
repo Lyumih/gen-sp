@@ -19,6 +19,7 @@ import { getPrimaryCharacter } from '../campaign/selectors'
 import { STARTER_CARDS } from '../campaign/runReducer'
 import { SCENARIOS } from '../campaign/scenarios'
 import { createCharacter } from '../character/createCharacter'
+import { defaultIconEmojiForClass, isValidIconAccent, isValidIconEmoji } from '../character/iconCatalog'
 import { DEFAULT_SQUAD_SLOTS, LEGACY_HERO_CHARACTER_ID } from '../character/constants'
 import { DEFAULT_MOD_KILL_TEMPLATE_ID } from '../content/modTemplates'
 import { STARTER_HERO_BASE_STATS } from '../config/baseStats'
@@ -106,6 +107,20 @@ function normalizeCharacter(char: Character): Character {
     equipment,
     cards,
     battleLoadout,
+    iconEmoji:
+      typeof char.iconEmoji === 'string' && isValidIconEmoji(char.iconEmoji)
+        ? char.iconEmoji
+        : defaultIconEmojiForClass(char.classId ?? 'warrior'),
+    iconAccent:
+      typeof char.iconAccent === 'string' && isValidIconAccent(char.iconAccent)
+        ? char.iconAccent
+        : 'default',
+    iconSkinTone:
+      char.iconSkinTone === 'light' ||
+      char.iconSkinTone === 'medium' ||
+      char.iconSkinTone === 'dark'
+        ? char.iconSkinTone
+        : 'default',
   }
 }
 
@@ -618,6 +633,13 @@ export function migrateV3CampaignToV4(c: CampaignState): CampaignState {
   })
 }
 
+export function migrateV4CampaignToV5(c: CampaignState): CampaignState {
+  return normalizeLoadedCampaign({
+    ...c,
+    characters: c.characters.map((ch) => normalizeCharacter(ch)),
+  })
+}
+
 function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null && !Array.isArray(x)
 }
@@ -655,9 +677,9 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
     return null
   }
   const version = raw.version
-  if (version !== 1 && version !== 2 && version !== 3 && version !== 4) {
+  if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== 5) {
     console.warn(
-      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, or 4`,
+      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, 4, or 5`,
     )
     return null
   }
@@ -666,7 +688,14 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
     console.warn('[gen-sp] save: missing campaign object')
     return null
   }
-  return migrateV3CampaignToV4(campaignFromRaw(campaignRaw))
+  const campaign = campaignFromRaw(campaignRaw)
+  if (version <= 3) {
+    return migrateV3CampaignToV4(campaign)
+  }
+  if (version === 4) {
+    return migrateV4CampaignToV5(campaign)
+  }
+  return migrateV4CampaignToV5(campaign)
 }
 
 export function assertEnvelopeV1(e: SaveEnvelopeV1): CampaignState {

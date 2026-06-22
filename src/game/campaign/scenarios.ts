@@ -7,7 +7,9 @@ import { playerCardsByUnitFromParty } from '../battle/playerCards'
 import { aggregateGearCardLevelBonus } from '../equipment/aggregates'
 import { getItemTemplate } from '../content/itemTemplates'
 import { computeUnitStat } from '../balance'
-import type { BattleAttemptSnapshot, BattleState, PartyMemberBattleSnapshot, Unit } from '../types'
+import { assignPlayerSpawnPositions, buildSpawnSeed } from '../battle/spawnPlacement'
+import { resolveEnemyUnitDisplay } from '../content/enemyDisplay'
+import type { BattleAttemptSnapshot, BattleState, IconAccentId, PartyMemberBattleSnapshot, Unit } from '../types'
 import { cellKey } from '../battle/grid'
 
 export type BattleScenarioEnemy = {
@@ -18,6 +20,9 @@ export type BattleScenarioEnemy = {
   baseHpStat: number
   unitLevel: number
   archetypeId: string
+  displayName?: string
+  iconEmoji?: string
+  iconAccent?: IconAccentId
 }
 
 export type BattleScenario = {
@@ -26,6 +31,8 @@ export type BattleScenario = {
   height: number
   walls: readonly string[]
   playerSpawns: { x: number; y: number }[]
+  playerSpawnCells?: readonly { x: number; y: number }[]
+  playerSpawnZone?: { xMin: number; xMax: number; yMin: number; yMax: number }
   /** Legacy; player HP uses character baseStats.health. */
   heroBaseHpStat: number
   enemies: readonly BattleScenarioEnemy[]
@@ -55,6 +62,7 @@ export const SCENARIOS: readonly BattleScenario[] = [
     height: 4,
     walls: [],
     playerSpawns: [{ x: 0, y: 1 }],
+    playerSpawnZone: { xMin: 0, xMax: 0, yMin: 0, yMax: 3 },
     heroBaseHpStat: 22,
     enemies: [
       { id: 'e1', x: 5, y: 0, baseHpStat: 7, unitLevel: 1, archetypeId: 'grunt' },
@@ -72,21 +80,31 @@ export const SCENARIOS: readonly BattleScenario[] = [
   },
 ]
 
-function spawnForMember(
-  scenario: BattleScenario,
-  member: PartyMemberBattleSnapshot,
-): { x: number; y: number } {
-  return scenario.playerSpawns[member.spawnIndex] ?? scenario.playerSpawns[0]!
+export type MakePlayerUnitsResult = {
+  units: Unit[]
+  excludedCharacterIds: readonly string[]
 }
 
 export function makePlayerUnits(
   snapshot: BattleAttemptSnapshot,
   scenario: BattleScenario,
-): Unit[] {
-  return snapshot.party
-    .filter((member) => member.metaStatus === 'active')
+  seed?: number,
+): MakePlayerUnitsResult {
+  const activeMembers = snapshot.party.filter((member) => member.metaStatus === 'active')
+  const enemyOccupied = new Set(scenario.enemies.map((e) => cellKey(e.x, e.y)))
+  const spawnSeed =
+    seed ?? buildSpawnSeed(scenario.id, snapshot.scenarioSlotIndex)
+  const { placements, excludedCharacterIds } = assignPlayerSpawnPositions({
+    scenario,
+    activeMembers,
+    enemyOccupied,
+    seed: spawnSeed,
+  })
+
+  const units = activeMembers
+    .filter((member) => placements.has(member.characterId))
     .map((member) => {
-      const spawn = spawnForMember(scenario, member)
+      const spawn = placements.get(member.characterId)!
       const maxHp = computeCharacterMaxHpForScenario(member, scenario, snapshot.worldPower)
       const initiativeBase = computeEffectiveStat(
         member.baseStats,
@@ -106,6 +124,8 @@ export function makePlayerUnits(
         baseStats: { ...member.baseStats },
       }
     })
+
+  return { units, excludedCharacterIds }
 }
 
 function enemyBaseStats(archetypeId: string, fallbackHp: number): BaseStats {
@@ -141,6 +161,7 @@ function makeEnemies(
       e.unitLevel,
       snapshot.worldPower,
     )
+    const display = resolveEnemyUnitDisplay(e)
     return {
       id: e.id,
       side: 'enemy' as const,
@@ -152,6 +173,9 @@ function makeEnemies(
       archetypeId: e.archetypeId,
       initiativeBase,
       baseStats,
+      displayName: display.name,
+      iconEmoji: display.emoji,
+      iconAccent: display.accent,
     }
   })
 }
@@ -168,11 +192,17 @@ function primaryActiveMember(
 export function battleStateFromScenario(
   scenario: BattleScenario,
   snapshot: BattleAttemptSnapshot,
+  spawnSeed?: number,
 ): BattleState {
-  const players = makePlayerUnits(snapshot, scenario)
+  const { units: players, excludedCharacterIds } = makePlayerUnits(
+    snapshot,
+    scenario,
+    spawnSeed,
+  )
   const enemies = makeEnemies(scenario, snapshot)
   const units = [...players, ...enemies]
   const primary = primaryActiveMember(snapshot)
+  const phase = players.length === 0 ? 'defeat' : 'ongoing'
   return {
     width: scenario.width,
     height: scenario.height,
@@ -181,7 +211,7 @@ export function battleStateFromScenario(
     turnOrder: buildRoundTurnOrder(units),
     currentTurnIndex: 0,
     roundNumber: 1,
-    phase: 'ongoing',
+    phase,
     worldPower: snapshot.worldPower,
     playerCardsByUnitId: playerCardsByUnitFromParty(snapshot.party),
     modKillTargetCardId: snapshot.modKillTargetCardId,
@@ -189,5 +219,7 @@ export function battleStateFromScenario(
     gearCardLevelBonus: primary
       ? aggregateGearCardLevelBonus(primary.items, primary.equipment, getItemTemplate)
       : 0,
+    excludedCharacterIds:
+      excludedCharacterIds.length > 0 ? excludedCharacterIds : undefined,
   }
 }

@@ -6,6 +6,7 @@ import {
   hasEmptySquadSlot,
 } from '../../game/character/selectors'
 import { getCharacterClass } from '../../game/content/characterClasses'
+import { getCharacterDisplay } from '../../game/character/display'
 import type { CampaignState, Character } from '../../game/types'
 import { UI_LEVEL } from '../../game/ui/labels'
 import { StatStrip } from '../stats/StatStrip'
@@ -69,6 +70,7 @@ function RosterRow({
   const activeParsed = activeDragId ? parseDragId(activeDragId) : null
   const itemDragOver = isOver && activeParsed?.kind === 'stash'
   const cls = getCharacterClass(character.classId)
+  const display = getCharacterDisplay(character)
   const stashCount = character.items.length
 
   const squadActions = !squadLocked
@@ -122,7 +124,7 @@ function RosterRow({
       <List.Item.Meta
         title={
           <span>
-            {character.name}{' '}
+            {display.emoji} {character.name}{' '}
             {inSquad ? (
               <Tag color="blue" style={{ marginInlineStart: 4 }}>
                 отряд

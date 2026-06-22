@@ -1,15 +1,23 @@
 import { getCardDisplayLabel } from '../descriptions/cardText'
 import type { BattleLogEntry } from '../types'
+import type { UnitDisplay } from '../character/display'
 import { UI_DAMAGE, UI_HEART } from '../ui/labels'
 
-function unitLabel(unitId: string): string {
+export type BattleLogUnitLookup = (unitId: string) => UnitDisplay | undefined
+
+function formatUnitRef(unitId: string, lookup?: BattleLogUnitLookup): string {
+  const d = lookup?.(unitId)
+  if (d) return `${d.emoji} ${d.name}`
   return unitId === 'hero' ? 'Героя' : unitId
 }
 
-export function formatBattleLogEntry(entry: BattleLogEntry): string {
+export function formatBattleLogEntry(
+  entry: BattleLogEntry,
+  lookup?: BattleLogUnitLookup,
+): string {
   switch (entry.type) {
     case 'move':
-      return `${entry.unitId}: (${entry.fromX},${entry.fromY}) → (${entry.toX},${entry.toY})`
+      return `${formatUnitRef(entry.unitId, lookup)}: (${entry.fromX},${entry.fromY}) → (${entry.toX},${entry.toY})`
     case 'strike': {
       const src = entry.fromCard
         ? `карта «${getCardDisplayLabel(entry.fromCard.templateId)}»`
@@ -19,13 +27,13 @@ export function formatBattleLogEntry(entry: BattleLogEntry): string {
             ? 'область'
             : 'выстрел'
       const kill = entry.targetKilled ? ', цель уничтожена' : ''
-      return `${entry.attackerId} → ${entry.targetId}: ${entry.damage} ${UI_DAMAGE} (${src})${kill}`
+      return `${formatUnitRef(entry.attackerId, lookup)} → ${formatUnitRef(entry.targetId, lookup)}: ${entry.damage} ${UI_DAMAGE} (${src})${kill}`
     }
     case 'heal': {
       const src = entry.fromCard
         ? ` (${getCardDisplayLabel(entry.fromCard.templateId)})`
         : ''
-      return `💚 ${unitLabel(entry.healerId)} исцеляет ${unitLabel(entry.targetId)} на ${entry.amount} ${UI_HEART}${src}`
+      return `💚 ${formatUnitRef(entry.healerId, lookup)} исцеляет ${formatUnitRef(entry.targetId, lookup)} на ${entry.amount} ${UI_HEART}${src}`
     }
     case 'card_level_up':
       return `Карта «${getCardDisplayLabel(entry.templateId)}»: уровень ${entry.fromLevel} → ${entry.toLevel}; выпало ${entry.roll} из 100`

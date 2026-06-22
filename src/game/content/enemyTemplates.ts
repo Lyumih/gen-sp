@@ -1,9 +1,11 @@
 import type { BaseStats } from '../config/baseStats'
+import type { IconAccentId } from '../types'
 
 export type EnemyTemplate = {
   id: string
   label: string
   emoji?: string
+  iconAccent?: IconAccentId
   /** Legacy single-stat HP base. */
   baseHpStat: number
   baseStats: BaseStats
@@ -14,6 +16,7 @@ export const ENEMY_TEMPLATES: Readonly<Record<string, EnemyTemplate>> = {
     id: 'grunt',
     label: 'Рядовой',
     emoji: '👹',
+    iconAccent: 'red',
     baseHpStat: 8,
     baseStats: {
       health: 8,
@@ -31,6 +34,7 @@ export const ENEMY_TEMPLATES: Readonly<Record<string, EnemyTemplate>> = {
     id: 'boss',
     label: 'Босс',
     emoji: '💀',
+    iconAccent: 'purple',
     baseHpStat: 18,
     baseStats: {
       health: 18,

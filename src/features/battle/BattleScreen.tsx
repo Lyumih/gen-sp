@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   AimOutlined,
   CheckCircleOutlined,
@@ -10,7 +10,7 @@ import {
   RobotOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons'
-import { Alert, App, Button, Card, Collapse, Popover, Radio, Space, Switch, Typography } from 'antd'
+import { Alert, App, Button, Card, Collapse, Radio, Space, Switch, Typography } from 'antd'
 import { computeCardAttackDamage } from '../../game/content/cardAttackDamage'
 import { computeCardHealAmount } from '../../game/content/cardHealAmount'
 import { getCardAttackTemplate } from '../../game/content/cardTemplates'
@@ -23,10 +23,13 @@ import {
 import { describeCardCombatStats, getCardDisplayLabel } from '../../game/descriptions/cardText'
 import { UI_CELL, UI_DAMAGE, UI_HEART, UI_LEVEL } from '../../game/ui/labels'
 import { computeEffectiveStats } from '../../game/stats/effectiveStats'
-import { StatStrip } from '../stats/StatStrip'
+import { BattleUnitTooltip } from './BattleUnitTooltip'
+import { UnitToken } from './UnitToken'
 import { HeroProfileModal } from '../profile/HeroProfileModal'
-import type { Unit } from '../../game/types'
+import type { CampaignState, Unit } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
+import { getUnitDisplay } from '../../game/character/display'
+import { turnBadgeLabel } from '../../game/battle/turnBadge'
 import { formatBattleLogEntry } from '../../game/battle/battleLog'
 import { getCurrentActorId } from '../../game/battle/reducer'
 import { getActorPlayerCards } from '../../game/battle/playerCards'
@@ -57,69 +60,64 @@ type ActionMode = 'move' | 'melee' | 'ranged' | 'card'
 const CELL_PX = 58
 const HERO_AI_DELAY_MS = 2000
 
-const unitCellWrapStyle: CSSProperties = {
-  fontSize: 10,
-  lineHeight: 1.12,
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  textAlign: 'center',
-  width: '100%',
-}
-
-const unitCellEmojiStyle: CSSProperties = {
-  fontSize: 28,
-  lineHeight: 1,
-}
-
 function BattleUnitCell({
   unit,
-  role,
+  campaign,
   worldPower,
+  turnOrder,
+  currentTurnIndex,
+  highlighted,
+  isCurrentActor,
+  onHighlight,
 }: {
   unit: Unit
-  role: 'player' | 'enemy'
+  campaign: CampaignState
   worldPower: number
+  turnOrder: readonly string[]
+  currentTurnIndex: number
+  highlighted?: boolean
+  isCurrentActor?: boolean
+  onHighlight?: (unitId: string | null) => void
 }) {
-  const glyph = role === 'player' ? '🛡️' : '👾'
-  const cell = (
-    <span style={unitCellWrapStyle}>
-      <span style={unitCellEmojiStyle} aria-hidden>
-        {glyph}
-      </span>
-      <span>
-        {UI_LEVEL}
-        {unit.unitLevel}
-      </span>
-      <span>
-        {UI_HEART}
-        {unit.hp}/{unit.maxHp}
-      </span>
-    </span>
+  const display = getUnitDisplay(unit, campaign)
+  const isAlive = (id: string) => {
+    const u = campaign.battle?.units.find((x) => x.id === id)
+    return u !== undefined && u.hp > 0
+  }
+  const badge = turnBadgeLabel(unit.id, turnOrder, currentTurnIndex, isAlive)
+
+  const token = (
+    <UnitToken
+      display={display}
+      variant="grid"
+      unitLevel={unit.unitLevel}
+      hp={unit.hp}
+      maxHp={unit.maxHp}
+      turnBadge={badge}
+      highlighted={highlighted}
+      isCurrentActor={isCurrentActor}
+      isDead={unit.hp <= 0}
+      onMouseEnter={() => onHighlight?.(unit.id)}
+      onMouseLeave={() => onHighlight?.(null)}
+    />
   )
 
-  if (!unit.baseStats) return cell
+  if (!unit.baseStats) return token
 
   const effective = computeEffectiveStats(unit.baseStats, unit.unitLevel, worldPower)
   effective.health = unit.maxHp
   effective.initiative = unit.initiativeBase ?? effective.initiative
 
   return (
-    <Popover
-      trigger="hover"
-      mouseEnterDelay={0.3}
-      content={
-        <div style={{ maxWidth: 320 }}>
-          <StatStrip baseStats={unit.baseStats} effectiveStats={effective} />
-          <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
-            {UI_HEART} в бою: {unit.hp}/{unit.maxHp}
-          </Typography.Text>
-        </div>
-      }
+    <BattleUnitTooltip
+      display={display}
+      baseStats={unit.baseStats}
+      effectiveStats={effective}
+      hp={unit.hp}
+      maxHp={unit.maxHp}
     >
-      {cell}
-    </Popover>
+      {token}
+    </BattleUnitTooltip>
   )
 }
 
@@ -140,9 +138,27 @@ export function BattleScreen() {
   const [pendingAoeCell, setPendingAoeCell] = useState<{ x: number; y: number } | null>(null)
   const [explosionCells, setExplosionCells] = useState<Set<string>>(new Set())
   const [selectedPlayerUnitId, setSelectedPlayerUnitId] = useState<string | null>(null)
+  const [highlightedUnitId, setHighlightedUnitId] = useState<string | null>(null)
   const logEndRef = useRef<HTMLDivElement>(null)
 
   const currentId = battle ? getCurrentActorId(battle) : undefined
+  const currentTurnIndex =
+    battle && currentId ? Math.max(0, battle.turnOrder.indexOf(currentId)) : 0
+
+  const unitLogLookup = useMemo(() => {
+    if (!battle) return undefined
+    return (unitId: string) => {
+      const unit = battle.units.find((u) => u.id === unitId)
+      return unit ? getUnitDisplay(unit, campaign) : undefined
+    }
+  }, [battle, campaign])
+
+  const excludedNames = useMemo(() => {
+    const ids = battle?.excludedCharacterIds ?? []
+    return ids
+      .map((id) => getCharacter(campaign, id)?.name ?? id)
+      .filter(Boolean)
+  }, [battle?.excludedCharacterIds, campaign])
   const current = battle?.units.find((u) => u.id === currentId)
   const actor = current?.side === 'player' && current.hp > 0 ? current : undefined
   const actorCards = battle && currentId ? getActorPlayerCards(battle, currentId) : []
@@ -410,14 +426,6 @@ export function BattleScreen() {
     window.setTimeout(() => setExplosionCells(new Set()), 600)
   }
 
-  const playerUnitLabel = (unitId: string) => {
-    const unit = battle.units.find((u) => u.id === unitId)
-    if (unit?.side === 'player') {
-      return getCharacter(campaign, unitId)?.name ?? '🛡️'
-    }
-    return '👾'
-  }
-
   const onCellClick = (x: number, y: number) => {
     if (battle.phase !== 'ongoing') return
     if (autoBattleEnabled) return
@@ -600,6 +608,15 @@ export function BattleScreen() {
             }
           />
         )}
+        {excludedNames.length > 0 && (
+          <Alert
+            type="warning"
+            showIcon
+            closable
+            title="Не хватило места спавна"
+            description={`${excludedNames.join(', ')} не участвуют в этом бою`}
+          />
+        )}
         {battle.phase === 'victory' && (
           <Alert
             type="success"
@@ -631,9 +648,9 @@ export function BattleScreen() {
             <>
               Ход:{' '}
               <strong>
-                {current?.side === 'player'
-                  ? (getCharacter(campaign, current.id)?.name ?? current.id)
-                  : (current?.id ?? '—')}
+                {current
+                  ? `${getUnitDisplay(current, campaign).emoji} ${getUnitDisplay(current, campaign).name}`
+                  : '—'}
               </strong>
               {' · '}
               Раунд {battle.roundNumber}
@@ -654,7 +671,9 @@ export function BattleScreen() {
             turnOrder={battle.turnOrder}
             currentActorId={currentId}
             units={battle.units}
-            unitLabel={playerUnitLabel}
+            campaign={campaign}
+            highlightedUnitId={highlightedUnitId}
+            onHighlight={setHighlightedUnitId}
           />
         </div>
 
@@ -663,12 +682,14 @@ export function BattleScreen() {
             Здоровье героя и врагов
           </Typography.Text>
           <Space wrap>
-            {unitsHealthOrder.map((u) => (
-              <Typography.Text key={u.id}>
-                {u.side === 'player' ? (getCharacter(campaign, u.id)?.name ?? u.id) : u.id}: {UI_HEART}{' '}
-                {u.hp}/{u.maxHp}
-              </Typography.Text>
-            ))}
+            {unitsHealthOrder.map((u) => {
+              const d = getUnitDisplay(u, campaign)
+              return (
+                <Typography.Text key={u.id}>
+                  {d.emoji} {d.name}: {UI_HEART} {u.hp}/{u.maxHp}
+                </Typography.Text>
+              )
+            })}
           </Space>
         </div>
 
@@ -692,8 +713,19 @@ export function BattleScreen() {
                     🧱
                   </span>
                 )
-              else if (u?.side === 'player') inner = <BattleUnitCell unit={u} role="player" worldPower={battle.worldPower} />
-              else if (u?.side === 'enemy') inner = <BattleUnitCell unit={u} role="enemy" worldPower={battle.worldPower} />
+              else if (u?.side === 'player' || u?.side === 'enemy')
+                inner = (
+                  <BattleUnitCell
+                    unit={u}
+                    campaign={campaign}
+                    worldPower={battle.worldPower}
+                    turnOrder={battle.turnOrder}
+                    currentTurnIndex={currentTurnIndex}
+                    highlighted={highlightedUnitId === u.id}
+                    isCurrentActor={u.id === currentId}
+                    onHighlight={setHighlightedUnitId}
+                  />
+                )
 
               const inThreatFocus = overlaySets.threatFocus.has(k)
               const inThreatBase = overlaySets.threatBase.has(k)
@@ -708,6 +740,7 @@ export function BattleScreen() {
               const isCurrentActor = u?.id === currentId
               const isSelectedPlayer =
                 u?.side === 'player' && u.id === selectedPlayerUnitId && !isCurrentActor
+              const isUnitHighlighted = u?.id === highlightedUnitId
               const cellStyle = cellBackgroundStyle({
                 isWall: wall,
                 threatBase: overlayActive && inThreatBase && !inThreatFocus,
@@ -727,7 +760,7 @@ export function BattleScreen() {
                 <button
                   key={k}
                   type="button"
-                  className={`${isExploding ? 'battle-cell-explosion' : ''}${isPendingAoe ? ' battle-cell-aoe-pending' : ''}`}
+                  className={`${isExploding ? 'battle-cell-explosion' : ''}${isPendingAoe ? ' battle-cell-aoe-pending' : ''}${isUnitHighlighted && u ? ' battle-cell-unit-highlight' : ''}`}
                   onClick={() => onCellClick(x, y)}
                   onMouseEnter={() => handleCellMouseEnter(x, y)}
                   style={{
@@ -958,7 +991,7 @@ export function BattleScreen() {
             ) : (
               battle.battleLog.map((entry, i) => (
                 <div key={i} style={{ marginBottom: 4 }}>
-                  {formatBattleLogEntry(entry)}
+                  {formatBattleLogEntry(entry, unitLogLookup)}
                 </div>
               ))
             )}

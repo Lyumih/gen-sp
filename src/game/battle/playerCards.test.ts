@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { LEGACY_HERO_CHARACTER_ID } from '../character/constants'
+import { createCharacter } from '../character/createCharacter'
 import type { BattlePlayerCard, BattleState, Character, PartyMemberBattleSnapshot } from '../types'
 import { TEST_BASE_STATS } from '../stats/testFixtures'
 import {
@@ -65,26 +66,23 @@ describe('playerCardsByUnitFromParty', () => {
 
 describe('mergeBattleCardsToParty', () => {
   it('merges battle card progress per characterId', () => {
-    const hero: Character = {
+    const hero = createCharacter({
       id: HERO_ID,
       name: 'Hero',
       classId: 'warrior',
-      unitLevel: 1,
       baseStats: TEST_BASE_STATS,
       baseStatRating: 0.5,
-      equipment: { weapon: null, armor: null, accessory: null },
-      items: [],
-      cards: [
-        {
-          id: 'c1',
-          templateId: 'strike',
-          global_level: 1,
-          uses_count: 0,
-          modifications: [],
-        },
-      ],
-      battleLoadout: ['c1', null],
-    }
+    })
+    hero.cards = [
+      {
+        id: 'c1',
+        templateId: 'strike',
+        global_level: 1,
+        uses_count: 0,
+        modifications: [],
+      },
+    ]
+    hero.battleLoadout = ['c1', null]
     const ally: Character = {
       ...hero,
       id: 'char-ally-1',

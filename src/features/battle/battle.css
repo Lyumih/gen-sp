@@ -20,3 +20,29 @@
 .battle-cell-aoe-pending {
   box-shadow: inset 0 0 0 3px rgba(255, 77, 79, 0.9);
 }
+
+.unit-token--highlighted {
+  box-shadow: 0 0 0 2px #1677ff, 0 0 8px rgba(22, 119, 255, 0.45);
+  transform: scale(1.04);
+  transition:
+    box-shadow 180ms ease,
+    outline-color 180ms ease,
+    transform 180ms ease;
+}
+
+.unit-token--initiative.unit-token--highlighted {
+  background: #e6f4ff;
+  border-color: #1677ff !important;
+}
+
+.unit-token__turn-badge {
+  pointer-events: none;
+}
+
+.battle-cell-unit-highlight {
+  box-shadow: 0 0 0 2px #1677ff, 0 0 10px rgba(22, 119, 255, 0.35);
+  transform: scale(1.04);
+  transition:
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}

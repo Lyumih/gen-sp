@@ -3,6 +3,7 @@ import { STARTER_CARDS } from '../campaign/runReducer'
 import type { BaseStats } from '../config/baseStats'
 import { EMPTY_EQUIPMENT } from '../equipment/equipmentOrder'
 import type { Character } from '../types'
+import { defaultIconEmojiForClass } from './iconCatalog'
 
 export type CreateCharacterInput = {
   id: string
@@ -33,5 +34,8 @@ export function createCharacter(input: CreateCharacterInput): Character {
     items: [],
     cards,
     battleLoadout: loadout,
+    iconEmoji: defaultIconEmojiForClass(input.classId),
+    iconAccent: 'default',
+    iconSkinTone: 'default',
   }
 }

@@ -16,6 +16,7 @@ import { computeEffectiveStats } from '../../game/stats/effectiveStats'
 import type { BattleState, CampaignState } from '../../game/types'
 import { UI_DAMAGE, UI_HEART, UI_LEVEL } from '../../game/ui/labels'
 import { StatStrip } from '../stats/StatStrip'
+import { HeroAppearanceEditor } from './HeroAppearanceEditor'
 
 export type HeroProfileContentProps = {
   mode: 'hub' | 'battle'
@@ -81,6 +82,10 @@ export function HeroProfileContent({
         baseStatRating={hero.baseStatRating}
         showRating
       />
+
+      {mode === 'hub' ? (
+        <HeroAppearanceEditor hero={hero} expeditionLocked={campaign.expedition !== null} />
+      ) : null}
 
       {includeResourceStats ? (
         <Typography.Paragraph style={{ marginBottom: 8 }}>

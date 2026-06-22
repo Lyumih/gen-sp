@@ -69,17 +69,20 @@ describe('SCENARIOS enemy archetypes', () => {
 })
 
 describe('makePlayerUnits', () => {
-  it('spawns 2 active party members at playerSpawns[0] and [1]', () => {
+  it('spawns 2 active party members on unique spawn cells', () => {
     const snap = snapshotWithParty([
       member({ characterId: HERO_ID, spawnIndex: 0 }),
       member({ characterId: 'char-2', spawnIndex: 1, unitLevel: 2 }),
     ])
 
-    const units = makePlayerUnits(snap, duoScenario)
+    const { units } = makePlayerUnits(snap, duoScenario, 99)
 
     expect(units).toHaveLength(2)
-    expect(units[0]).toMatchObject({ id: HERO_ID, x: 0, y: 1, side: 'player' })
-    expect(units[1]).toMatchObject({ id: 'char-2', x: 0, y: 2, side: 'player', unitLevel: 2 })
+    expect(units[0]).toMatchObject({ side: 'player' })
+    expect(units[1]).toMatchObject({ side: 'player', unitLevel: 2 })
+    const keys = units.map((u) => `${u.x},${u.y}`)
+    expect(new Set(keys).size).toBe(2)
+    expect(units.every((u) => u.x === 0)).toBe(true)
   })
 
   it('skips downed party members', () => {
@@ -88,9 +91,23 @@ describe('makePlayerUnits', () => {
       member({ characterId: 'char-2', spawnIndex: 1, metaStatus: 'downed' }),
     ])
 
-    const units = makePlayerUnits(snap, duoScenario)
+    const { units } = makePlayerUnits(snap, duoScenario)
     expect(units).toHaveLength(1)
     expect(units[0]!.id).toBe(HERO_ID)
+  })
+
+  it('excludes overflow heroes when spawn pool is too small', () => {
+    const tinyScenario: BattleScenario = {
+      ...duoScenario,
+      playerSpawns: [{ x: 0, y: 1 }],
+    }
+    const snap = snapshotWithParty([
+      member({ characterId: HERO_ID, spawnIndex: 0 }),
+      member({ characterId: 'char-2', spawnIndex: 1 }),
+    ])
+    const { units, excludedCharacterIds } = makePlayerUnits(snap, tinyScenario)
+    expect(units).toHaveLength(1)
+    expect(excludedCharacterIds).toHaveLength(1)
   })
 })
 
@@ -127,8 +144,36 @@ describe('battleStateFromScenario', () => {
       },
     ])
 
-    const battle = battleStateFromScenario(SCENARIOS[0]!, snap)
+    const battle = battleStateFromScenario(SCENARIOS[0]!, snap, 1)
     const player = battle.units.find((u) => u.id === HERO_ID)
-    expect(player).toMatchObject({ x: 0, y: 2 })
+    expect(player?.x).toBe(0)
+    expect(player?.y).toBe(2)
+  })
+
+  it('enemy units snapshot display fields from template', () => {
+    const snap = snapshotWithParty([member({ characterId: HERO_ID })])
+    const battle = battleStateFromScenario(SCENARIOS[0]!, snap)
+    const enemy = battle.units.find((u) => u.side === 'enemy')
+    expect(enemy).toMatchObject({
+      displayName: 'Рядовой',
+      iconEmoji: '👹',
+      iconAccent: 'red',
+    })
+  })
+
+  it('instant defeat when all heroes excluded', () => {
+    const snap = snapshotWithParty([
+      member({ characterId: HERO_ID, spawnIndex: 0 }),
+      member({ characterId: 'char-2', spawnIndex: 1 }),
+    ])
+    const tiny: BattleScenario = {
+      ...SCENARIOS[0]!,
+      playerSpawns: [],
+      playerSpawnCells: [],
+      playerSpawnZone: { xMin: 99, xMax: 99, yMin: 0, yMax: 0 },
+    }
+    const battle = battleStateFromScenario(tiny, snap)
+    expect(battle.phase).toBe('defeat')
+    expect(battle.units.filter((u) => u.side === 'player')).toHaveLength(0)
   })
 })

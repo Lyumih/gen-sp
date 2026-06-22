@@ -36,6 +36,8 @@ import type {
   CampaignState,
   CardInstance,
   EquipmentSlot,
+  IconAccentId,
+  IconSkinToneId,
   ItemInstance,
 } from '../types'
 import {
@@ -56,6 +58,10 @@ import {
 } from '../character/selectors'
 import { createCharacter } from '../character/createCharacter'
 import { DEFAULT_SQUAD_SLOTS, LEGACY_HERO_CHARACTER_ID, MAX_ROSTER_SIZE } from '../character/constants'
+import {
+  isValidIconAccent,
+  isValidIconEmoji,
+} from '../character/iconCatalog'
 import { assertHubActionAllowed } from '../expedition/freeze'
 import { buildExpeditionSnapshot } from '../expedition/snapshot'
 import { getExpeditionChainById, resolvePartySize } from '../expedition/config'
@@ -117,6 +123,14 @@ export type RunAction =
   | { type: 'FINISH_EXPEDITION' }
   | { type: 'REFRESH_TAVERN'; seed?: number }
   | { type: 'HIRE_TAVERN_CANDIDATE'; candidateId: string }
+  | { type: 'RENAME_CHARACTER'; characterId: string; name: string }
+  | {
+      type: 'SET_CHARACTER_APPEARANCE'
+      characterId: string
+      iconEmoji: string
+      iconAccent?: IconAccentId
+      iconSkinTone?: IconSkinToneId
+    }
 
 export { cloneCards, cloneItems }
 
@@ -637,6 +651,12 @@ function tryUseCardHeal(
   return applyBattleOutcome(state, b, nextBattle)
 }
 
+function normalizeCharacterName(raw: string, fallback: string): string {
+  const trimmed = raw.trim()
+  if (trimmed.length < 1 || trimmed.length > 20) return fallback
+  return trimmed
+}
+
 export function applyRunAction(state: CampaignState, action: RunAction): CampaignState {
   switch (action.type) {
     case 'START_OR_CONTINUE_BATTLE': {
@@ -988,6 +1008,35 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
           (c) => c.candidateId !== action.candidateId,
         ),
       }
+    }
+    case 'RENAME_CHARACTER': {
+      if (!assertHubActionAllowed(state, 'equip')) return state
+      const hero = getCharacter(state, action.characterId)
+      if (!hero) return state
+      const name = normalizeCharacterName(action.name, hero.name)
+      return updateCharacter(state, action.characterId, (c) => ({ ...c, name }))
+    }
+    case 'SET_CHARACTER_APPEARANCE': {
+      if (!assertHubActionAllowed(state, 'equip')) return state
+      const hero = getCharacter(state, action.characterId)
+      if (!hero) return state
+      if (!isValidIconEmoji(action.iconEmoji)) return state
+      const iconAccent =
+        action.iconAccent !== undefined && isValidIconAccent(action.iconAccent)
+          ? action.iconAccent
+          : hero.iconAccent
+      const iconSkinTone: IconSkinToneId =
+        action.iconSkinTone === 'light' ||
+        action.iconSkinTone === 'medium' ||
+        action.iconSkinTone === 'dark'
+          ? action.iconSkinTone
+          : hero.iconSkinTone
+      return updateCharacter(state, action.characterId, (c) => ({
+        ...c,
+        iconEmoji: action.iconEmoji,
+        iconAccent,
+        iconSkinTone,
+      }))
     }
   }
 }
