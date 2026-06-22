@@ -20,6 +20,23 @@ describe('CampaignHubNav', () => {
     expect(html).toContain('3')
   })
 
+  it('highlights battle tab when battle context is active on another tab', () => {
+    const html = renderToStaticMarkup(
+      createElement(CampaignHubNav, {
+        activeTab: 'character',
+        onTabChange: () => {},
+        unreadCodexCount: 0,
+        codexDisabled: false,
+        shopDisabled: false,
+        tavernDisabled: false,
+        battleTabHighlighted: true,
+      }),
+    )
+
+    expect(html).toContain('ant-btn-primary')
+    expect(html).toContain('Бой')
+  })
+
   it('disables codex tab while battle is active', () => {
     const html = renderToStaticMarkup(
       createElement(CampaignHubNav, {

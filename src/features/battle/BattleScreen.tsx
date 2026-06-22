@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   AimOutlined,
   CheckCircleOutlined,
@@ -10,7 +10,7 @@ import {
   RobotOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons'
-import { Alert, App, Button, Card, Collapse, Radio, Space, Switch, Typography } from 'antd'
+import { Alert, App, Badge, Button, Card, Collapse, Radio, Space, Switch, Typography } from 'antd'
 import { computeCardAttackDamage } from '../../game/content/cardAttackDamage'
 import { computeCardHealAmount } from '../../game/content/cardHealAmount'
 import { getCardAttackTemplate } from '../../game/content/cardTemplates'
@@ -69,6 +69,10 @@ function BattleUnitCell({
   highlighted,
   isCurrentActor,
   onHighlight,
+  cellClassName,
+  cellStyle,
+  onCellClick,
+  onCellMouseEnter,
 }: {
   unit: Unit
   campaign: CampaignState
@@ -78,6 +82,10 @@ function BattleUnitCell({
   highlighted?: boolean
   isCurrentActor?: boolean
   onHighlight?: (unitId: string | null) => void
+  cellClassName: string
+  cellStyle: CSSProperties
+  onCellClick: () => void
+  onCellMouseEnter: () => void
 }) {
   const display = getUnitDisplay(unit, campaign)
   const isAlive = (id: string) => {
@@ -86,23 +94,33 @@ function BattleUnitCell({
   }
   const badge = turnBadgeLabel(unit.id, turnOrder, currentTurnIndex, isAlive)
 
-  const token = (
-    <UnitToken
-      display={display}
-      variant="grid"
-      unitLevel={unit.unitLevel}
-      hp={unit.hp}
-      maxHp={unit.maxHp}
-      turnBadge={badge}
-      highlighted={highlighted}
-      isCurrentActor={isCurrentActor}
-      isDead={unit.hp <= 0}
-      onMouseEnter={() => onHighlight?.(unit.id)}
-      onMouseLeave={() => onHighlight?.(null)}
-    />
+  const button = (
+    <button
+      type="button"
+      className={cellClassName}
+      onClick={onCellClick}
+      onMouseEnter={onCellMouseEnter}
+      style={{ ...cellStyle, position: 'relative' }}
+    >
+      {badge ? (
+        <Badge count={badge} color="#1677ff" className="battle-cell__turn-badge" />
+      ) : null}
+      <UnitToken
+        display={display}
+        variant="grid"
+        unitLevel={unit.unitLevel}
+        hp={unit.hp}
+        maxHp={unit.maxHp}
+        highlighted={highlighted}
+        isCurrentActor={isCurrentActor}
+        isDead={unit.hp <= 0}
+        onMouseEnter={() => onHighlight?.(unit.id)}
+        onMouseLeave={() => onHighlight?.(null)}
+      />
+    </button>
   )
 
-  if (!unit.baseStats) return token
+  if (!unit.baseStats) return button
 
   const effective = computeEffectiveStats(unit.baseStats, unit.unitLevel, worldPower)
   effective.health = unit.maxHp
@@ -116,7 +134,7 @@ function BattleUnitCell({
       hp={unit.hp}
       maxHp={unit.maxHp}
     >
-      {token}
+      {button}
     </BattleUnitTooltip>
   )
 }
@@ -706,27 +724,6 @@ export function BattleScreen() {
               const k = cellKey(x, y)
               const u = unitAt(x, y)
               const wall = walls.has(k)
-              let inner: ReactNode = '·'
-              if (wall)
-                inner = (
-                  <span style={{ fontSize: 34, lineHeight: 1 }} aria-hidden>
-                    🧱
-                  </span>
-                )
-              else if (u?.side === 'player' || u?.side === 'enemy')
-                inner = (
-                  <BattleUnitCell
-                    unit={u}
-                    campaign={campaign}
-                    worldPower={battle.worldPower}
-                    turnOrder={battle.turnOrder}
-                    currentTurnIndex={currentTurnIndex}
-                    highlighted={highlightedUnitId === u.id}
-                    isCurrentActor={u.id === currentId}
-                    onHighlight={setHighlightedUnitId}
-                  />
-                )
-
               const inThreatFocus = overlaySets.threatFocus.has(k)
               const inThreatBase = overlaySets.threatBase.has(k)
               const showValidTarget =
@@ -755,28 +752,58 @@ export function BattleScreen() {
                 aoe: overlayActive && overlaySets.aoePreviewCells.has(k),
                 validTarget: showValidTarget,
               })
+              const cellClassName = `${isExploding ? 'battle-cell-explosion' : ''}${isPendingAoe ? ' battle-cell-aoe-pending' : ''}${isUnitHighlighted && u ? ' battle-cell-unit-highlight' : ''}`
+              const sharedButtonStyle: CSSProperties = {
+                width: CELL_PX,
+                height: CELL_PX,
+                padding: wall ? 0 : 2,
+                fontSize: wall ? undefined : 12,
+                cursor: wall ? 'default' : 'pointer',
+                border: isCurrentActor
+                  ? '2px solid #1677ff'
+                  : isSelectedPlayer
+                    ? '2px solid #52c41a'
+                    : '1px solid #ccc',
+                boxShadow: isCurrentActor ? '0 0 0 1px #1677ff' : undefined,
+                ...cellStyle,
+              }
+
+              if (u?.side === 'player' || u?.side === 'enemy') {
+                return (
+                  <BattleUnitCell
+                    key={k}
+                    unit={u}
+                    campaign={campaign}
+                    worldPower={battle.worldPower}
+                    turnOrder={battle.turnOrder}
+                    currentTurnIndex={currentTurnIndex}
+                    highlighted={isUnitHighlighted}
+                    isCurrentActor={isCurrentActor}
+                    onHighlight={setHighlightedUnitId}
+                    cellClassName={cellClassName}
+                    cellStyle={sharedButtonStyle}
+                    onCellClick={() => onCellClick(x, y)}
+                    onCellMouseEnter={() => handleCellMouseEnter(x, y)}
+                  />
+                )
+              }
+
+              let inner: ReactNode = '·'
+              if (wall)
+                inner = (
+                  <span style={{ fontSize: 34, lineHeight: 1 }} aria-hidden>
+                    🧱
+                  </span>
+                )
 
               return (
                 <button
                   key={k}
                   type="button"
-                  className={`${isExploding ? 'battle-cell-explosion' : ''}${isPendingAoe ? ' battle-cell-aoe-pending' : ''}${isUnitHighlighted && u ? ' battle-cell-unit-highlight' : ''}`}
+                  className={cellClassName}
                   onClick={() => onCellClick(x, y)}
                   onMouseEnter={() => handleCellMouseEnter(x, y)}
-                  style={{
-                    width: CELL_PX,
-                    height: CELL_PX,
-                    padding: wall ? 0 : 2,
-                    fontSize: wall ? undefined : 12,
-                    cursor: wall ? 'default' : 'pointer',
-                    border: isCurrentActor
-                      ? '2px solid #1677ff'
-                      : isSelectedPlayer
-                        ? '2px solid #52c41a'
-                        : '1px solid #ccc',
-                    boxShadow: isCurrentActor ? '0 0 0 1px #1677ff' : undefined,
-                    ...cellStyle,
-                  }}
+                  style={sharedButtonStyle}
                 >
                   {inner}
                 </button>

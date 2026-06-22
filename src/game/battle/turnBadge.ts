@@ -16,10 +16,5 @@ export function turnBadgeLabel(
     return String(unitIndex - currentTurnIndex)
   }
 
-  let positionInNextRound = 0
-  for (let i = 0; i <= unitIndex; i++) {
-    const id = turnOrder[i]
-    if (id !== undefined && isAlive(id)) positionInNextRound++
-  }
-  return `R+${positionInNextRound}`
+  return null
 }

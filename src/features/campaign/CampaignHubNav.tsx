@@ -16,6 +16,8 @@ type CampaignHubNavProps = {
   codexDisabled: boolean
   shopDisabled: boolean
   tavernDisabled: boolean
+  battleTabHighlighted?: boolean
+  tabsDisabled?: boolean
 }
 
 const TAB_ORDER: CampaignHubTab[] = ['character', 'battle', 'shop', 'tavern', 'codex']
@@ -48,6 +50,16 @@ function isTabDisabled(
   return false
 }
 
+function tabButtonType(
+  tab: CampaignHubTab,
+  activeTab: CampaignHubTab,
+  battleTabHighlighted: boolean,
+): 'primary' | 'default' {
+  if (tab === 'battle' && battleTabHighlighted) return 'primary'
+  if (activeTab === tab) return 'primary'
+  return 'default'
+}
+
 export function CampaignHubNav({
   activeTab,
   onTabChange,
@@ -55,6 +67,8 @@ export function CampaignHubNav({
   codexDisabled,
   shopDisabled,
   tavernDisabled,
+  battleTabHighlighted = false,
+  tabsDisabled = false,
 }: CampaignHubNavProps) {
   return (
     <Space
@@ -71,9 +85,12 @@ export function CampaignHubNav({
             role="tab"
             aria-selected={activeTab === tab}
             aria-label={TAB_LABEL[tab]}
-            type={activeTab === tab ? 'primary' : 'default'}
+            type={tabButtonType(tab, activeTab, battleTabHighlighted)}
             icon={TAB_ICON[tab]}
-            disabled={isTabDisabled(tab, codexDisabled, shopDisabled, tavernDisabled)}
+            disabled={
+              tabsDisabled ||
+              isTabDisabled(tab, codexDisabled, shopDisabled, tavernDisabled)
+            }
             onClick={() => onTabChange(tab)}
           >
             {TAB_LABEL[tab]}

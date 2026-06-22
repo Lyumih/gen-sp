@@ -21,8 +21,8 @@ describe('turnBadgeLabel', () => {
     expect(turnBadgeLabel('D', order, 2, isAlive)).toBe('1')
   })
 
-  it('returns R+N for unit that already acted', () => {
-    expect(turnBadgeLabel('A', order, 2, isAlive)).toBe('R+1')
-    expect(turnBadgeLabel('B', order, 2, isAlive)).toBe('R+2')
+  it('returns null for unit that already acted this round', () => {
+    expect(turnBadgeLabel('A', order, 2, isAlive)).toBeNull()
+    expect(turnBadgeLabel('B', order, 2, isAlive)).toBeNull()
   })
 })

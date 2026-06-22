@@ -23,6 +23,14 @@
 
 .unit-token--highlighted {
   box-shadow: 0 0 0 2px #1677ff, 0 0 8px rgba(22, 119, 255, 0.45);
+  transition:
+    box-shadow 180ms ease,
+    outline-color 180ms ease;
+}
+
+.unit-token--initiative.unit-token--highlighted {
+  background: #e6f4ff;
+  border-color: #1677ff !important;
   transform: scale(1.04);
   transition:
     box-shadow 180ms ease,
@@ -30,19 +38,15 @@
     transform 180ms ease;
 }
 
-.unit-token--initiative.unit-token--highlighted {
-  background: #e6f4ff;
-  border-color: #1677ff !important;
-}
-
-.unit-token__turn-badge {
+.battle-cell__turn-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 1;
   pointer-events: none;
 }
 
 .battle-cell-unit-highlight {
   box-shadow: 0 0 0 2px #1677ff, 0 0 10px rgba(22, 119, 255, 0.35);
-  transform: scale(1.04);
-  transition:
-    box-shadow 180ms ease,
-    transform 180ms ease;
+  transition: box-shadow 180ms ease;
 }

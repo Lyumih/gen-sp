@@ -1,8 +1,8 @@
 import type { CSSProperties, ReactNode } from 'react'
-import { Badge, Typography } from 'antd'
+import { Typography } from 'antd'
 import type { UnitDisplay } from '../../game/character/display'
 import { accentStyle } from '../../game/character/iconCatalog'
-import { UI_HEART, UI_LEVEL } from '../../game/ui/labels'
+import { UI_HEART } from '../../game/ui/labels'
 
 export type UnitTokenProps = {
   display: UnitDisplay
@@ -10,7 +10,6 @@ export type UnitTokenProps = {
   unitLevel?: number
   hp?: number
   maxHp?: number
-  turnBadge?: string | null
   highlighted?: boolean
   isCurrentActor?: boolean
   isDead?: boolean
@@ -32,10 +31,7 @@ const nameStyle: CSSProperties = {
 export function UnitToken({
   display,
   variant,
-  unitLevel,
   hp,
-  maxHp,
-  turnBadge,
   highlighted,
   isCurrentActor,
   isDead,
@@ -92,13 +88,13 @@ export function UnitToken({
   const wrapStyle: CSSProperties =
     variant === 'grid'
       ? {
-          position: 'relative',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           textAlign: 'center',
           width: '100%',
+          height: '100%',
           fontSize: 10,
           lineHeight: 1.12,
           opacity: isDead ? 0.45 : 1,
@@ -128,25 +124,11 @@ export function UnitToken({
   } else {
     inner = (
       <>
-        {turnBadge ? (
-          <Badge
-            count={turnBadge}
-            className="unit-token__turn-badge"
-            style={{ position: 'absolute', top: 2, right: 2, pointerEvents: 'none' }}
-          />
-        ) : null}
-        {nameNode}
         {emojiNode}
-        {unitLevel !== undefined ? (
-          <span>
-            {UI_LEVEL}
-            {unitLevel}
-          </span>
-        ) : null}
-        {hp !== undefined && maxHp !== undefined ? (
+        {hp !== undefined ? (
           <span>
             {UI_HEART}
-            {hp}/{maxHp}
+            {hp}
           </span>
         ) : null}
       </>
@@ -157,6 +139,7 @@ export function UnitToken({
     <span
       className={className}
       style={wrapStyle}
+      aria-label={variant === 'grid' ? display.name : undefined}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >

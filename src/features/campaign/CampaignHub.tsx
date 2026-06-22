@@ -12,6 +12,7 @@ import { CampaignBattleTab } from './CampaignBattleTab'
 import { CampaignCharacterTab } from './CampaignCharacterTab'
 import { CampaignCodexTab } from '../codex/CampaignCodexTab'
 import type { CampaignHubTab } from './campaignHubShared'
+import { isBattleContextActive } from './campaignHubShared'
 import { CampaignHubHud } from './CampaignHubHud'
 import { CampaignHubNav } from './CampaignHubNav'
 import { CampaignShopTab } from './CampaignShopTab'
@@ -133,6 +134,7 @@ export function CampaignHub() {
           codexDisabled={inBattle}
           shopDisabled={expeditionActive}
           tavernDisabled={expeditionActive}
+          battleTabHighlighted={isBattleContextActive(campaign)}
         />
 
         {activeTab === 'battle' ? (

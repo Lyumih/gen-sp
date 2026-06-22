@@ -34,4 +34,13 @@ export function itemsSelectableForSlot(
   })
 }
 
+export function isBattleContextActive(campaign: CampaignState): boolean {
+  return (
+    campaign.expedition !== null ||
+    campaign.battle !== null ||
+    campaign.phase === 'inter_battle' ||
+    campaign.phase === 'battle'
+  )
+}
+
 export type CampaignHubTab = 'character' | 'battle' | 'shop' | 'codex' | 'tavern'

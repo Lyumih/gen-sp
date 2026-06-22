@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react'
-import { Popover, Tooltip, Typography } from 'antd'
+import { Popover, Typography } from 'antd'
 import type { UnitDisplay } from '../../game/character/display'
 import type { BaseStats } from '../../game/types'
 import { UI_HEART } from '../../game/ui/labels'
-import { StatTooltipList } from '../stats/StatTooltipList'
+import { StatStrip } from '../stats/StatStrip'
 
 type BattleUnitTooltipProps = {
   display: UnitDisplay
@@ -12,9 +12,6 @@ type BattleUnitTooltipProps = {
   hp: number
   maxHp: number
   children: ReactNode
-  /** Touch mode: controlled popover */
-  touchOpen?: boolean
-  onTouchOpenChange?: (open: boolean) => void
 }
 
 export function BattleUnitTooltip({
@@ -24,37 +21,27 @@ export function BattleUnitTooltip({
   hp,
   maxHp,
   children,
-  touchOpen,
-  onTouchOpenChange,
 }: BattleUnitTooltipProps) {
   const content = (
-    <div style={{ maxWidth: 280 }}>
+    <div style={{ maxWidth: 320 }}>
       <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
         {display.emoji} {display.name}
       </Typography.Text>
-      <StatTooltipList baseStats={baseStats} effectiveStats={effectiveStats} />
+      <StatStrip baseStats={baseStats} effectiveStats={effectiveStats} />
       <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 8 }}>
         {UI_HEART} в бою: {hp}/{maxHp}
       </Typography.Text>
     </div>
   )
 
-  if (onTouchOpenChange !== undefined) {
-    return (
-      <Popover
-        trigger="click"
-        open={touchOpen}
-        onOpenChange={onTouchOpenChange}
-        content={content}
-      >
-        {children}
-      </Popover>
-    )
-  }
-
   return (
-    <Tooltip mouseEnterDelay={0.3} title={content}>
+    <Popover
+      trigger="hover"
+      mouseEnterDelay={0.3}
+      destroyOnHidden
+      content={content}
+    >
       {children}
-    </Tooltip>
+    </Popover>
   )
 }
