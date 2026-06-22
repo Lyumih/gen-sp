@@ -92,7 +92,6 @@ describe('advanceTurn', () => {
       phase: 'ongoing',
       worldPower: 0,
       playerCardsByUnitId: {},
-      modKillTargetCardId: null,
       battleLog: [],
       gearCardLevelBonus: 0,
       ...overrides,

@@ -2,32 +2,33 @@ import { describe, expect, it } from 'vitest'
 import type { ModTemplate } from '../content/modTemplates'
 import { filterModsForCarrier, generateOffer } from './modOffers'
 
-const TEST_POOL: readonly ModTemplate[] = [
-  {
-    id: 'mod-heal-up',
-    label: 'Heal',
+function testMod(partial: Pick<ModTemplate, 'id' | 'requires'> & Partial<ModTemplate>): ModTemplate {
+  return {
+    label: partial.id,
+    group: 'utility',
+    tags: [],
     descriptionLines: [],
-    requires: ['heal'],
-  },
-  {
+    ops: [],
+    ...partial,
+  }
+}
+
+const TEST_POOL: readonly ModTemplate[] = [
+  testMod({ id: 'mod-heal-up', label: 'Heal', requires: ['heal'], group: 'survival' }),
+  testMod({
     id: 'mod-weapon-damage',
     label: 'Weapon dmg',
-    descriptionLines: [],
     requires: ['weapon', 'attack'],
-  },
-  {
+    group: 'damage',
+  }),
+  testMod({
     id: 'mod-aoe-size',
     label: 'AoE size',
-    descriptionLines: [],
     requires: ['aoe'],
     excludes: ['melee'],
-  },
-  {
-    id: 'mod-damage-up',
-    label: 'Damage',
-    descriptionLines: [],
-    requires: ['attack'],
-  },
+    group: 'utility',
+  }),
+  testMod({ id: 'mod-damage-up', label: 'Damage', requires: ['attack'], group: 'damage' }),
 ]
 
 describe('filterModsForCarrier', () => {
@@ -72,12 +73,7 @@ describe('generateOffer', () => {
 
   it('repeats sole eligible mod three times when pool filters to one', () => {
     const healOnlyPool: ModTemplate[] = [
-      {
-        id: 'mod-heal-up',
-        label: 'Heal',
-        descriptionLines: [],
-        requires: ['heal'],
-      },
+      testMod({ id: 'mod-heal-up', label: 'Heal', requires: ['heal'], group: 'survival' }),
     ]
     const healTags = ['skill', 'heal'] as const
     const offer = generateOffer(healOnlyPool, healTags, [], 0, 99)

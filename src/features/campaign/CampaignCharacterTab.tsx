@@ -18,7 +18,6 @@ type CampaignCharacterTabProps = {
   onUnequip: (characterId: string, slot: EquipmentSlot) => void
   onReorderStash: (characterId: string, itemIds: string[]) => void
   onReorderCards: (characterId: string, cardIds: string[]) => void
-  onSetModKillTarget: (cardId: string) => void
   onSetBattleLoadout: (characterId: string, slotIndex: 0 | 1, cardId: string | null) => void
   onTransferItem: (itemId: string, fromCharacterId: string, toCharacterId: string) => void
   onSetSquadSlot: (slotIndex: number, characterId: string | null) => void
@@ -35,7 +34,6 @@ export function CampaignCharacterTab({
   onUnequip,
   onReorderStash,
   onReorderCards,
-  onSetModKillTarget,
   onSetBattleLoadout,
   onTransferItem,
   onSetSquadSlot,
@@ -130,7 +128,6 @@ export function CampaignCharacterTab({
           inBattle={inBattle}
           gearCardLevelBonus={gearCardPreview}
           onReorderCards={(cardIds) => onReorderCards(selectedCharacterId, cardIds)}
-          onSetModKillTarget={onSetModKillTarget}
           onSetBattleLoadout={(slotIndex, cardId) =>
             onSetBattleLoadout(selectedCharacterId, slotIndex, cardId)
           }

@@ -1,5 +1,3 @@
-import { updatePlayerCardById } from './playerCards'
-import { applyModKillReward } from '../memento/modifications'
 import type { BattleAction, BattleLogEntry, BattleState, Unit } from '../types'
 import { canMeleeAttack, canRangedAttack, withDamage, withHeal } from './combat'
 import { cellKey, manhattan, wallSet } from './grid'
@@ -10,9 +8,6 @@ import { cellsInAoE, reachableMoveCells } from './rangeOverlay'
 
 /** Приращение worldPower за смерть врага (MVP-заглушка §6). */
 export const WORLD_POWER_PER_ENEMY_KILL = 1
-
-/** Очков модификации за одно убийство врага (первая модификация целевой карты). */
-export const MOD_POINTS_PER_ENEMY_KILL = 1
 
 function getUnit(state: BattleState, id: string): Unit | undefined {
   return state.units.find((u) => u.id === id)
@@ -50,25 +45,8 @@ function actorIdAtPointer(state: BattleState, ptr: number): string | undefined {
 }
 
 function applyEnemyKillRewards(state: BattleState, killedEnemy: Unit): BattleState {
-  let worldPower = state.worldPower
-  let next = state
-
-  if (killedEnemy.side === 'enemy') {
-    worldPower += WORLD_POWER_PER_ENEMY_KILL
-    const targetId = state.modKillTargetCardId
-    if (targetId !== null) {
-      const cards = Object.values(state.playerCardsByUnitId).flat()
-      const targetCard = cards.find((c) => c.id === targetId)
-      if (targetCard) {
-        next = updatePlayerCardById(next, targetId, {
-          ...applyModKillReward(targetCard, MOD_POINTS_PER_ENEMY_KILL),
-          cooldownRemaining: targetCard.cooldownRemaining,
-        })
-      }
-    }
-  }
-
-  return { ...next, worldPower }
+  if (killedEnemy.side !== 'enemy') return state
+  return { ...state, worldPower: state.worldPower + WORLD_POWER_PER_ENEMY_KILL }
 }
 
 /**

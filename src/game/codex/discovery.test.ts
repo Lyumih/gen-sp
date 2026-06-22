@@ -38,7 +38,6 @@ function battle(
     phase: 'ongoing',
     worldPower: 0,
     playerCardsByUnitId: playerCards ? { [HERO_ID]: playerCards } : {},
-    modKillTargetCardId: null,
     battleLog: [],
     gearCardLevelBonus: 0,
   }
@@ -151,16 +150,16 @@ describe('mergeBattleCodexDiscoveries', () => {
     const card: CardInstance = {
       id: 'c1',
       templateId: 'strike',
-      global_level: 1,
+      global_level: 10,
       uses_count: 0,
-      modSlots: [{ status: 'filled', templateId: 'kill_reward', lm: 0 }],
+      modSlots: [{ status: 'filled', templateId: 'mod-damage-up', lm: 0 }],
     }
     const prev = battle({ playerCards: [battleCard(card)] })
     const next = battle({
-      playerCards: [battleCard({ ...card, modSlots: [{ status: 'filled', templateId: 'kill_reward', lm: 1 }] })],
+      playerCards: [battleCard({ ...card, modSlots: [{ status: 'filled', templateId: 'mod-damage-up', lm: 1 }] })],
     })
     expect(mergeBattleCodexDiscoveries(prev, next, [])).toEqual([
-      codexEntryId('mod', 'kill_reward'),
+      codexEntryId('mod', 'mod-damage-up'),
     ])
   })
 

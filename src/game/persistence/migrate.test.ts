@@ -3,9 +3,9 @@ import { applyRunAction, initialCampaignState } from '../campaign/runReducer'
 import { getPrimaryCharacter } from '../campaign/selectors'
 import type { CampaignState } from '../types'
 import { SCENARIOS } from '../campaign/scenarios'
-import { DEFAULT_MOD_KILL_TEMPLATE_ID } from '../content/modTemplates'
+import { migrateFromUnknown, migrateV5CampaignToV6, normalizeLoadedCampaign } from './migrate'
+import { MOD_SLOT_MILESTONES } from '../config/modSlotMilestones'
 import { EMPTY_EQUIPMENT } from '../equipment/equipmentOrder'
-import { migrateFromUnknown, normalizeLoadedCampaign } from './migrate'
 
 function hero(c: CampaignState) {
   return getPrimaryCharacter(c)
@@ -186,7 +186,7 @@ describe('normalizeLoadedCampaign legacy codex and mod fields', () => {
     expect(out?.codexSeenEntryIds).toEqual([])
   })
 
-  it('campaign with modification { level: 0 } only gets templateId backfilled', () => {
+  it('campaign with modification { level: 0 } clears modSlots when L below milestone', () => {
     const init = initialCampaignState()
     const c = {
       ...init,
@@ -203,9 +203,61 @@ describe('normalizeLoadedCampaign legacy codex and mod fields', () => {
         },
       ],
     } as unknown as CampaignState
-    const out = normalizeLoadedCampaign(c)
-    expect(hero(out).cards[0].modSlots).toEqual([
-      { status: 'filled', templateId: DEFAULT_MOD_KILL_TEMPLATE_ID, lm: 0 },
-    ])
+    const out = migrateV5CampaignToV6(c)
+    expect(hero(out).cards[0].modSlots).toEqual([])
+  })
+})
+
+describe('migrateV5CampaignToV6', () => {
+  it('v5 kill_reward becomes modSlots filled mod-damage-up', () => {
+    const init = initialCampaignState()
+    const threshold = MOD_SLOT_MILESTONES.firstThreshold
+    const c = {
+      ...init,
+      modKillTargetCardId: 'c1',
+      characters: [
+        {
+          ...hero(init),
+          cards: [
+            {
+              id: 'c1',
+              templateId: 'strike',
+              global_level: threshold,
+              uses_count: 0,
+              modSlots: [{ status: 'filled', templateId: 'kill_reward', lm: 2 }],
+            },
+            ...hero(init).cards.slice(1),
+          ],
+        },
+      ],
+    } as unknown as CampaignState
+    const out = migrateFromUnknown({ version: 5, campaign: c })
+    expect(hero(out!).cards[0].modSlots[0]).toEqual({
+      status: 'filled',
+      templateId: 'mod-damage-up',
+      lm: 2,
+    })
+  })
+
+  it('drops modKillTargetCardId', () => {
+    const init = initialCampaignState()
+    const c = {
+      ...init,
+      modKillTargetCardId: 'c1',
+    } as unknown as CampaignState
+    const out = migrateV5CampaignToV6(c)
+    expect(out).not.toHaveProperty('modKillTargetCardId')
+    expect(out.battleAttemptSnapshot).toBeNull()
+  })
+
+  it('migrates codex mod/kill_reward to mod/mod-damage-up', () => {
+    const init = initialCampaignState()
+    const out = migrateV5CampaignToV6({
+      ...init,
+      codexDiscovered: ['mod:kill_reward'],
+      codexSeenEntryIds: ['mod:kill_reward'],
+    })
+    expect(out.codexDiscovered).toEqual(['mod:mod-damage-up'])
+    expect(out.codexSeenEntryIds).toEqual(['mod:mod-damage-up'])
   })
 })

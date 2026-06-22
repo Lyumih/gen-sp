@@ -36,7 +36,6 @@ function snapshotWithParty(
 ): BattleAttemptSnapshot {
   return {
     worldPower: 0,
-    modKillTargetCardId: null,
     scenarioSlotIndex: 0,
     gold: 0,
     party,

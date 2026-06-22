@@ -131,7 +131,6 @@ describe('mergeBattleCardsToParty', () => {
           },
         ],
       },
-      modKillTargetCardId: null,
       battleLog: [],
       gearCardLevelBonus: 0,
     }

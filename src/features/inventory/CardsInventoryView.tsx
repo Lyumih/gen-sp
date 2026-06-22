@@ -20,10 +20,10 @@ import { CSS } from '@dnd-kit/utilities'
 import { Space, Tooltip, Typography } from 'antd'
 import { getCardAttackTemplate } from '../../game/content/cardTemplates'
 import { getCharacter } from '../../game/character/selectors'
-import { describeCardCombatStats, getCardDisplayLabel } from '../../game/descriptions/cardText'
+import { describeCardCombatStats } from '../../game/descriptions/cardText'
 import type { CampaignState, CardInstance } from '../../game/types'
 import { UI_DAMAGE, UI_HEART, UI_LEVEL } from '../../game/ui/labels'
-import { InventoryCell, type InventoryCellState } from './InventoryCell'
+import { InventoryCell } from './InventoryCell'
 import { InventoryGrid } from './InventoryGrid'
 import { cardDragId, loadoutDragId, parseDragId } from './inventoryDnD'
 import { resolveCardEmoji } from './inventoryEmoji'
@@ -35,22 +35,17 @@ type CardsInventoryViewProps = {
   inBattle: boolean
   gearCardLevelBonus: number
   onReorderCards: (cardIds: string[]) => void
-  onSetModKillTarget: (cardId: string) => void
   onSetBattleLoadout: (slotIndex: 0 | 1, cardId: string | null) => void
 }
 
 function SortableCardCell({
   card,
   inBattle,
-  isTarget,
   gearCardLevelBonus,
-  onSelect,
 }: {
   card: CardInstance
   inBattle: boolean
-  isTarget: boolean
   gearCardLevelBonus: number
-  onSelect: () => void
 }) {
   const tmpl = getCardAttackTemplate(card.templateId)
   const stats = describeCardCombatStats(card, gearCardLevelBonus)
@@ -58,12 +53,6 @@ function SortableCardCell({
     id: cardDragId(card.id),
     disabled: inBattle,
   })
-
-  const state: InventoryCellState = inBattle
-    ? 'disabled'
-    : isTarget
-      ? 'modKillTarget'
-      : 'filled'
 
   const effectUi = tmpl?.kind === 'heal' ? UI_HEART : UI_DAMAGE
 
@@ -92,13 +81,10 @@ function SortableCardCell({
       contextBadge={
         stats.expectedDamage !== null ? `${effectUi}${stats.expectedDamage}` : undefined
       }
-      state={state}
-      showTargetBadge={isTarget}
+      state={inBattle ? 'disabled' : 'filled'}
       popoverTitle={stats.displayLabel}
       popoverContent={popover}
       ariaLabel={`${stats.displayLabel}, ${UI_LEVEL}${card.global_level}`}
-      onDoubleClick={onSelect}
-      onClick={onSelect}
     />
   )
 }
@@ -108,15 +94,11 @@ function LoadoutSlotCell({
   card,
   inBattle,
   gearCardLevelBonus,
-  isTarget,
-  onSelect,
 }: {
   slotIndex: 0 | 1
   card: CardInstance | null
   inBattle: boolean
   gearCardLevelBonus: number
-  isTarget: boolean
-  onSelect: () => void
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: loadoutDragId(slotIndex),
@@ -129,9 +111,7 @@ function LoadoutSlotCell({
         <SortableCardCell
           card={card}
           inBattle={inBattle}
-          isTarget={isTarget}
           gearCardLevelBonus={gearCardLevelBonus}
-          onSelect={onSelect}
         />
       </div>
     )
@@ -154,7 +134,6 @@ export function CardsInventoryView({
   inBattle,
   gearCardLevelBonus,
   onReorderCards,
-  onSetModKillTarget,
   onSetBattleLoadout,
 }: CardsInventoryViewProps) {
   const hero = getCharacter(campaign, characterId)
@@ -167,8 +146,6 @@ export function CardsInventoryView({
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   )
-
-  const targetCard = hero?.cards.find((c) => c.id === campaign.modKillTargetCardId)
 
   function resolveCard(cardId: string): CardInstance | undefined {
     return hero?.cards.find((c) => c.id === cardId)
@@ -220,10 +197,6 @@ export function CardsInventoryView({
         card={card ?? null}
         inBattle={inBattle}
         gearCardLevelBonus={gearCardLevelBonus}
-        isTarget={cardId !== null && cardId === campaign.modKillTargetCardId}
-        onSelect={() => {
-          if (cardId !== null && !inBattle) onSetModKillTarget(cardId)
-        }}
       />
     )
   }
@@ -237,11 +210,6 @@ export function CardsInventoryView({
         {renderLoadoutSlot(0)}
         {renderLoadoutSlot(1)}
       </div>
-      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        {targetCard
-          ? `Моды за kill → ${getCardDisplayLabel(targetCard.templateId)} 🎯`
-          : 'Выберите карту для модов за kill'}
-      </Typography.Text>
       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
         Коллекция
       </Typography.Text>
@@ -258,11 +226,7 @@ export function CardsInventoryView({
                 key={card.id}
                 card={card}
                 inBattle={inBattle}
-                isTarget={card.id === campaign.modKillTargetCardId}
                 gearCardLevelBonus={gearCardLevelBonus}
-                onSelect={() => {
-                  if (!inBattle) onSetModKillTarget(card.id)
-                }}
               />
             )
           }}

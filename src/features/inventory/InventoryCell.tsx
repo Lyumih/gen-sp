@@ -7,7 +7,6 @@ export type InventoryCellState =
   | 'empty'
   | 'filled'
   | 'equipped'
-  | 'modKillTarget'
   | 'disabled'
   | 'dragOver'
   | 'invalidDrop'
@@ -22,7 +21,6 @@ export type InventoryCellProps = {
   popoverTrigger?: 'hover' | 'click' | ('hover' | 'click')[]
   ariaLabel: string
   hintText?: string
-  showTargetBadge?: boolean
   onDoubleClick?: () => void
   onClick?: MouseEventHandler<HTMLButtonElement>
   style?: CSSProperties
@@ -35,8 +33,6 @@ function stateClass(state: InventoryCellState): string {
       return 'inv-cell--empty'
     case 'equipped':
       return 'inv-cell--equipped'
-    case 'modKillTarget':
-      return 'inv-cell--mod-target'
     case 'disabled':
       return 'inv-cell--disabled'
     case 'dragOver':
@@ -60,7 +56,6 @@ export const InventoryCell = forwardRef<HTMLButtonElement, InventoryCellProps>(
       popoverTrigger = ['hover', 'click'],
       ariaLabel,
       hintText,
-      showTargetBadge,
       onDoubleClick,
       onClick,
       style,
@@ -82,11 +77,6 @@ export const InventoryCell = forwardRef<HTMLButtonElement, InventoryCellProps>(
         style={style}
         {...rest}
       >
-        {showTargetBadge ? (
-          <span className="inv-badge-target" aria-hidden>
-            🎯
-          </span>
-        ) : null}
         {isEmpty ? (
           hintText ? (
             <span className="inv-cell-hint">{hintText}</span>

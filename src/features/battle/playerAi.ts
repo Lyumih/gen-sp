@@ -110,13 +110,6 @@ function pickBestCard(actor: Unit, target: Unit, state: BattleState): BattlePlay
     if (dmg > bestDmg) {
       best = c
       bestDmg = dmg
-    } else if (
-      dmg === bestDmg &&
-      best !== null &&
-      c.id === state.modKillTargetCardId &&
-      best.id !== state.modKillTargetCardId
-    ) {
-      best = c
     }
   }
   return best
@@ -161,8 +154,7 @@ function pickBestAoEAction(
       if (score <= 0) continue
       if (
         !best ||
-        score > best.score ||
-        (score === best.score && c.id === state.modKillTargetCardId)
+        score > best.score
       ) {
         best = { cardId: c.id, targetX: tx, targetY: ty, score }
       }

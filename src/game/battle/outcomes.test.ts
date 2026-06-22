@@ -21,7 +21,7 @@ const defaultCard = (id: string): BattlePlayerCard => ({
   templateId: 't1',
   global_level: 75,
   uses_count: 0,
-  modSlots: [{ status: 'filled', templateId: 'kill_reward', lm: 0 }],
+  modSlots: [{ status: 'filled', templateId: 'mod-damage-up', lm: 0 }],
   cooldownRemaining: 0,
 })
 
@@ -56,7 +56,6 @@ function battle(overrides: Partial<BattleState> = {}): BattleState {
     phase: 'ongoing',
     worldPower: 0,
     playerCardsByUnitId: {},
-    modKillTargetCardId: null,
     battleLog: [],
     gearCardLevelBonus: 0,
   }
@@ -174,7 +173,6 @@ describe('battle outcomes (kills & defeat)', () => {
     const s = battle({
       worldPower: 2,
       playerCardsByUnitId: { [HERO_ID]: [card] },
-      modKillTargetCardId: 'c1',
     })
     const end = applyAction(s, {
       type: 'attack',
@@ -184,26 +182,6 @@ describe('battle outcomes (kills & defeat)', () => {
       kind: 'melee',
     })
     expect(end.worldPower).toBe(2 + WORLD_POWER_PER_ENEMY_KILL)
-  })
-
-  it('enemy death grants mod progression on target card', () => {
-    const card = defaultCard('c1')
-    const s = battle({
-      playerCardsByUnitId: { [HERO_ID]: [card] },
-      modKillTargetCardId: 'c1',
-    })
-    const end = applyAction(s, {
-      type: 'attack',
-      attackerId: HERO_ID,
-      targetId: 'e1',
-      damage: 2,
-      kind: 'melee',
-    })
-    expect(end.playerCardsByUnitId[HERO_ID]![0]?.modSlots[0]).toEqual({
-      status: 'filled',
-      templateId: 'kill_reward',
-      lm: 1,
-    })
   })
 
   it('party wipe defeat does not change worldPower', () => {

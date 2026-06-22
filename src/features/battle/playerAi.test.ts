@@ -42,7 +42,6 @@ function battle(
     phase: 'ongoing',
     worldPower: 0,
     playerCardsByUnitId: playerCardsByUnit ?? (playerCards ? { [HERO_ID]: playerCards } : {}),
-    modKillTargetCardId: null,
     battleLog: [],
     gearCardLevelBonus: 0,
   }
@@ -101,22 +100,6 @@ describe('pickPlayerAiAction', () => {
     })
     const d = pickPlayerAiAction(s)
     expect(d).toEqual({ kind: 'card', cardId: 'c1', targetId: 'e1' })
-  })
-
-  it('prefers modKillTargetCardId on equal card damage', () => {
-    const s = battle({
-      units: [
-        unit({ id: HERO_ID, side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
-        unit({ id: 'e1', side: 'enemy', x: 1, y: 0, hp: 20, maxHp: 20, unitLevel: 1 }),
-      ],
-      playerCards: [
-        card({ id: 'c1', global_level: 50 }),
-        card({ id: 'c2', global_level: 50 }),
-      ],
-      modKillTargetCardId: 'c2',
-    })
-    const d = pickPlayerAiAction(s)
-    expect(d).toEqual({ kind: 'card', cardId: 'c2', targetId: 'e1' })
   })
 
   it('does not pick fireball when no enemy in aoe', () => {

@@ -75,7 +75,6 @@ export function buildBattleAttemptSnapshot(
 
   return {
     worldPower: state.worldPower,
-    modKillTargetCardId: state.modKillTargetCardId,
     scenarioSlotIndex,
     gold: state.gold,
     party,
@@ -117,7 +116,6 @@ export function buildExpeditionBattleSnapshot(
 
   return {
     worldPower: state.worldPower,
-    modKillTargetCardId: state.modKillTargetCardId,
     scenarioSlotIndex,
     gold: state.gold,
     party,
@@ -127,7 +125,6 @@ export function buildExpeditionBattleSnapshot(
 export function copyBattleAttemptSnapshot(snap: BattleAttemptSnapshot): BattleAttemptSnapshot {
   return {
     worldPower: snap.worldPower,
-    modKillTargetCardId: snap.modKillTargetCardId,
     scenarioSlotIndex: snap.scenarioSlotIndex,
     gold: snap.gold,
     party: snap.party.map(clonePartyMember),

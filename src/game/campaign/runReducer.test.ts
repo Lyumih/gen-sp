@@ -100,7 +100,6 @@ function makeBattle(
     playerCardsByUnitId: {
       [HERO_ID]: playerCards ?? defaultCards,
     },
-    modKillTargetCardId: 'c1',
     battleLog: [],
     gearCardLevelBonus: 0,
   }
@@ -132,7 +131,6 @@ function battleSnapshotFromHero(
   const h = hero(c)
   return {
     worldPower: 0,
-    modKillTargetCardId: 'c1',
     scenarioSlotIndex: 0,
     gold: c.gold,
     party: [partyMemberFromHero(h)],
@@ -803,14 +801,6 @@ describe('inventory grid actions', () => {
     expect(hero(s).cards.map((c) => c.id)).toEqual(['c2', 'c1', 'c3'])
   })
 
-  it('SET_MOD_KILL_TARGET updates target', () => {
-    const s = applyRunAction(initialCampaignState(), {
-      type: 'SET_MOD_KILL_TARGET',
-      cardId: 'c1',
-    })
-    expect(s.modKillTargetCardId).toBe('c1')
-  })
-
   it('REORDER_STASH persists stash order after equipped block', () => {
     let s = { ...initialCampaignState(), gold: 100 }
     s = applyRunAction(s, {
@@ -1358,7 +1348,6 @@ describe('expedition state machine', () => {
       phase: 'defeat',
       worldPower: 0,
       playerCardsByUnitId: {},
-      modKillTargetCardId: null,
       battleLog: [],
       gearCardLevelBonus: 0,
     }

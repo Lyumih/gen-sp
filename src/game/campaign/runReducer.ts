@@ -13,7 +13,6 @@ import {
   markCodexSeen,
   mergeBattleCodexDiscoveries,
 } from '../codex/discovery'
-import { DEFAULT_MOD_KILL_TEMPLATE_ID } from '../content/modTemplates'
 import { getCharacterClass } from '../content/characterClasses'
 import { getItemTemplate } from '../content/itemTemplates'
 import {
@@ -105,7 +104,6 @@ export type RunAction =
   | { type: 'EQUIP_ITEM'; characterId: string; itemId: string; slot: EquipmentSlot }
   | { type: 'UNEQUIP_ITEM'; characterId: string; slot: EquipmentSlot }
   | { type: 'REORDER_CARDS'; characterId: string; cardIds: string[] }
-  | { type: 'SET_MOD_KILL_TARGET'; cardId: string | null }
   | { type: 'SELL_ITEM'; characterId: string; itemId: string }
   | { type: 'REORDER_STASH'; characterId: string; itemIds: string[] }
   | { type: 'SET_SQUAD_SLOT'; slotIndex: number; characterId: string | null }
@@ -779,14 +777,6 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       const reordered = action.cardIds.map((id) => byId.get(id)!)
       return updateCharacter(state, action.characterId, (c) => ({ ...c, cards: reordered }))
     }
-    case 'SET_MOD_KILL_TARGET': {
-      if (!inHub(state)) return state
-      const hero = getPrimaryCharacter(state)
-      if (action.cardId !== null && !hero.cards.some((c) => c.id === action.cardId)) {
-        return state
-      }
-      return { ...state, modKillTargetCardId: action.cardId }
-    }
     case 'SELL_ITEM': {
       if (!inHub(state)) return state
       if (!assertHubActionAllowed(state, 'shop')) return state
@@ -882,7 +872,6 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         {
           ...state,
           worldPower: snap.worldPower,
-          modKillTargetCardId: snap.modKillTargetCardId,
           gold: snap.gold,
           phase: 'battle',
           battle: battleStateFromScenario(scenario, snapCopy),
@@ -899,7 +888,6 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         {
           ...state,
           worldPower: snap.worldPower,
-          modKillTargetCardId: snap.modKillTargetCardId,
           gold: snap.gold,
           battle: null,
           phase: 'hub',
@@ -1048,7 +1036,7 @@ export const STARTER_CARDS: CardInstance[] = [
     templateId: 'strike',
     global_level: 1,
     uses_count: 0,
-    modSlots: [{ status: 'filled', templateId: DEFAULT_MOD_KILL_TEMPLATE_ID, lm: 0 }],
+    modSlots: [],
   },
   {
     id: 'c2',
@@ -1082,7 +1070,6 @@ export function initialCampaignState(): CampaignState {
   return {
     scenarioIndex: 0,
     worldPower: 0,
-    modKillTargetCardId: 'c1',
     gold: 0,
     phase: 'hub',
     battle: null,

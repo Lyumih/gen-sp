@@ -214,7 +214,6 @@ export function battleStateFromScenario(
     phase,
     worldPower: snapshot.worldPower,
     playerCardsByUnitId: playerCardsByUnitFromParty(snapshot.party),
-    modKillTargetCardId: snapshot.modKillTargetCardId,
     battleLog: [],
     gearCardLevelBonus: primary
       ? aggregateGearCardLevelBonus(primary.items, primary.equipment, getItemTemplate)

@@ -14,6 +14,7 @@ import type {
 } from '../types'
 import { cloneCards } from '../campaign/battleSnapshot'
 import { cloneModSlots } from '../memento/modSlotsClone'
+import { MOD_SLOT_MILESTONES } from '../config/modSlotMilestones'
 import { playerCardsByUnitFromParty } from '../battle/playerCards'
 import { playerCardsFromLoadout } from '../campaign/playerCardsFromLoadout'
 import { getPrimaryCharacter } from '../campaign/selectors'
@@ -22,7 +23,6 @@ import { SCENARIOS } from '../campaign/scenarios'
 import { createCharacter } from '../character/createCharacter'
 import { defaultIconEmojiForClass, isValidIconAccent, isValidIconEmoji } from '../character/iconCatalog'
 import { DEFAULT_SQUAD_SLOTS, LEGACY_HERO_CHARACTER_ID } from '../character/constants'
-import { DEFAULT_MOD_KILL_TEMPLATE_ID } from '../content/modTemplates'
 import { STARTER_HERO_BASE_STATS } from '../config/baseStats'
 import { computeBaseStatRating } from '../stats/computeRating'
 import { rollBaseStatsDeterministic } from '../stats/rollBaseStats'
@@ -56,14 +56,49 @@ function isItemInstance(x: unknown): x is ItemInstance {
 
 type LegacyModificationRaw = { templateId?: string; level?: number }
 
+const LEGACY_KILL_REWARD_TEMPLATE_ID = 'kill_reward'
+const MIGRATED_DAMAGE_MOD_TEMPLATE_ID = 'mod-damage-up'
+const LEGACY_CODEX_KILL_ENTRY = 'mod:kill_reward'
+const MIGRATED_CODEX_DAMAGE_ENTRY = 'mod:mod-damage-up'
+
 function legacyModificationsToModSlots(mods: unknown[]): ModSlotState[] {
   return mods.map((mod) => {
     const m = mod as LegacyModificationRaw
     const templateId =
-      typeof m?.templateId === 'string' ? m.templateId : DEFAULT_MOD_KILL_TEMPLATE_ID
+      typeof m?.templateId === 'string' ? m.templateId : LEGACY_KILL_REWARD_TEMPLATE_ID
     const lm = typeof m?.level === 'number' && Number.isFinite(m.level) ? m.level : 0
     return { status: 'filled' as const, templateId, lm }
   })
+}
+
+function migrateCardKillRewardSlots(
+  card: CardInstance,
+  carrierLevel: number = card.global_level,
+): CardInstance {
+  const threshold = MOD_SLOT_MILESTONES.firstThreshold
+  let modSlots = cloneModSlots(card.modSlots ?? [])
+
+  modSlots = modSlots
+    .map((slot) => {
+      if (slot.status === 'filled' && slot.templateId === LEGACY_KILL_REWARD_TEMPLATE_ID) {
+        if (carrierLevel >= threshold) {
+          return {
+            status: 'filled' as const,
+            templateId: MIGRATED_DAMAGE_MOD_TEMPLATE_ID,
+            lm: slot.lm,
+          }
+        }
+        return null
+      }
+      return slot
+    })
+    .filter((slot): slot is ModSlotState => slot !== null)
+
+  if (carrierLevel < threshold) {
+    modSlots = []
+  }
+
+  return { ...card, modSlots }
 }
 
 function modSlotsFromRaw(o: Record<string, unknown>): ModSlotState[] {
@@ -220,8 +255,6 @@ function normalizeBattleAttemptSnapshot(
     const sg = typeof raw.gold === 'number' && Number.isFinite(raw.gold) ? raw.gold : 0
     return {
       worldPower: typeof raw.worldPower === 'number' ? raw.worldPower : 0,
-      modKillTargetCardId:
-        typeof raw.modKillTargetCardId === 'string' ? raw.modKillTargetCardId : null,
       scenarioSlotIndex: typeof raw.scenarioSlotIndex === 'number' ? raw.scenarioSlotIndex : 0,
       gold: sg,
       party: (raw.party as PartyMemberBattleSnapshot[]).map(normalizePartyMember),
@@ -246,8 +279,6 @@ function normalizeBattleAttemptSnapshot(
 
   return {
     worldPower: typeof raw.worldPower === 'number' ? raw.worldPower : 0,
-    modKillTargetCardId:
-      typeof raw.modKillTargetCardId === 'string' ? raw.modKillTargetCardId : null,
     scenarioSlotIndex: typeof raw.scenarioSlotIndex === 'number' ? raw.scenarioSlotIndex : 0,
     gold: typeof raw.gold === 'number' && Number.isFinite(raw.gold) ? raw.gold : 0,
     party: [
@@ -670,6 +701,86 @@ export function migrateV4CampaignToV5(c: CampaignState): CampaignState {
   })
 }
 
+function migrateCodexKillReward(ids: readonly string[]): readonly string[] {
+  const out = new Set<string>()
+  for (const id of ids) {
+    out.add(id === LEGACY_CODEX_KILL_ENTRY ? MIGRATED_CODEX_DAMAGE_ENTRY : id)
+  }
+  return [...out]
+}
+
+type LegacyCampaignWithKillTarget = CampaignState & {
+  modKillTargetCardId?: string | null
+}
+
+type LegacyBattleWithKillTarget = BattleState & {
+  modKillTargetCardId?: string | null
+}
+
+type LegacySnapshotWithKillTarget = BattleAttemptSnapshot & {
+  modKillTargetCardId?: string | null
+}
+
+function stripLegacyModKillTarget(c: LegacyCampaignWithKillTarget): CampaignState {
+  const { modKillTargetCardId: _target, ...rest } = c
+  let battle = rest.battle
+  if (battle && 'modKillTargetCardId' in battle) {
+    const { modKillTargetCardId: _b, ...battleRest } = battle as LegacyBattleWithKillTarget
+    battle = battleRest as BattleState
+  }
+  let battleAttemptSnapshot = rest.battleAttemptSnapshot
+  if (battleAttemptSnapshot && 'modKillTargetCardId' in battleAttemptSnapshot) {
+    const { modKillTargetCardId: _s, ...snapRest } =
+      battleAttemptSnapshot as LegacySnapshotWithKillTarget
+    battleAttemptSnapshot = snapRest as BattleAttemptSnapshot
+  }
+  return { ...rest, battle, battleAttemptSnapshot }
+}
+
+function migrateCampaignKillRewardMods(c: CampaignState): CampaignState {
+  const characters = c.characters.map((char) => ({
+    ...char,
+    cards: char.cards.map((card) => migrateCardKillRewardSlots(card)),
+  }))
+
+  let battle = c.battle
+  if (c.battle) {
+    const playerCardsByUnitId: Record<string, BattlePlayerCard[]> = {}
+    for (const [unitId, cards] of Object.entries(c.battle.playerCardsByUnitId)) {
+      playerCardsByUnitId[unitId] = cards.map((card) => ({
+        ...migrateCardKillRewardSlots(card),
+        cooldownRemaining: card.cooldownRemaining ?? 0,
+      }))
+    }
+    battle = { ...c.battle, playerCardsByUnitId }
+  }
+
+  const battleAttemptSnapshot = c.battleAttemptSnapshot
+    ? {
+        ...c.battleAttemptSnapshot,
+        party: c.battleAttemptSnapshot.party.map((member) => ({
+          ...member,
+          cards: member.cards.map((card) => migrateCardKillRewardSlots(card)),
+        })),
+      }
+    : null
+
+  return {
+    ...c,
+    characters,
+    battle,
+    battleAttemptSnapshot,
+    codexDiscovered: migrateCodexKillReward(c.codexDiscovered),
+    codexSeenEntryIds: migrateCodexKillReward(c.codexSeenEntryIds),
+  }
+}
+
+export function migrateV5CampaignToV6(c: CampaignState): CampaignState {
+  return stripLegacyModKillTarget(
+    migrateCampaignKillRewardMods(normalizeLoadedCampaign(c)),
+  )
+}
+
 function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null && !Array.isArray(x)
 }
@@ -707,9 +818,9 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
     return null
   }
   const version = raw.version
-  if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== 5) {
+  if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6) {
     console.warn(
-      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, 4, or 5`,
+      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, 4, 5, or 6`,
     )
     return null
   }
@@ -718,14 +829,14 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
     console.warn('[gen-sp] save: missing campaign object')
     return null
   }
-  const campaign = campaignFromRaw(campaignRaw)
+  let campaign = campaignFromRaw(campaignRaw)
   if (version <= 3) {
-    return migrateV3CampaignToV4(campaign)
+    campaign = migrateV3CampaignToV4(campaign)
   }
-  if (version === 4) {
-    return migrateV4CampaignToV5(campaign)
+  if (version <= 4) {
+    campaign = migrateV4CampaignToV5(campaign)
   }
-  return migrateV4CampaignToV5(campaign)
+  return migrateV5CampaignToV6(campaign)
 }
 
 export function assertEnvelopeV1(e: SaveEnvelopeV1): CampaignState {

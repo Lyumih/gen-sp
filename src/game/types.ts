@@ -161,8 +161,6 @@ export type BattleState = {
   activePlayerCardUnitId?: string
   /** Пропустить тик CD в конце текущего хода героя (ход применения карты с CD). */
   skipHeroCooldownTick?: boolean
-  /** id карточки, на которую копятся очки за убийство врага в этом бою. */
-  modKillTargetCardId: string | null
   /** События текущего боя; не влияют на геймплей, только отображение. */
   battleLog: readonly BattleLogEntry[]
   /** Суммарный бонус уровня карт от экипировки на старт боя (снимок). */
@@ -224,7 +222,6 @@ export type PartyMemberBattleSnapshot = {
 /** Снимок мета-состояния на начало попытки боя (retry откатывает сюда). */
 export type BattleAttemptSnapshot = {
   worldPower: number
-  modKillTargetCardId: string | null
   /** Индекс в `SCENARIOS` для этой попытки (нужен для retry после финала кампании). */
   scenarioSlotIndex: number
   gold: number
@@ -235,7 +232,6 @@ export type BattleAttemptSnapshot = {
 export type CampaignState = {
   scenarioIndex: number
   worldPower: number
-  modKillTargetCardId: string | null
   gold: number
   phase: RunPhase
   /** Активный бой; null в хабе после победы / до старта. */

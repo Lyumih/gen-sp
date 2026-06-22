@@ -28,7 +28,6 @@ function baseState(unitId: string, playerCards: BattlePlayerCard[]): BattleState
     phase: 'ongoing',
     worldPower: 0,
     playerCardsByUnitId: { [unitId]: playerCards },
-    modKillTargetCardId: null,
     battleLog: [],
     gearCardLevelBonus: 0,
   }

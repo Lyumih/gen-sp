@@ -75,10 +75,6 @@ export function CampaignHub() {
     dispatchRun({ type: 'REORDER_CARDS', characterId, cardIds })
   }
 
-  const setModKillTarget = (cardId: string) => {
-    dispatchRun({ type: 'SET_MOD_KILL_TARGET', cardId })
-  }
-
   const setBattleLoadout = (characterId: string, slotIndex: 0 | 1, cardId: string | null) => {
     dispatchRun({
       type: 'SET_BATTLE_LOADOUT',
@@ -167,7 +163,6 @@ export function CampaignHub() {
             onUnequip={unequip}
             onReorderStash={reorderStash}
             onReorderCards={reorderCards}
-            onSetModKillTarget={setModKillTarget}
             onSetBattleLoadout={setBattleLoadout}
             onTransferItem={transferItem}
             onSetSquadSlot={setSquadSlot}
