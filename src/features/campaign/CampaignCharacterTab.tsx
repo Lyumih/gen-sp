@@ -22,6 +22,7 @@ type CampaignCharacterTabProps = {
   onSetBattleLoadout: (characterId: string, slotIndex: 0 | 1, cardId: string | null) => void
   onTransferItem: (itemId: string, fromCharacterId: string, toCharacterId: string) => void
   onSetSquadSlot: (slotIndex: number, characterId: string | null) => void
+  onSwapSquadSlots: (from: number, to: number) => void
   onInvalidSlot: () => void
 }
 
@@ -36,6 +37,7 @@ export function CampaignCharacterTab({
   onSetBattleLoadout,
   onTransferItem,
   onSetSquadSlot,
+  onSwapSquadSlots,
   onInvalidSlot,
 }: CampaignCharacterTabProps) {
   const [selectedCharacterId, setSelectedCharacterId] = useState(
@@ -72,6 +74,7 @@ export function CampaignCharacterTab({
           onTransferItem(itemId, selectedCharacterId, toCharacterId)
         }
         onSetSquadSlot={onSetSquadSlot}
+        onSwapSquadSlots={onSwapSquadSlots}
         dndBeforeContent={(activeDragId) => (
           <Space orientation="vertical" size="middle" style={{ width: '100%', marginBottom: 16 }}>
             <SquadSlotRow

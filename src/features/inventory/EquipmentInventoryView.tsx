@@ -40,6 +40,7 @@ import { InventoryCell, type InventoryCellState } from './InventoryCell'
 import { InventoryGrid } from './InventoryGrid'
 import {
   parseDragId,
+  resolveSquadDragDrop,
   slotDragId,
   stashDragId,
   stashEmptyDragId,
@@ -58,6 +59,7 @@ type EquipmentInventoryViewProps = {
   onInvalidSlot: () => void
   onTransferItem?: (itemId: string, toCharacterId: string) => void
   onSetSquadSlot?: (slotIndex: number, characterId: string | null) => void
+  onSwapSquadSlots?: (from: number, to: number) => void
   squadLocked?: boolean
   dndBeforeContent?: (activeDragId: string | null) => ReactNode
 }
@@ -251,6 +253,7 @@ export function EquipmentInventoryView({
   onInvalidSlot,
   onTransferItem,
   onSetSquadSlot,
+  onSwapSquadSlots,
   squadLocked = false,
   dndBeforeContent,
 }: EquipmentInventoryViewProps) {
@@ -343,8 +346,12 @@ export function EquipmentInventoryView({
       !squadLocked
     ) {
       const slotIndex = Number(over.value)
-      if (!Number.isNaN(slotIndex)) {
-        onSetSquadSlot(slotIndex, active.value)
+      if (Number.isNaN(slotIndex)) return
+      const resolution = resolveSquadDragDrop(campaign.squad, active.value, slotIndex)
+      if (resolution.type === 'swap') {
+        onSwapSquadSlots?.(resolution.from, resolution.to)
+      } else {
+        onSetSquadSlot(resolution.slotIndex, resolution.characterId)
       }
     }
   }

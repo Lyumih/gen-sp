@@ -95,6 +95,10 @@ export function CampaignHub() {
     dispatchRun({ type: 'SET_SQUAD_SLOT', slotIndex, characterId })
   }
 
+  const swapSquadSlots = (from: number, to: number) => {
+    dispatchRun({ type: 'SWAP_SQUAD_SLOTS', from, to })
+  }
+
   return (
     <Card
       title={
@@ -150,6 +154,7 @@ export function CampaignHub() {
             onSetBattleLoadout={setBattleLoadout}
             onTransferItem={transferItem}
             onSetSquadSlot={setSquadSlot}
+            onSwapSquadSlots={swapSquadSlots}
             onInvalidSlot={() => message.warning('Не подходит к этому слоту')}
           />
         ) : null}
