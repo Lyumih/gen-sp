@@ -4,7 +4,7 @@ import { App, Card, Divider, Space } from 'antd'
 import { SCENARIOS } from '../../game/campaign/scenarios'
 import { unreadCodexEntryIds } from '../../game/codex/discovery'
 import { getItemTemplate } from '../../game/content/itemTemplates'
-import { getPrimaryCharacter } from '../../game/campaign/selectors'
+import { getActiveCharacter } from '../../game/character/selectors'
 import { isItemEquipped } from '../../game/equipment/stashOrder'
 import type { EquipmentSlot } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
@@ -35,6 +35,8 @@ export function CampaignHub() {
     setActiveTab(tab)
   }
 
+  const activeCharacterId = getActiveCharacter(campaign).id
+
   const buy = (templateId: string) => {
     const t = getItemTemplate(templateId)
     if (!t) return
@@ -42,32 +44,32 @@ export function CampaignHub() {
       message.warning('Недостаточно золота')
       return
     }
-    dispatchRun({ type: 'BUY_ITEM', templateId })
+    dispatchRun({ type: 'BUY_ITEM', characterId: activeCharacterId, templateId })
   }
 
   const equip = (itemId: string, slot: EquipmentSlot) => {
-    dispatchRun({ type: 'EQUIP_ITEM', itemId, slot })
+    dispatchRun({ type: 'EQUIP_ITEM', characterId: activeCharacterId, itemId, slot })
   }
 
   const unequip = (slot: EquipmentSlot) => {
-    dispatchRun({ type: 'UNEQUIP_ITEM', slot })
+    dispatchRun({ type: 'UNEQUIP_ITEM', characterId: activeCharacterId, slot })
   }
 
   const sellItem = (itemId: string) => {
-    const hero = getPrimaryCharacter(campaign)
+    const hero = getActiveCharacter(campaign)
     if (isItemEquipped(itemId, hero.equipment)) {
       message.warning('Сначала снимите предмет')
       return
     }
-    dispatchRun({ type: 'SELL_ITEM', itemId })
+    dispatchRun({ type: 'SELL_ITEM', characterId: activeCharacterId, itemId })
   }
 
   const reorderStash = (itemIds: string[]) => {
-    dispatchRun({ type: 'REORDER_STASH', itemIds })
+    dispatchRun({ type: 'REORDER_STASH', characterId: activeCharacterId, itemIds })
   }
 
   const reorderCards = (cardIds: string[]) => {
-    dispatchRun({ type: 'REORDER_CARDS', cardIds })
+    dispatchRun({ type: 'REORDER_CARDS', characterId: activeCharacterId, cardIds })
   }
 
   const setModKillTarget = (cardId: string) => {
@@ -75,7 +77,12 @@ export function CampaignHub() {
   }
 
   const setBattleLoadout = (slotIndex: 0 | 1, cardId: string | null) => {
-    dispatchRun({ type: 'SET_BATTLE_LOADOUT', slotIndex, cardId })
+    dispatchRun({
+      type: 'SET_BATTLE_LOADOUT',
+      characterId: activeCharacterId,
+      slotIndex,
+      cardId,
+    })
   }
 
   return (

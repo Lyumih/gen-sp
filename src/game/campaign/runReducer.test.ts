@@ -9,6 +9,10 @@ import {
 } from './runReducer'
 import { SCENARIOS } from './scenarios'
 import { getPrimaryCharacter } from './selectors'
+import { LEGACY_HERO_CHARACTER_ID } from '../character/constants'
+import { createCharacter } from '../character/createCharacter'
+
+const HERO_ID = LEGACY_HERO_CHARACTER_ID
 
 function hero(c: CampaignState) {
   return getPrimaryCharacter(c)
@@ -523,7 +527,11 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
   it('BUY_ITEM discovers item in codex', () => {
     let s = { ...initialCampaignState(), gold: 100 }
 
-    s = applyRunAction(s, { type: 'BUY_ITEM', templateId: 'wooden_sword' })
+    s = applyRunAction(s, {
+      type: 'BUY_ITEM',
+      characterId: HERO_ID,
+      templateId: 'wooden_sword',
+    })
 
     expect(s.codexDiscovered).toContain(codexEntryId('item', 'wooden_sword'))
   })
@@ -632,7 +640,11 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
 
   it('BUY_ITEM then defeat then RETRY restores gold and items from snapshot', () => {
     let s = { ...initialCampaignState(), gold: 100 }
-    s = applyRunAction(s, { type: 'BUY_ITEM', templateId: 'wooden_sword' })
+    s = applyRunAction(s, {
+      type: 'BUY_ITEM',
+      characterId: HERO_ID,
+      templateId: 'wooden_sword',
+    })
     expect(s.gold).toBe(90)
     expect(hero(s).items).toHaveLength(1)
 
@@ -704,26 +716,43 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
 describe('inventory grid actions', () => {
   it('SELL_ITEM refunds half price and removes stash item', () => {
     let s = { ...initialCampaignState(), gold: 100 }
-    s = applyRunAction(s, { type: 'BUY_ITEM', templateId: 'wooden_sword' })
+    s = applyRunAction(s, {
+      type: 'BUY_ITEM',
+      characterId: HERO_ID,
+      templateId: 'wooden_sword',
+    })
     const id = hero(s).items[0]!.id
-    s = applyRunAction(s, { type: 'SELL_ITEM', itemId: id })
+    s = applyRunAction(s, { type: 'SELL_ITEM', characterId: HERO_ID, itemId: id })
     expect(hero(s).items).toHaveLength(0)
     expect(s.gold).toBe(95)
   })
 
   it('SELL_ITEM no-op for equipped item', () => {
     let s = { ...initialCampaignState(), gold: 100 }
-    s = applyRunAction(s, { type: 'BUY_ITEM', templateId: 'wooden_sword' })
+    s = applyRunAction(s, {
+      type: 'BUY_ITEM',
+      characterId: HERO_ID,
+      templateId: 'wooden_sword',
+    })
     const id = hero(s).items[0]!.id
-    s = applyRunAction(s, { type: 'EQUIP_ITEM', itemId: id, slot: 'weapon' })
+    s = applyRunAction(s, {
+      type: 'EQUIP_ITEM',
+      characterId: HERO_ID,
+      itemId: id,
+      slot: 'weapon',
+    })
     const before = s
-    s = applyRunAction(s, { type: 'SELL_ITEM', itemId: id })
+    s = applyRunAction(s, { type: 'SELL_ITEM', characterId: HERO_ID, itemId: id })
     expect(s).toEqual(before)
   })
 
   it('REORDER_CARDS changes card order when multiple cards', () => {
     let s = initialCampaignState()
-    s = applyRunAction(s, { type: 'REORDER_CARDS', cardIds: ['c2', 'c1', 'c3'] })
+    s = applyRunAction(s, {
+      type: 'REORDER_CARDS',
+      characterId: HERO_ID,
+      cardIds: ['c2', 'c1', 'c3'],
+    })
     expect(hero(s).cards.map((c) => c.id)).toEqual(['c2', 'c1', 'c3'])
   })
 
@@ -737,23 +766,149 @@ describe('inventory grid actions', () => {
 
   it('REORDER_STASH persists stash order after equipped block', () => {
     let s = { ...initialCampaignState(), gold: 100 }
-    s = applyRunAction(s, { type: 'BUY_ITEM', templateId: 'wooden_sword' })
+    s = applyRunAction(s, {
+      type: 'BUY_ITEM',
+      characterId: HERO_ID,
+      templateId: 'wooden_sword',
+    })
     const swordId = hero(s).items[0]!.id
-    s = applyRunAction(s, { type: 'BUY_ITEM', templateId: 'leather_armor' })
+    s = applyRunAction(s, {
+      type: 'BUY_ITEM',
+      characterId: HERO_ID,
+      templateId: 'leather_armor',
+    })
     const armorId = hero(s).items.find((i) => i.templateId === 'leather_armor')!.id
-    s = applyRunAction(s, { type: 'EQUIP_ITEM', itemId: swordId, slot: 'weapon' })
-    s = applyRunAction(s, { type: 'REORDER_STASH', itemIds: [armorId] })
+    s = applyRunAction(s, {
+      type: 'EQUIP_ITEM',
+      characterId: HERO_ID,
+      itemId: swordId,
+      slot: 'weapon',
+    })
+    s = applyRunAction(s, {
+      type: 'REORDER_STASH',
+      characterId: HERO_ID,
+      itemIds: [armorId],
+    })
     expect(hero(s).items.map((i) => i.id)).toEqual([swordId, armorId])
   })
 
   it('inventory actions no-op in battle', () => {
     let s = applyRunAction({ ...initialCampaignState(), gold: 100 }, {
       type: 'BUY_ITEM',
+      characterId: HERO_ID,
       templateId: 'wooden_sword',
     })
     s = applyRunAction(s, { type: 'START_OR_CONTINUE_BATTLE' })
     const before = s
-    s = applyRunAction(s, { type: 'SELL_ITEM', itemId: hero(before).items[0]!.id })
+    s = applyRunAction(s, {
+      type: 'SELL_ITEM',
+      characterId: HERO_ID,
+      itemId: hero(before).items[0]!.id,
+    })
+    expect(s).toEqual(before)
+  })
+})
+
+describe('squad and transfer actions', () => {
+  function twoCharacterCampaign() {
+    const base = initialCampaignState()
+    const reserve = createCharacter({
+      id: 'char-2',
+      name: 'Reserve',
+      classId: 'mage',
+      initiativeBase: 8,
+    })
+    return {
+      ...base,
+      characters: [...base.characters, reserve],
+      squad: [HERO_ID, null, null, null],
+    }
+  }
+
+  it('SET_SQUAD_SLOT assigns reserve character and clears duplicate slot', () => {
+    let s = twoCharacterCampaign()
+    s = applyRunAction(s, {
+      type: 'SET_SQUAD_SLOT',
+      slotIndex: 1,
+      characterId: 'char-2',
+    })
+    expect(s.squad).toEqual([HERO_ID, 'char-2', null, null])
+    s = applyRunAction(s, {
+      type: 'SET_SQUAD_SLOT',
+      slotIndex: 0,
+      characterId: 'char-2',
+    })
+    expect(s.squad).toEqual(['char-2', null, null, null])
+  })
+
+  it('SET_SQUAD_SLOT no-op during expedition', () => {
+    const s = {
+      ...twoCharacterCampaign(),
+      expedition: {
+        scenarioChainId: 'test',
+        partySize: 1,
+        squadSnapshot: [],
+        battleIndex: 0,
+        battleCount: 1,
+        shopLocked: true as const,
+      },
+    }
+    const next = applyRunAction(s, {
+      type: 'SET_SQUAD_SLOT',
+      slotIndex: 1,
+      characterId: 'char-2',
+    })
+    expect(next).toEqual(s)
+  })
+
+  it('SWAP_SQUAD_SLOTS exchanges squad slots', () => {
+    let s = twoCharacterCampaign()
+    s = applyRunAction(s, {
+      type: 'SET_SQUAD_SLOT',
+      slotIndex: 1,
+      characterId: 'char-2',
+    })
+    s = applyRunAction(s, { type: 'SWAP_SQUAD_SLOTS', from: 0, to: 1 })
+    expect(s.squad).toEqual(['char-2', HERO_ID, null, null])
+  })
+
+  it('TRANSFER_ITEM moves stash item between characters', () => {
+    let s = applyRunAction({ ...twoCharacterCampaign(), gold: 100 }, {
+      type: 'BUY_ITEM',
+      characterId: HERO_ID,
+      templateId: 'wooden_sword',
+    })
+    const itemId = hero(s).items[0]!.id
+    s = applyRunAction(s, {
+      type: 'TRANSFER_ITEM',
+      itemId,
+      fromCharacterId: HERO_ID,
+      toCharacterId: 'char-2',
+    })
+    expect(hero(s).items).toHaveLength(0)
+    expect(s.characters.find((c) => c.id === 'char-2')!.items[0]!.id).toBe(itemId)
+  })
+
+  it('TRANSFER_ITEM no-op for equipped item', () => {
+    let s = applyRunAction({ ...twoCharacterCampaign(), gold: 100 }, {
+      type: 'BUY_ITEM',
+      characterId: HERO_ID,
+      templateId: 'wooden_sword',
+    })
+    const itemId = hero(s).items[0]!.id
+    s = applyRunAction(s, {
+      type: 'EQUIP_ITEM',
+      characterId: HERO_ID,
+      itemId,
+      slot: 'weapon',
+    })
+    const before = s
+    s = applyRunAction(s, {
+      type: 'TRANSFER_ITEM',
+      itemId,
+      fromCharacterId: HERO_ID,
+      toCharacterId: 'char-2',
+    })
     expect(s).toEqual(before)
   })
 })
