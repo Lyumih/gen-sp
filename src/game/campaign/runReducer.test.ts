@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { canMeleeAttack, canRangedAttack } from '../battle/combat'
+import { wallSet } from '../battle/grid'
+import { reachableMoveCells } from '../battle/rangeOverlay'
 import { codexEntryId } from '../codex/discovery'
 import type {
+  BattleAction,
   BattleAttemptSnapshot,
   BattlePlayerCard,
   BattleState,
@@ -15,6 +19,7 @@ import {
   cloneItems,
   initialCampaignState,
 } from './runReducer'
+import { getCurrentActorId } from '../battle/reducer'
 import { SCENARIOS } from './scenarios'
 import { getPrimaryCharacter } from './selectors'
 import { LEGACY_HERO_CHARACTER_ID, MAX_ROSTER_SIZE } from '../character/constants'
@@ -965,90 +970,132 @@ describe('expedition state machine', () => {
     return initialCampaignState()
   }
 
+  function battleSignature(b: BattleState): string {
+    return JSON.stringify({
+      phase: b.phase,
+      turn: b.currentTurnIndex,
+      round: b.roundNumber,
+      units: b.units.map((u) => [u.id, u.hp, u.x, u.y]),
+    })
+  }
+
+  function dispatchBattle(
+    state: CampaignState,
+    battleAction: BattleAction,
+  ): { state: CampaignState; progressed: boolean } {
+    if (!state.battle) return { state, progressed: false }
+    const before = battleSignature(state.battle)
+    const next = applyRunAction(state, { type: 'BATTLE_DISPATCH', battleAction })
+    if (!next.battle) {
+      return { state: next, progressed: true }
+    }
+    return {
+      state: next,
+      progressed: battleSignature(next.battle) !== before,
+    }
+  }
+
   function winCurrentBattle(s: CampaignState): CampaignState {
     let current = s
     let guard = 0
-    while (current.battle?.phase === 'ongoing' && guard < 128) {
+    while (current.battle?.phase === 'ongoing' && guard < 256) {
       guard++
       const b = current.battle!
-      const actorId = b.turnOrder[b.currentTurnIndex]
-      const before = current
-      if (actorId === HERO_ID) {
-        const hero = b.units.find((u) => u.id === HERO_ID && u.hp > 0)
+      const actorId = getCurrentActorId(b)
+      const beforeSig = battleSignature(b)
+      const actor = actorId ? b.units.find((u) => u.id === actorId) : undefined
+      if (actor?.side === 'player') {
         const enemy = b.units.find((u) => u.side === 'enemy' && u.hp > 0)
-        if (!hero || !enemy) break
-        current = applyRunAction(current, {
-          type: 'BATTLE_DISPATCH',
-          battleAction: {
+        if (!enemy) break
+        let progressed = false
+        let result = dispatchBattle(current, {
+          type: 'attack',
+          attackerId: actor.id,
+          targetId: enemy.id,
+          damage: 999,
+          kind: 'ranged',
+          maxRange: 10,
+        })
+        current = result.state
+        progressed = result.progressed
+        if (!progressed) {
+          result = dispatchBattle(current, {
             type: 'attack',
-            attackerId: HERO_ID,
+            attackerId: actor.id,
             targetId: enemy.id,
             damage: 999,
-            kind: 'ranged',
-            maxRange: 10,
-          },
+            kind: 'melee',
+          })
+          current = result.state
+          progressed = result.progressed
+        }
+        if (!progressed) {
+          const walls = wallSet(b.walls)
+          const reachable = reachableMoveCells(b, actor.id)
+          const tryMove = (toX: number, toY: number) => {
+            const moved = dispatchBattle(current, {
+              type: 'move',
+              unitId: actor.id,
+              toX,
+              toY,
+            })
+            if (moved.progressed) {
+              current = moved.state
+              progressed = true
+            }
+          }
+          for (const key of reachable) {
+            const [xs, ys] = key.split(',')
+            const toX = Number(xs)
+            const toY = Number(ys)
+            const probe = { ...actor, x: toX, y: toY }
+            if (canMeleeAttack(probe, enemy)) {
+              tryMove(toX, toY)
+              break
+            }
+          }
+          if (!progressed) {
+            for (const key of reachable) {
+              const [xs, ys] = key.split(',')
+              const toX = Number(xs)
+              const toY = Number(ys)
+              const probe = { ...actor, x: toX, y: toY }
+              if (canRangedAttack(probe, enemy, 10, walls)) {
+                tryMove(toX, toY)
+                break
+              }
+            }
+          }
+          if (!progressed) {
+            for (const key of reachable) {
+              const [xs, ys] = key.split(',')
+              tryMove(Number(xs), Number(ys))
+              if (progressed) break
+            }
+          }
+        }
+      } else if (actor?.side === 'enemy') {
+        let result = dispatchBattle(current, {
+          type: 'move',
+          unitId: actor.id,
+          toX: Math.max(0, actor.x - 1),
+          toY: actor.y,
         })
-        if (current === before) {
-          current = applyRunAction(current, {
-            type: 'BATTLE_DISPATCH',
-            battleAction: {
-              type: 'attack',
-              attackerId: HERO_ID,
-              targetId: enemy.id,
-              damage: 999,
-              kind: 'melee',
-            },
+        current = result.state
+        if (!result.progressed) {
+          result = dispatchBattle(current, {
+            type: 'move',
+            unitId: actor.id,
+            toX: Math.min(b.width - 1, actor.x + 1),
+            toY: actor.y,
           })
-        }
-        if (current === before) {
-          const dx = enemy.x > hero.x ? 1 : enemy.x < hero.x ? -1 : 0
-          const dy = enemy.y > hero.y ? 1 : enemy.y < hero.y ? -1 : 0
-          current = applyRunAction(current, {
-            type: 'BATTLE_DISPATCH',
-            battleAction: {
-              type: 'move',
-              unitId: HERO_ID,
-              toX: hero.x + dx,
-              toY: hero.y + dy,
-            },
-          })
-        }
-        if (current === before) {
-          current = applyRunAction(current, {
-            type: 'BATTLE_DISPATCH',
-            battleAction: {
-              type: 'move',
-              unitId: HERO_ID,
-              toX: hero.x,
-              toY: hero.y + (enemy.y !== hero.y ? (enemy.y > hero.y ? 1 : -1) : 1),
-            },
-          })
+          current = result.state
         }
       } else {
-        const actor = b.units.find((u) => u.id === actorId)
-        if (!actor) break
-        current = applyRunAction(current, {
-          type: 'BATTLE_DISPATCH',
-          battleAction: {
-            type: 'move',
-            unitId: actorId,
-            toX: Math.max(0, actor.x - 1),
-            toY: actor.y,
-          },
-        })
-        if (current === before) {
-          current = applyRunAction(current, {
-            type: 'BATTLE_DISPATCH',
-            battleAction: {
-              type: 'move',
-              unitId: actorId,
-              toX: Math.min(b.width - 1, actor.x + 1),
-              toY: actor.y,
-            },
-          })
-        }
+        break
       }
-      if (current === before) break
+      if (!current.battle || current.battle.phase !== 'ongoing') break
+      if (battleSignature(current.battle) === beforeSig) break
     }
     return current
   }
@@ -1186,6 +1233,52 @@ describe('expedition state machine', () => {
 
     s = applyRunAction(s, { type: 'INTER_BATTLE_REVIVE_ALL' })
     expect(s.expedition!.squadSnapshot[0]!.metaStatus).toBe('active')
+  })
+
+  it('full 3-battle expedition chain completes and returns to hub', () => {
+    let s = applyRunAction(hubState(), {
+      type: 'START_EXPEDITION',
+      chainId: 'campaign-main',
+      selectedCharacterIds: [HERO_ID],
+    })
+
+    expect(s.expedition!.battleCount).toBe(3)
+    expect(s.expedition!.battleIndex).toBe(0)
+    expect(s.phase).toBe('battle')
+
+    s = winCurrentBattle(s)
+    expect(s.phase).toBe('inter_battle')
+    expect(s.expedition!.battleIndex).toBe(1)
+    expect(s.battle).toBeNull()
+
+    s = applyRunAction(s, { type: 'ADVANCE_EXPEDITION_BATTLE' })
+    expect(s.phase).toBe('battle')
+    expect(s.expedition!.battleIndex).toBe(1)
+
+    s = winCurrentBattle(s)
+    expect(s.phase).toBe('inter_battle')
+    expect(s.expedition!.battleIndex).toBe(2)
+
+    s = applyRunAction(s, { type: 'ADVANCE_EXPEDITION_BATTLE' })
+    expect(s.phase).toBe('battle')
+    expect(s.expedition!.battleIndex).toBe(2)
+
+    s = winCurrentBattle(s)
+    expect(s.phase).toBe('victory')
+    expect(s.expedition).not.toBeNull()
+
+    const goldBeforeFinalize = s.gold
+    s = applyRunAction(s, {
+      type: 'FINALIZE_VICTORY',
+      itemLevelRolls: [],
+      playerUnitLevelRoll: 50,
+    })
+
+    expect(s.phase).toBe('hub')
+    expect(s.expedition).toBeNull()
+    expect(s.battle).toBeNull()
+    expect(s.gold).toBeGreaterThan(goldBeforeFinalize)
+    expect(hero(s).unitLevel).toBeGreaterThan(1)
   })
 
   it('last battle victory then FINALIZE_VICTORY clears expedition and grants rewards', () => {

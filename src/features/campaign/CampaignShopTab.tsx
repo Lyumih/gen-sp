@@ -1,4 +1,5 @@
 import { Divider, Space, Typography } from 'antd'
+import { getActiveCharacter } from '../../game/character/selectors'
 import { HeroProfileContent } from '../profile/HeroProfileContent'
 import type { CampaignState } from '../../game/types'
 import { ShopInventoryView } from '../inventory/ShopInventoryView'
@@ -25,6 +26,7 @@ export function CampaignShopTab({
         mode="hub"
         campaign={campaign}
         battle={null}
+        characterId={getActiveCharacter(campaign).id}
         includeResourceStats={false}
         includeEquipmentReadout
         includeCardsCollapse={false}

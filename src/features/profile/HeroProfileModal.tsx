@@ -1,4 +1,5 @@
 import { Modal } from 'antd'
+import { getActiveCharacter } from '../../game/character/selectors'
 import { HeroProfileContent } from './HeroProfileContent'
 import type { HeroProfileModalProps } from './HeroProfileModal.types'
 
@@ -20,7 +21,12 @@ export function HeroProfileModal({
       width={560}
       destroyOnClose
     >
-      <HeroProfileContent mode={mode} campaign={campaign} battle={battle} />
+      <HeroProfileContent
+        mode={mode}
+        campaign={campaign}
+        battle={battle}
+        characterId={getActiveCharacter(campaign).id}
+      />
     </Modal>
   )
 }
