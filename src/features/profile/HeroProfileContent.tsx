@@ -1,6 +1,7 @@
 import { Collapse, Divider, Typography } from 'antd'
 import { buildBattleAttemptSnapshot } from '../../game/campaign/battleSnapshot'
 import { computeCharacterMaxHpForScenario } from '../../game/campaign/heroMaxHp'
+import { getCharacter } from '../../game/character/selectors'
 import { getPrimaryCharacter } from '../../game/campaign/selectors'
 import { SCENARIOS } from '../../game/campaign/scenarios'
 import { describeCardCombatStats, getCardDisplayLabel } from '../../game/descriptions/cardText'
@@ -18,6 +19,8 @@ export type HeroProfileContentProps = {
   mode: 'hub' | 'battle'
   campaign: CampaignState
   battle: BattleState | null
+  /** Персонаж для отображения; по умолчанию — активный в отряде. */
+  characterId?: string
   /** В хабе статы ⭐/🪙/⚡ уже в HUD — не дублировать. */
   includeResourceStats?: boolean
   /** Список надетых предметов (в хабе ниже — селекты экипировки). */
@@ -30,11 +33,14 @@ export function HeroProfileContent({
   mode,
   campaign,
   battle,
+  characterId,
   includeResourceStats = true,
   includeEquipmentReadout = true,
   includeCardsCollapse = true,
 }: HeroProfileContentProps) {
-  const hero = getPrimaryCharacter(campaign)
+  const hero =
+    (characterId !== undefined ? getCharacter(campaign, characterId) : undefined) ??
+    getPrimaryCharacter(campaign)
   const hubSnapshot = buildBattleAttemptSnapshot(campaign, campaign.scenarioIndex)
   const hubScenario = SCENARIOS[campaign.scenarioIndex]
 

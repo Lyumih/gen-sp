@@ -22,6 +22,18 @@ export function loadoutDragId(slotIndex: number): string {
   return `loadout:${slotIndex}`
 }
 
+export function rosterCharacterDragId(characterId: string): string {
+  return `roster-drag:${characterId}`
+}
+
+export function rosterCharacterDropId(characterId: string): string {
+  return `roster-drop:${characterId}`
+}
+
+export function squadSlotDragId(slotIndex: number): string {
+  return `squad-slot:${slotIndex}`
+}
+
 export function parseDragId(id: string): { kind: string; value: string } | null {
   const idx = id.indexOf(':')
   if (idx < 0) return null

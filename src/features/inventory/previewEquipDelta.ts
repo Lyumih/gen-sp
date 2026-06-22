@@ -3,18 +3,20 @@ import {
   aggregateGearCardLevelBonus,
   aggregateGearHpBonus,
 } from '../../game/equipment/aggregates'
-import { getPrimaryCharacter } from '../../game/campaign/selectors'
+import { getCharacter } from '../../game/character/selectors'
 import type { CampaignState, EquipmentSlot } from '../../game/types'
 
 export type EquipDelta = { deltaHp: number; deltaCardLevel: number }
 
 export function previewEquipDelta(
   campaign: CampaignState,
+  characterId: string,
   itemId: string,
   slot: EquipmentSlot,
   getTemplate: (templateId: string) => ItemTemplate | undefined,
 ): EquipDelta | null {
-  const hero = getPrimaryCharacter(campaign)
+  const hero = getCharacter(campaign, characterId)
+  if (!hero) return null
   const item = hero.items.find((i) => i.id === itemId)
   if (!item) return null
   const tmpl = getTemplate(item.templateId)

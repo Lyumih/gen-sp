@@ -19,7 +19,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { Space, Tooltip, Typography } from 'antd'
 import { getCardAttackTemplate } from '../../game/content/cardTemplates'
-import { getPrimaryCharacter } from '../../game/campaign/selectors'
+import { getCharacter } from '../../game/character/selectors'
 import { describeCardCombatStats, getCardDisplayLabel } from '../../game/descriptions/cardText'
 import type { CampaignState, CardInstance } from '../../game/types'
 import { UI_DAMAGE, UI_HEART, UI_LEVEL } from '../../game/ui/labels'
@@ -31,6 +31,7 @@ import './inventory.css'
 
 type CardsInventoryViewProps = {
   campaign: CampaignState
+  characterId: string
   inBattle: boolean
   gearCardLevelBonus: number
   onReorderCards: (cardIds: string[]) => void
@@ -149,16 +150,17 @@ function LoadoutSlotCell({
 
 export function CardsInventoryView({
   campaign,
+  characterId,
   inBattle,
   gearCardLevelBonus,
   onReorderCards,
   onSetModKillTarget,
   onSetBattleLoadout,
 }: CardsInventoryViewProps) {
-  const hero = getPrimaryCharacter(campaign)
-  const loadout = hero.battleLoadout
+  const hero = getCharacter(campaign, characterId)
+  const loadout = hero?.battleLoadout ?? [null, null]
   const loadoutIds = new Set(loadout.filter((id): id is string => id !== null))
-  const collectionCards = hero.cards.filter((c) => !loadoutIds.has(c.id))
+  const collectionCards = hero?.cards.filter((c) => !loadoutIds.has(c.id)) ?? []
   const cardIds = collectionCards.map((c) => c.id)
   const [activeCardId, setActiveCardId] = useState<string | null>(null)
 
@@ -166,10 +168,10 @@ export function CardsInventoryView({
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
   )
 
-  const targetCard = hero.cards.find((c) => c.id === campaign.modKillTargetCardId)
+  const targetCard = hero?.cards.find((c) => c.id === campaign.modKillTargetCardId)
 
   function resolveCard(cardId: string): CardInstance | undefined {
-    return hero.cards.find((c) => c.id === cardId)
+    return hero?.cards.find((c) => c.id === cardId)
   }
 
   function handleDragStart(event: DragStartEvent) {
@@ -268,6 +270,8 @@ export function CardsInventoryView({
       </SortableContext>
     </Space>
   )
+
+  if (!hero) return null
 
   if (inBattle) {
     return <Tooltip title="Доступно после боя">{content}</Tooltip>

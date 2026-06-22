@@ -34,4 +34,4 @@ export function itemsSelectableForSlot(
   })
 }
 
-export type CampaignHubTab = 'character' | 'battle' | 'shop' | 'codex'
+export type CampaignHubTab = 'character' | 'battle' | 'shop' | 'codex' | 'tavern'

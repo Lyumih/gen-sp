@@ -22,6 +22,7 @@ const TAB_LABEL: Record<CampaignHubTab, string> = {
   battle: 'Бой',
   shop: 'Магазин',
   codex: 'Кодекс',
+  tavern: 'Таверна',
 }
 
 const TAB_ICON: Record<CampaignHubTab, ReactNode> = {
@@ -29,6 +30,7 @@ const TAB_ICON: Record<CampaignHubTab, ReactNode> = {
   battle: <PlayCircleOutlined aria-hidden />,
   shop: <ShoppingOutlined aria-hidden />,
   codex: <BookOutlined aria-hidden />,
+  tavern: <UserOutlined aria-hidden />,
 }
 
 export function CampaignHubNav({

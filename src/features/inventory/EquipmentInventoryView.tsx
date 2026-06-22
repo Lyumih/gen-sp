@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -31,7 +31,7 @@ import {
   sortStashIdsBySlot,
   stashItemsFromCampaign,
 } from '../../game/equipment/stashOrder'
-import { getPrimaryCharacter } from '../../game/campaign/selectors'
+import { getCharacter } from '../../game/character/selectors'
 import type { CampaignState, EquipmentSlot, ItemInstance } from '../../game/types'
 import { UI_HEART, UI_DAMAGE, UI_LEVEL } from '../../game/ui/labels'
 import { SLOT_LABEL } from '../campaign/campaignHubShared'
@@ -50,11 +50,16 @@ import './inventory.css'
 
 type EquipmentInventoryViewProps = {
   campaign: CampaignState
+  characterId: string
   inBattle: boolean
   onEquip: (itemId: string, slot: EquipmentSlot) => void
   onUnequip: (slot: EquipmentSlot) => void
   onReorderStash: (itemIds: string[]) => void
   onInvalidSlot: () => void
+  onTransferItem?: (itemId: string, toCharacterId: string) => void
+  onSetSquadSlot?: (slotIndex: number, characterId: string | null) => void
+  squadLocked?: boolean
+  dndBeforeContent?: (activeDragId: string | null) => ReactNode
 }
 
 function characterStashPopover(
@@ -238,16 +243,21 @@ function EquipmentSlotCell({
 
 export function EquipmentInventoryView({
   campaign,
+  characterId,
   inBattle,
   onEquip,
   onUnequip,
   onReorderStash,
   onInvalidSlot,
+  onTransferItem,
+  onSetSquadSlot,
+  squadLocked = false,
+  dndBeforeContent,
 }: EquipmentInventoryViewProps) {
-  const hero = getPrimaryCharacter(campaign)
+  const hero = getCharacter(campaign, characterId)
   const stash = useMemo(
-    () => stashItemsFromCampaign(hero.items, hero.equipment),
-    [hero.items, hero.equipment],
+    () => (hero ? stashItemsFromCampaign(hero.items, hero.equipment) : []),
+    [hero],
   )
   const stashIds = stash.map((i) => i.id)
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
@@ -269,7 +279,7 @@ export function EquipmentInventoryView({
   function compareForSlot(slot: EquipmentSlot): string | undefined {
     if (!activeStashItem || !activeTmpl) return undefined
     if (activeTmpl.slot !== slot) return undefined
-    const delta = previewEquipDelta(campaign, activeStashItem.id, slot, getItemTemplate)
+    const delta = previewEquipDelta(campaign, characterId, activeStashItem.id, slot, getItemTemplate)
     if (!delta) return undefined
     return `Δ${UI_HEART} ${delta.deltaHp >= 0 ? '+' : ''}${delta.deltaHp} · Δ${UI_DAMAGE} ${delta.deltaCardLevel >= 0 ? '+' : ''}${delta.deltaCardLevel}`
   }
@@ -316,8 +326,30 @@ export function EquipmentInventoryView({
       if (oldIndex >= 0 && newIndex >= 0 && oldIndex !== newIndex) {
         onReorderStash(arrayMove(stashIds, oldIndex, newIndex))
       }
+      return
+    }
+
+    if (active.kind === 'stash' && over.kind === 'roster-drop') {
+      if (onTransferItem && !squadLocked) {
+        onTransferItem(active.value, over.value)
+      }
+      return
+    }
+
+    if (
+      active.kind === 'roster-drag' &&
+      over.kind === 'squad-slot' &&
+      onSetSquadSlot &&
+      !squadLocked
+    ) {
+      const slotIndex = Number(over.value)
+      if (!Number.isNaN(slotIndex)) {
+        onSetSquadSlot(slotIndex, active.value)
+      }
     }
   }
+
+  if (!hero) return null
 
   const content = (
     <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
@@ -405,18 +437,15 @@ export function EquipmentInventoryView({
     </Space>
   )
 
-  if (inBattle) {
-    return <Tooltip title="Доступно после боя">{content}</Tooltip>
-  }
-
-  return (
+  const panel = (
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      {content}
+      {dndBeforeContent?.(activeDragId)}
+      {inBattle ? <Tooltip title="Доступно после боя">{content}</Tooltip> : content}
       <DragOverlay>
         {activeStashItem ? (
           <InventoryCell
@@ -429,4 +458,6 @@ export function EquipmentInventoryView({
       </DragOverlay>
     </DndContext>
   )
+
+  return panel
 }

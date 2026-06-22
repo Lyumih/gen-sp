@@ -12,7 +12,7 @@ describe('previewEquipDelta', () => {
       { type: 'BUY_ITEM', characterId: LEGACY_HERO_CHARACTER_ID, templateId: 'wooden_sword' },
     )
     const itemId = getPrimaryCharacter(s).items[0]!.id
-    const delta = previewEquipDelta(s, itemId, 'weapon', getItemTemplate)
+    const delta = previewEquipDelta(s, LEGACY_HERO_CHARACTER_ID, itemId, 'weapon', getItemTemplate)
     expect(delta).toEqual({ deltaHp: 0, deltaCardLevel: 1 })
   })
 
@@ -21,6 +21,14 @@ describe('previewEquipDelta', () => {
       { ...initialCampaignState(), gold: 100 },
       { type: 'BUY_ITEM', characterId: LEGACY_HERO_CHARACTER_ID, templateId: 'wooden_sword' },
     )
-    expect(previewEquipDelta(s, getPrimaryCharacter(s).items[0]!.id, 'armor', getItemTemplate)).toBeNull()
+    expect(
+      previewEquipDelta(
+        s,
+        LEGACY_HERO_CHARACTER_ID,
+        getPrimaryCharacter(s).items[0]!.id,
+        'armor',
+        getItemTemplate,
+      ),
+    ).toBeNull()
   })
 })

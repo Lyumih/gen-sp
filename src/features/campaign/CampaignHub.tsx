@@ -47,12 +47,12 @@ export function CampaignHub() {
     dispatchRun({ type: 'BUY_ITEM', characterId: activeCharacterId, templateId })
   }
 
-  const equip = (itemId: string, slot: EquipmentSlot) => {
-    dispatchRun({ type: 'EQUIP_ITEM', characterId: activeCharacterId, itemId, slot })
+  const equip = (characterId: string, itemId: string, slot: EquipmentSlot) => {
+    dispatchRun({ type: 'EQUIP_ITEM', characterId, itemId, slot })
   }
 
-  const unequip = (slot: EquipmentSlot) => {
-    dispatchRun({ type: 'UNEQUIP_ITEM', characterId: activeCharacterId, slot })
+  const unequip = (characterId: string, slot: EquipmentSlot) => {
+    dispatchRun({ type: 'UNEQUIP_ITEM', characterId, slot })
   }
 
   const sellItem = (itemId: string) => {
@@ -64,25 +64,33 @@ export function CampaignHub() {
     dispatchRun({ type: 'SELL_ITEM', characterId: activeCharacterId, itemId })
   }
 
-  const reorderStash = (itemIds: string[]) => {
-    dispatchRun({ type: 'REORDER_STASH', characterId: activeCharacterId, itemIds })
+  const reorderStash = (characterId: string, itemIds: string[]) => {
+    dispatchRun({ type: 'REORDER_STASH', characterId, itemIds })
   }
 
-  const reorderCards = (cardIds: string[]) => {
-    dispatchRun({ type: 'REORDER_CARDS', characterId: activeCharacterId, cardIds })
+  const reorderCards = (characterId: string, cardIds: string[]) => {
+    dispatchRun({ type: 'REORDER_CARDS', characterId, cardIds })
   }
 
   const setModKillTarget = (cardId: string) => {
     dispatchRun({ type: 'SET_MOD_KILL_TARGET', cardId })
   }
 
-  const setBattleLoadout = (slotIndex: 0 | 1, cardId: string | null) => {
+  const setBattleLoadout = (characterId: string, slotIndex: 0 | 1, cardId: string | null) => {
     dispatchRun({
       type: 'SET_BATTLE_LOADOUT',
-      characterId: activeCharacterId,
+      characterId,
       slotIndex,
       cardId,
     })
+  }
+
+  const transferItem = (itemId: string, fromCharacterId: string, toCharacterId: string) => {
+    dispatchRun({ type: 'TRANSFER_ITEM', itemId, fromCharacterId, toCharacterId })
+  }
+
+  const setSquadSlot = (slotIndex: number, characterId: string | null) => {
+    dispatchRun({ type: 'SET_SQUAD_SLOT', slotIndex, characterId })
   }
 
   return (
@@ -132,6 +140,8 @@ export function CampaignHub() {
             onReorderCards={reorderCards}
             onSetModKillTarget={setModKillTarget}
             onSetBattleLoadout={setBattleLoadout}
+            onTransferItem={transferItem}
+            onSetSquadSlot={setSquadSlot}
             onInvalidSlot={() => message.warning('Не подходит к этому слоту')}
           />
         ) : null}
