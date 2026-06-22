@@ -8,6 +8,7 @@ import {
   canRangedAttack,
 } from '../../game/battle/combat'
 import { getCurrentActorId } from '../../game/battle/reducer'
+import { getActorPlayerCards } from '../../game/battle/playerCards'
 import { cellKey, manhattan, wallSet } from '../../game/battle/grid'
 import {
   aoeCastTargetCells,
@@ -53,9 +54,13 @@ function cardDamage(card: BattlePlayerCard, state: BattleState): number {
   return computeCardAttackDamage(tmpl, card.global_level + state.gearCardLevelBonus)
 }
 
+function actorCards(state: BattleState, hero: Unit): readonly BattlePlayerCard[] {
+  return getActorPlayerCards(state, hero.id)
+}
+
 function maxAvailableDamage(hero: Unit, enemy: Unit, state: BattleState): number {
   let best = 0
-  for (const c of state.playerCards) {
+  for (const c of actorCards(state, hero)) {
     if (!cardReady(c)) continue
     const tmpl = getCardAttackTemplate(c.templateId)
     if (!tmpl) continue
@@ -97,7 +102,7 @@ function pickTarget(hero: Unit, enemies: Unit[], state: BattleState): Unit {
 function pickBestCard(hero: Unit, target: Unit, state: BattleState): BattlePlayerCard | null {
   let best: BattlePlayerCard | null = null
   let bestDmg = -1
-  for (const c of state.playerCards) {
+  for (const c of actorCards(state, hero)) {
     if (!cardReady(c)) continue
     const tmpl = getCardAttackTemplate(c.templateId)
     if (!tmpl || tmpl.kind === 'heal' || !cardInRange(hero, target, tmpl, state)) continue
@@ -142,7 +147,7 @@ function pickBestAoEAction(
 ): { cardId: string; targetX: number; targetY: number } | null {
   let best: { cardId: string; targetX: number; targetY: number; score: number } | null = null
 
-  for (const c of state.playerCards) {
+  for (const c of actorCards(state, hero)) {
     if (!cardReady(c)) continue
     const tmpl = getCardAttackTemplate(c.templateId)
     if (!tmpl || tmpl.kind !== 'aoe' || tmpl.aoeSize === undefined) continue
@@ -185,7 +190,7 @@ function pickHealSelf(hero: Unit, state: BattleState): { cardId: string; targetI
   if (hero.hp >= hero.maxHp * 0.5) return null
   if (hero.hp >= hero.maxHp) return null
   const walls = wallsOf(state)
-  for (const c of state.playerCards) {
+  for (const c of actorCards(state, hero)) {
     if (!cardReady(c)) continue
     const tmpl = getCardAttackTemplate(c.templateId)
     if (!tmpl || tmpl.kind !== 'heal') continue
@@ -216,7 +221,8 @@ export function pickHeroAiAction(state: BattleState): HeroAiDecision {
     return { kind: 'card', cardId: card.id, targetId: target.id }
   }
 
-  const aoeCards = state.playerCards.filter((c) => {
+  const cards = actorCards(state, hero)
+  const aoeCards = cards.filter((c) => {
     if (!cardReady(c)) return false
     const t = getCardAttackTemplate(c.templateId)
     return t?.kind === 'aoe'
@@ -230,13 +236,9 @@ export function pickHeroAiAction(state: BattleState): HeroAiDecision {
     )
     const aoe = pickBestAoEAction(hero, state)
     if (aoe) {
-      const tmpl = getCardAttackTemplate(
-        state.playerCards.find((c) => c.id === aoe.cardId)!.templateId,
-      )
-      const aoeDmg = cardDamage(
-        state.playerCards.find((c) => c.id === aoe.cardId)!,
-        state,
-      )
+      const aoeCard = cards.find((c) => c.id === aoe.cardId)!
+      const tmpl = getCardAttackTemplate(aoeCard.templateId)
+      const aoeDmg = cardDamage(aoeCard, state)
       const aoeScore = scoreAoECell(
         hero,
         aoe.targetX,

@@ -48,7 +48,7 @@ function battle(overrides: Partial<BattleState> = {}): BattleState {
     roundNumber: 1,
     phase: 'ongoing',
     worldPower: 0,
-    playerCards: [],
+    playerCardsByUnitId: {},
     modKillTargetCardId: null,
     battleLog: [],
     gearCardLevelBonus: 0,
@@ -61,7 +61,7 @@ describe('battle outcomes (kills & defeat)', () => {
     const card = defaultCard('c1')
     const s = battle({
       worldPower: 2,
-      playerCards: [card],
+      playerCardsByUnitId: { [HERO_ID]: [card] },
       modKillTargetCardId: 'c1',
     })
     const end = applyAction(s, {
@@ -77,7 +77,7 @@ describe('battle outcomes (kills & defeat)', () => {
   it('enemy death grants mod progression on target card', () => {
     const card = defaultCard('c1')
     const s = battle({
-      playerCards: [card],
+      playerCardsByUnitId: { [HERO_ID]: [card] },
       modKillTargetCardId: 'c1',
     })
     const end = applyAction(s, {
@@ -87,7 +87,7 @@ describe('battle outcomes (kills & defeat)', () => {
       damage: 2,
       kind: 'melee',
     })
-    expect(end.playerCards[0]?.modifications[0]?.level).toBe(1)
+    expect(end.playerCardsByUnitId[HERO_ID]![0]?.modifications[0]?.level).toBe(1)
   })
 
   it('hero defeat does not change worldPower', () => {

@@ -16,18 +16,18 @@ function card(partial: Partial<BattlePlayerCard> & Pick<BattlePlayerCard, 'id'>)
   }
 }
 
-function baseState(playerCards: BattlePlayerCard[]): BattleState {
+function baseState(unitId: string, playerCards: BattlePlayerCard[]): BattleState {
   return {
     width: 4,
     height: 4,
     walls: [],
     units: [],
-    turnOrder: [HERO_ID],
+    turnOrder: [unitId],
     currentTurnIndex: 0,
     roundNumber: 1,
     phase: 'ongoing',
     worldPower: 0,
-    playerCards,
+    playerCardsByUnitId: { [unitId]: playerCards },
     modKillTargetCardId: null,
     battleLog: [],
     gearCardLevelBonus: 0,
@@ -35,16 +35,16 @@ function baseState(playerCards: BattlePlayerCard[]): BattleState {
 }
 
 describe('tickHeroCardCooldowns', () => {
-  it('decrements all positive cooldowns', () => {
-    const state = baseState([card({ id: 'c1', cooldownRemaining: 3 })])
-    const next = tickHeroCardCooldowns(state)
-    expect(next.playerCards[0]!.cooldownRemaining).toBe(2)
+  it('decrements all positive cooldowns for the given actor', () => {
+    const state = baseState(HERO_ID, [card({ id: 'c1', cooldownRemaining: 3 })])
+    const next = tickHeroCardCooldowns(state, HERO_ID)
+    expect(next.playerCardsByUnitId[HERO_ID]![0]!.cooldownRemaining).toBe(2)
   })
 
   it('skips tick when skipHeroCooldownTick is set', () => {
-    const state = { ...baseState([card({ id: 'c1', cooldownRemaining: 3 })]), skipHeroCooldownTick: true }
-    const next = tickHeroCardCooldowns(state)
-    expect(next.playerCards[0]!.cooldownRemaining).toBe(3)
+    const state = { ...baseState(HERO_ID, [card({ id: 'c1', cooldownRemaining: 3 })]), skipHeroCooldownTick: true }
+    const next = tickHeroCardCooldowns(state, HERO_ID)
+    expect(next.playerCardsByUnitId[HERO_ID]![0]!.cooldownRemaining).toBe(3)
     expect(next.skipHeroCooldownTick).toBeUndefined()
   })
 })

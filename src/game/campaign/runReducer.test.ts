@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { codexEntryId } from '../codex/discovery'
 import type {
   BattleAttemptSnapshot,
+  BattlePlayerCard,
   BattleState,
   CampaignState,
   PartyMemberBattleSnapshot,
@@ -41,7 +42,24 @@ function unit(p: Unit): Unit {
   return p
 }
 
-function makeBattle(overrides: Partial<BattleState> = {}): BattleState {
+function heroBattleCards(b: BattleState): readonly BattlePlayerCard[] {
+  return b.playerCardsByUnitId[HERO_ID] ?? []
+}
+
+function makeBattle(
+  overrides: Partial<BattleState> & { playerCards?: BattlePlayerCard[] } = {},
+): BattleState {
+  const { playerCards, ...rest } = overrides
+  const defaultCards: BattlePlayerCard[] = [
+    {
+      id: 'c1',
+      templateId: 'strike',
+      global_level: 50,
+      uses_count: 0,
+      modifications: [],
+      cooldownRemaining: 0,
+    },
+  ]
   const base: BattleState = {
     width: 5,
     height: 5,
@@ -71,21 +89,14 @@ function makeBattle(overrides: Partial<BattleState> = {}): BattleState {
     roundNumber: 1,
     phase: 'ongoing',
     worldPower: 0,
-    playerCards: [
-      {
-        id: 'c1',
-        templateId: 'strike',
-        global_level: 50,
-        uses_count: 0,
-        modifications: [],
-        cooldownRemaining: 0,
-      },
-    ],
+    playerCardsByUnitId: {
+      [HERO_ID]: playerCards ?? defaultCards,
+    },
     modKillTargetCardId: 'c1',
     battleLog: [],
     gearCardLevelBonus: 0,
   }
-  return { ...base, ...overrides, units: overrides.units ?? base.units }
+  return { ...base, ...rest, units: rest.units ?? base.units }
 }
 
 function partyMemberFromHero(
@@ -131,7 +142,7 @@ function campaignWithBattle(b: BattleState): CampaignState {
       worldPower: b.worldPower,
       party: [
         partyMemberFromHero(h, {
-          cards: cloneCards(b.playerCards),
+          cards: cloneCards(heroBattleCards(b)),
           battleLoadout: ['c1', 'c2'],
         }),
       ],
@@ -355,7 +366,7 @@ describe('USE_CARD_ATTACK', () => {
       targetId: 'e1',
       randomInt1to100: 48,
     })
-    const card = s.battle!.playerCards.find((c) => c.id === 'c1')!
+    const card = heroBattleCards(s.battle!).find((c) => c.id === 'c1')!
     expect(card.uses_count).toBe(1)
     expect(card.global_level).toBe(50)
     expect(s.battle!.units.find((u) => u.id === 'e1')!.hp).toBe(440)
@@ -391,21 +402,21 @@ describe('USE_CARD_ATTACK', () => {
       targetId: 'e1',
       randomInt1to100: 50,
     })
-    expect(s.battle!.playerCards.find((c) => c.id === 'c1')!.uses_count).toBe(0)
+    expect(heroBattleCards(s.battle!).find((c) => c.id === 'c1')!.uses_count).toBe(0)
     expect(s.battle!.units.find((u) => u.id === 'e1')!.hp).toBe(50)
   })
 
   it('no-op when not hero turn', () => {
     const b = makeBattle({ currentTurnIndex: 1 })
     let s = campaignWithBattle(b)
-    const before = s.battle!.playerCards[0]!.uses_count
+    const before = heroBattleCards(s.battle!)[0]!.uses_count
     s = applyRunAction(s, {
       type: 'USE_CARD_ATTACK',
       cardId: 'c1',
       targetId: 'e1',
       randomInt1to100: 50,
     })
-    expect(s.battle!.playerCards[0]!.uses_count).toBe(before)
+    expect(heroBattleCards(s.battle!)[0]!.uses_count).toBe(before)
   })
 
   it('applies gearCardLevelBonus to card damage', () => {
@@ -441,7 +452,7 @@ describe('USE_CARD_ATTACK', () => {
       targetId: 'e1',
       randomInt1to100: roll,
     })
-    expect(s.battle!.playerCards[0]!.global_level).toBe(2)
+    expect(heroBattleCards(s.battle!)[0]!.global_level).toBe(2)
     const up = s.battle!.battleLog.find((e) => e.type === 'card_level_up')
     expect(up).toMatchObject({
       type: 'card_level_up',
@@ -510,7 +521,7 @@ describe('USE_CARD_AOE', () => {
       targetY: 2,
       randomInt1to100: 50,
     })
-    expect(s.battle!.playerCards.find((c) => c.id === 'c2')!.uses_count).toBe(1)
+    expect(heroBattleCards(s.battle!).find((c) => c.id === 'c2')!.uses_count).toBe(1)
     expect(s.battle!.units.find((u) => u.id === 'e1')!.hp).toBeLessThan(500)
   })
 
@@ -548,7 +559,7 @@ describe('USE_CARD_AOE', () => {
       ],
     })
     let s = campaignWithBattle(b)
-    const before = s.battle!.playerCards.find((c) => c.id === 'c2')!.uses_count
+    const before = heroBattleCards(s.battle!).find((c) => c.id === 'c2')!.uses_count
     s = applyRunAction(s, {
       type: 'USE_CARD_AOE',
       cardId: 'c2',
@@ -556,7 +567,7 @@ describe('USE_CARD_AOE', () => {
       targetY: 4,
       randomInt1to100: 50,
     })
-    expect(s.battle!.playerCards.find((c) => c.id === 'c2')!.uses_count).toBe(before)
+    expect(heroBattleCards(s.battle!).find((c) => c.id === 'c2')!.uses_count).toBe(before)
   })
 })
 

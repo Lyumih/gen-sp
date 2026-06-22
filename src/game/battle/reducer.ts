@@ -1,5 +1,6 @@
-import type { BattleAction, BattleLogEntry, BattleState, Unit } from '../types'
+import { updatePlayerCardById } from './playerCards'
 import { applyModKillReward } from '../memento/modifications'
+import type { BattleAction, BattleLogEntry, BattleState, Unit } from '../types'
 import { canMeleeAttack, canRangedAttack, withDamage, withHeal } from './combat'
 import { cellKey, manhattan, wallSet } from './grid'
 import { advanceTurn } from './initiative'
@@ -49,24 +50,24 @@ function actorIdAtPointer(state: BattleState, ptr: number): string | undefined {
 
 function applyEnemyKillRewards(state: BattleState, killedEnemy: Unit): BattleState {
   let worldPower = state.worldPower
-  let playerCards = state.playerCards
+  let next = state
 
   if (killedEnemy.side === 'enemy') {
     worldPower += WORLD_POWER_PER_ENEMY_KILL
     const targetId = state.modKillTargetCardId
     if (targetId !== null) {
-      playerCards = playerCards.map((c) =>
-        c.id === targetId
-          ? {
-              ...applyModKillReward(c, MOD_POINTS_PER_ENEMY_KILL),
-              cooldownRemaining: c.cooldownRemaining,
-            }
-          : c,
-      )
+      const cards = Object.values(state.playerCardsByUnitId).flat()
+      const targetCard = cards.find((c) => c.id === targetId)
+      if (targetCard) {
+        next = updatePlayerCardById(next, targetId, {
+          ...applyModKillReward(targetCard, MOD_POINTS_PER_ENEMY_KILL),
+          cooldownRemaining: targetCard.cooldownRemaining,
+        })
+      }
     }
   }
 
-  return { ...state, worldPower, playerCards }
+  return { ...next, worldPower }
 }
 
 /**

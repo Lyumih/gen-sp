@@ -40,7 +40,7 @@ function battle(overrides: Partial<BattleState> = {}): BattleState {
     roundNumber: 1,
     phase: 'ongoing',
     worldPower: 0,
-    playerCards: [],
+    playerCardsByUnitId: {},
     modKillTargetCardId: null,
     battleLog: [],
     gearCardLevelBonus: 0,

@@ -1,17 +1,26 @@
 import type { BattlePlayerCard, BattleState } from '../types'
+import { getCurrentActorId } from './reducer'
+import { updateActorPlayerCards } from './playerCards'
 
-export function tickHeroCardCooldowns(state: BattleState): BattleState {
+export function tickHeroCardCooldowns(
+  state: BattleState,
+  actorId?: string,
+): BattleState {
   if (state.skipHeroCooldownTick) {
     const { skipHeroCooldownTick: _, ...rest } = state
     return rest
   }
   if (state.phase !== 'ongoing') return state
-  const playerCards = state.playerCards.map((c) =>
+  const id = actorId ?? getCurrentActorId(state)
+  if (!id) return state
+  const cards = state.playerCardsByUnitId[id]
+  if (!cards) return state
+  const nextCards = cards.map((c) =>
     c.cooldownRemaining > 0
       ? { ...c, cooldownRemaining: c.cooldownRemaining - 1 }
       : c,
   ) satisfies readonly BattlePlayerCard[]
-  return { ...state, playerCards }
+  return updateActorPlayerCards(state, id, nextCards)
 }
 
 export function heroTurnAdvanced(prev: BattleState, next: BattleState): boolean {

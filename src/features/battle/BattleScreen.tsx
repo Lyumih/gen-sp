@@ -27,6 +27,7 @@ import type { Unit } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
 import { formatBattleLogEntry } from '../../game/battle/battleLog'
 import { getCurrentActorId } from '../../game/battle/reducer'
+import { getActorPlayerCards } from '../../game/battle/playerCards'
 import { cellKey, wallSet } from '../../game/battle/grid'
 import {
   aggregateEnemyThreatCells,
@@ -108,7 +109,8 @@ export function BattleScreen() {
 
   const currentId = battle ? getCurrentActorId(battle) : undefined
   const current = battle?.units.find((u) => u.id === currentId)
-  const hero = battle?.units.find((u) => u.side === 'player')
+  const actor = current?.side === 'player' && current.hp > 0 ? current : undefined
+  const actorCards = battle && actor ? getActorPlayerCards(battle, actor.id) : []
 
   useEffect(() => {
     if (!battle || battle.phase !== 'ongoing') return
@@ -167,35 +169,35 @@ export function BattleScreen() {
   }, [battle?.battleLog.length])
 
   useEffect(() => {
-    if (!battle || battle.playerCards.length === 0) {
+    if (!battle || actorCards.length === 0) {
       setSelectedCardId(null)
       return
     }
     setSelectedCardId((prev) => {
-      if (prev !== null && battle.playerCards.some((c) => c.id === prev)) return prev
-      return battle.playerCards[0]!.id
+      if (prev !== null && actorCards.some((c) => c.id === prev)) return prev
+      return actorCards[0]!.id
     })
-  }, [battle?.playerCards])
+  }, [battle, actorCards])
 
   useEffect(() => {
     setPendingAoeCell(null)
-  }, [mode, selectedCardId])
+  }, [mode, selectedCardId, currentId])
 
   const overlayActive = Boolean(
     battle &&
       battle.phase === 'ongoing' &&
       !autoBattleEnabled &&
-      hero &&
-      currentId === hero.id,
+      actor &&
+      currentId === actor.id,
   )
 
-  const selectedCard = battle?.playerCards.find((c) => c.id === selectedCardId)
+  const selectedCard = actorCards.find((c) => c.id === selectedCardId)
   const selectedCardTemplate = selectedCard
     ? getCardAttackTemplate(selectedCard.templateId)
     : undefined
 
   const overlaySets = useMemo(() => {
-    if (!battle || !hero || !overlayActive) {
+    if (!battle || !actor || !overlayActive) {
       return {
         threatBase: new Set<string>(),
         threatFocus: new Set<string>(),
@@ -215,48 +217,48 @@ export function BattleScreen() {
     let validTargetCells = new Set<string>()
 
     if (mode === 'move') {
-      moveCells = reachableMoveCells(battle, hero.id)
+      moveCells = reachableMoveCells(battle, actor.id)
     } else if (mode === 'melee') {
       actionRangeCells = cellsInManhattanRange(
-        hero.x,
-        hero.y,
+        actor.x,
+        actor.y,
         1,
         1,
         battle.width,
         battle.height,
       )
-      validTargetCells = validSingleTargetCells(battle, hero.x, hero.y, 'melee', 1)
+      validTargetCells = validSingleTargetCells(battle, actor.x, actor.y, 'melee', 1)
     } else if (mode === 'ranged') {
-      actionRangeCells = attackRangeCells(battle, hero.x, hero.y, HERO_BASIC_RANGED_MAX_RANGE)
+      actionRangeCells = attackRangeCells(battle, actor.x, actor.y, HERO_BASIC_RANGED_MAX_RANGE)
       validTargetCells = validSingleTargetCells(
         battle,
-        hero.x,
-        hero.y,
+        actor.x,
+        actor.y,
         'ranged',
         HERO_BASIC_RANGED_MAX_RANGE,
       )
     } else if (mode === 'card' && selectedCardTemplate) {
       if (selectedCardTemplate.kind === 'aoe') {
-        actionRangeCells = castRangeCells(battle, hero.x, hero.y, selectedCardTemplate.maxRange)
+        actionRangeCells = castRangeCells(battle, actor.x, actor.y, selectedCardTemplate.maxRange)
       } else if (selectedCardTemplate.kind === 'heal') {
-        actionRangeCells = castRangeCells(battle, hero.x, hero.y, selectedCardTemplate.maxRange)
-        validTargetCells = validHealTargetCells(battle, hero, selectedCardTemplate.maxRange)
+        actionRangeCells = castRangeCells(battle, actor.x, actor.y, selectedCardTemplate.maxRange)
+        validTargetCells = validHealTargetCells(battle, actor, selectedCardTemplate.maxRange)
       } else if (selectedCardTemplate.kind === 'melee') {
         actionRangeCells = cellsInManhattanRange(
-          hero.x,
-          hero.y,
+          actor.x,
+          actor.y,
           1,
           1,
           battle.width,
           battle.height,
         )
-        validTargetCells = validSingleTargetCells(battle, hero.x, hero.y, 'melee', 1)
+        validTargetCells = validSingleTargetCells(battle, actor.x, actor.y, 'melee', 1)
       } else {
-        actionRangeCells = attackRangeCells(battle, hero.x, hero.y, selectedCardTemplate.maxRange)
+        actionRangeCells = attackRangeCells(battle, actor.x, actor.y, selectedCardTemplate.maxRange)
         validTargetCells = validSingleTargetCells(
           battle,
-          hero.x,
-          hero.y,
+          actor.x,
+          actor.y,
           'ranged',
           selectedCardTemplate.maxRange,
         )
@@ -275,7 +277,7 @@ export function BattleScreen() {
       selectedCardTemplate.aoeSize !== undefined &&
       previewCenter !== null &&
       canCastAoEAt(
-        hero,
+        actor,
         previewCenter.x,
         previewCenter.y,
         selectedCardTemplate.maxRange,
@@ -301,7 +303,7 @@ export function BattleScreen() {
     }
   }, [
     battle,
-    hero,
+    actor,
     overlayActive,
     mode,
     hoveredEnemyId,
@@ -334,7 +336,7 @@ export function BattleScreen() {
   })
 
   const actionsDisabled =
-    battle.phase !== 'ongoing' || currentId !== hero?.id || autoBattleEnabled
+    battle.phase !== 'ongoing' || !actor || currentId !== actor.id || autoBattleEnabled
   const basicMode: ActionMode | undefined =
     mode === 'move' || mode === 'melee' || mode === 'ranged' ? mode : undefined
 
@@ -370,7 +372,7 @@ export function BattleScreen() {
   const onCellClick = (x: number, y: number) => {
     if (battle.phase !== 'ongoing') return
     if (autoBattleEnabled) return
-    if (!hero || currentId !== hero.id) {
+    if (!actor || currentId !== actor.id) {
       message.info('Сейчас ход противника')
       return
     }
@@ -384,11 +386,11 @@ export function BattleScreen() {
         message.warning('Недоступная клетка')
         return
       }
-      dispatchBattle({ type: 'move', unitId: hero.id, toX: x, toY: y })
+      dispatchBattle({ type: 'move', unitId: actor.id, toX: x, toY: y })
       return
     }
     if (mode === 'card') {
-      const card = battle.playerCards.find((c) => c.id === selectedCardId)
+      const card = actorCards.find((c) => c.id === selectedCardId)
       if (!card) {
         message.warning('Нет карт в бою')
         return
@@ -397,7 +399,7 @@ export function BattleScreen() {
       if (!tmpl) return
       if (tmpl.kind === 'aoe') {
         const walls = wallSet(battle.walls)
-        if (!canCastAoEAt(hero, x, y, tmpl.maxRange, walls)) {
+        if (!canCastAoEAt(actor, x, y, tmpl.maxRange, walls)) {
           message.warning('Вне дальности или нет прямой видимости')
           return
         }
@@ -465,7 +467,7 @@ export function BattleScreen() {
       }
       dispatchBattle({
         type: 'attack',
-        attackerId: hero.id,
+        attackerId: actor.id,
         targetId: target.id,
         damage: HERO_BASIC_MELEE_DAMAGE,
         kind: 'melee',
@@ -478,7 +480,7 @@ export function BattleScreen() {
     }
     dispatchBattle({
       type: 'attack',
-      attackerId: hero.id,
+      attackerId: actor.id,
       targetId: target.id,
       damage: HERO_BASIC_RANGED_DAMAGE,
       kind: 'ranged',
@@ -751,9 +753,9 @@ export function BattleScreen() {
                     setMode('card')
                     setSelectedCardId(e.target.value)
                   }}
-                  disabled={actionsDisabled || battle.playerCards.length === 0}
+                  disabled={actionsDisabled || actorCards.length === 0}
                 >
-                  {battle.playerCards.map((c) => {
+                  {actorCards.map((c) => {
                     const tmpl = getCardAttackTemplate(c.templateId)
                     const level = c.global_level + battle.gearCardLevelBonus
                     const effect =
@@ -784,7 +786,7 @@ export function BattleScreen() {
                     )
                   })}
                 </Radio.Group>
-                {battle.playerCards.map((c) => {
+                {actorCards.map((c) => {
                   const tmpl = getCardAttackTemplate(c.templateId)
                   const dmg =
                     tmpl !== undefined
@@ -814,12 +816,12 @@ export function BattleScreen() {
             </span>{' '}
             Карты
           </Typography.Text>
-          {battle.playerCards.length === 0 ? (
+          {actorCards.length === 0 ? (
             <Typography.Text type="secondary">—</Typography.Text>
           ) : (
             <Collapse
               size="small"
-              items={battle.playerCards.map((c) => {
+              items={actorCards.map((c) => {
                 const desc = describeCardCombatStats(c, battle.gearCardLevelBonus)
                 const tmpl = getCardAttackTemplate(c.templateId)
                 const dmg =

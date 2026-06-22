@@ -45,14 +45,13 @@ import {
   copyBattleAttemptSnapshot,
   getExpeditionBattleCharacterId,
 } from './battleSnapshot'
-import { mergeBattleCardsIntoCollection } from './mergeBattleCards'
+import { mergeBattleCardsToParty, updateActorPlayerCards } from '../battle/playerCards'
 import { goldForScenarioVictory } from './scenarioRewards'
 import { getScenarioById, getScenarioIndexById, SCENARIOS, battleStateFromScenario } from './scenarios'
 import {
   getCharacter,
   getPrimaryCharacter,
   updateCharacter,
-  updatePrimaryCharacter,
 } from '../character/selectors'
 import { DEFAULT_SQUAD_SLOTS, LEGACY_HERO_CHARACTER_ID } from '../character/constants'
 import { assertHubActionAllowed } from '../expedition/freeze'
@@ -187,14 +186,10 @@ function applyInterBattleCampRevive(expedition: Expedition): Expedition {
 }
 
 function mergeExpeditionBattleProgress(state: CampaignState, battle: BattleState): CampaignState {
-  const expedition = state.expedition
-  if (!expedition) return state
-  const characterId = getExpeditionBattleCharacterId(expedition)
-  if (!characterId) return state
-  return updateCharacter(state, characterId, (c) => ({
-    ...c,
-    cards: mergeBattleCardsIntoCollection(c.cards, battle.playerCards),
-  }))
+  return {
+    ...state,
+    characters: mergeBattleCardsToParty(state.characters, battle),
+  }
 }
 
 function startExpeditionBattle(
@@ -326,24 +321,21 @@ function finalizeVictory(
         ? state.scenarioIndex
         : state.scenarioIndex + 1
 
-  return updatePrimaryCharacter(
-    {
-      ...state,
-      worldPower: b.worldPower,
-      scenarioIndex: nextScenarioIndex,
-      battle: null,
-      phase: 'hub',
-      battleAttemptSnapshot: null,
-      expedition: null,
-      gold: state.gold + goldGain,
-    },
-    (c) => ({
-      ...c,
-      unitLevel,
-      items,
-      cards: mergeBattleCardsIntoCollection(c.cards, b.playerCards),
-    }),
-  )
+  const mergedCharacters = mergeBattleCardsToParty(state.characters, b)
+
+  return {
+    ...state,
+    worldPower: b.worldPower,
+    scenarioIndex: nextScenarioIndex,
+    battle: null,
+    phase: 'hub',
+    battleAttemptSnapshot: null,
+    expedition: null,
+    gold: state.gold + goldGain,
+    characters: mergedCharacters.map((c) =>
+      c.id === hero.id ? { ...c, unitLevel, items } : c,
+    ),
+  }
 }
 
 function applyBattleOutcome(
@@ -353,7 +345,8 @@ function applyBattleOutcome(
 ): CampaignState {
   let battle = nextBattle
   if (heroTurnAdvanced(prevBattle, nextBattle)) {
-    battle = tickHeroCardCooldowns(battle)
+    const prevActorId = prevBattle.turnOrder[prevBattle.currentTurnIndex]
+    battle = tickHeroCardCooldowns(battle, prevActorId)
   }
   const nextState = withCodexDiscoveries(state, [
     ...mergeBattleCodexDiscoveries(prevBattle, battle, state.codexDiscovered),
@@ -418,7 +411,8 @@ function tryUseCardAttack(
   )
   if (!actor || !target) return state
 
-  const card = b.playerCards.find((c) => c.id === action.cardId)
+  const actorCards = b.playerCardsByUnitId[actorId!] ?? []
+  const card = actorCards.find((c) => c.id === action.cardId)
   if (!card) return state
   if ((card.cooldownRemaining ?? 0) > 0) return state
 
@@ -444,8 +438,11 @@ function tryUseCardAttack(
   }
   const levelForDamage = card.global_level + b.gearCardLevelBonus
   const damage = computeCardAttackDamage(tmpl, levelForDamage)
-  const playerCards = b.playerCards.map((c) => (c.id === card.id ? nextCard : c))
-  const bWithCards = { ...b, playerCards }
+  const bWithCards = updateActorPlayerCards(
+    b,
+    actorId!,
+    actorCards.map((c) => (c.id === card.id ? nextCard : c)),
+  )
 
   const fromCard = { cardId: card.id, templateId: card.templateId }
   const battleAction: BattleAction =
@@ -488,7 +485,8 @@ function tryUseCardAoE(
   const actor = b.units.find((u) => u.id === actorId && u.side === 'player' && u.hp > 0)
   if (!actor) return state
 
-  const card = b.playerCards.find((c) => c.id === action.cardId)
+  const actorCards = b.playerCardsByUnitId[actorId!] ?? []
+  const card = actorCards.find((c) => c.id === action.cardId)
   if (!card) return state
   if ((card.cooldownRemaining ?? 0) > 0) return state
 
@@ -513,8 +511,11 @@ function tryUseCardAoE(
   }
   const levelForDamage = card.global_level + b.gearCardLevelBonus
   const damage = computeCardAttackDamage(tmpl, levelForDamage)
-  const playerCards = b.playerCards.map((c) => (c.id === card.id ? nextCard : c))
-  const bWithCards = { ...b, playerCards }
+  const bWithCards = updateActorPlayerCards(
+    b,
+    actorId!,
+    actorCards.map((c) => (c.id === card.id ? nextCard : c)),
+  )
 
   const fromCard = { cardId: card.id, templateId: card.templateId }
   let nextBattle = applyAction(bWithCards, {
@@ -548,7 +549,8 @@ function tryUseCardHeal(
   )
   if (!actor || !target) return state
 
-  const card = b.playerCards.find((c) => c.id === action.cardId)
+  const actorCards = b.playerCardsByUnitId[actorId!] ?? []
+  const card = actorCards.find((c) => c.id === action.cardId)
   if (!card) return state
   if ((card.cooldownRemaining ?? 0) > 0) return state
 
@@ -570,8 +572,11 @@ function tryUseCardHeal(
   }
   const levelForHeal = card.global_level + b.gearCardLevelBonus
   const amount = computeCardHealAmount(tmpl, levelForHeal)
-  const playerCards = b.playerCards.map((c) => (c.id === card.id ? nextCard : c))
-  const bWithCards = { ...b, playerCards }
+  const bWithCards = updateActorPlayerCards(
+    b,
+    actorId!,
+    actorCards.map((c) => (c.id === card.id ? nextCard : c)),
+  )
   const fromCard = { cardId: card.id, templateId: card.templateId }
 
   let nextBattle = applyAction(bWithCards, {

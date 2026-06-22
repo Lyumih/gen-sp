@@ -23,7 +23,10 @@ function battleCard(card: CardInstance): BattlePlayerCard {
   return { ...card, cooldownRemaining: 0 }
 }
 
-function battle(overrides: Partial<BattleState> = {}): BattleState {
+function battle(
+  overrides: Partial<BattleState> & { playerCards?: BattlePlayerCard[] } = {},
+): BattleState {
+  const { playerCards, ...rest } = overrides
   const base: BattleState = {
     width: 4,
     height: 4,
@@ -34,17 +37,16 @@ function battle(overrides: Partial<BattleState> = {}): BattleState {
     roundNumber: 1,
     phase: 'ongoing',
     worldPower: 0,
-    playerCards: [],
+    playerCardsByUnitId: playerCards ? { [HERO_ID]: playerCards } : {},
     modKillTargetCardId: null,
     battleLog: [],
     gearCardLevelBonus: 0,
   }
   return {
     ...base,
-    ...overrides,
-    units: overrides.units ?? base.units,
-    playerCards: overrides.playerCards ?? base.playerCards,
-    battleLog: overrides.battleLog ?? base.battleLog,
+    ...rest,
+    units: rest.units ?? base.units,
+    battleLog: rest.battleLog ?? base.battleLog,
   }
 }
 

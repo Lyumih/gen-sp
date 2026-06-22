@@ -3,7 +3,7 @@ import { getItemTemplate } from '../content/itemTemplates'
 import { aggregateGearCardLevelBonus } from '../equipment/aggregates'
 import { buildRoundTurnOrder } from '../battle/initiative'
 import { computeCharacterMaxHpForScenario } from './heroMaxHp'
-import { playerCardsFromLoadout } from './playerCardsFromLoadout'
+import { playerCardsByUnitFromParty } from '../battle/playerCards'
 import type { BattleAttemptSnapshot, BattleState, PartyMemberBattleSnapshot, Unit } from '../types'
 import { cellKey } from '../battle/grid'
 
@@ -148,9 +148,7 @@ export function battleStateFromScenario(
     roundNumber: 1,
     phase: 'ongoing',
     worldPower: snapshot.worldPower,
-    playerCards: primary
-      ? playerCardsFromLoadout(primary.cards, primary.battleLoadout)
-      : [],
+    playerCardsByUnitId: playerCardsByUnitFromParty(snapshot.party),
     modKillTargetCardId: snapshot.modKillTargetCardId,
     battleLog: [],
     gearCardLevelBonus: primary

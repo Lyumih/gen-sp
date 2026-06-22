@@ -147,7 +147,7 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
       { type: 'START_OR_CONTINUE_BATTLE' },
     )
     const out = normalizeLoadedCampaign(withBattle)
-    expect(out.battle?.playerCards.map((card) => card.id)).toEqual(['c1', 'c2'])
+    expect(out.battle?.playerCardsByUnitId[hero(out).id]?.map((card) => card.id)).toEqual(['c1', 'c2'])
   })
 
   it('adds battleLoadout default when missing', () => {

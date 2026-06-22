@@ -1,3 +1,4 @@
+import { allBattlePlayerCards } from '../battle/playerCards'
 import type { BattleState, CampaignState } from '../types'
 import {
   codexEntriesByCategory,
@@ -82,8 +83,8 @@ export function mergeBattleCodexDiscoveries(
     }
   }
 
-  const prevCardsById = new Map(prev.playerCards.map((card) => [card.id, card]))
-  for (const nextCard of next.playerCards) {
+  const prevCardsById = new Map(allBattlePlayerCards(prev).map((card) => [card.id, card]))
+  for (const nextCard of allBattlePlayerCards(next)) {
     const prevCard = prevCardsById.get(nextCard.id)
     if (!prevCard) continue
     for (let i = 0; i < nextCard.modifications.length; i++) {

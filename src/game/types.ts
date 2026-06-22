@@ -126,8 +126,10 @@ export type BattleState = {
   phase: BattlePhase
   /** Сила мира кампании; в бою может расти при смерти врага (§6). */
   worldPower: number
-  /** Карты героя на поле боя — для начисления модификаций за kill (MVP). */
-  playerCards: readonly BattlePlayerCard[]
+  /** Карты игрока по id юнита (characterId) на поле боя. */
+  playerCardsByUnitId: Readonly<Record<string, readonly BattlePlayerCard[]>>
+  /** Текущий актор владеет UI карт (опционально). */
+  activePlayerCardUnitId?: string
   /** Пропустить тик CD в конце текущего хода героя (ход применения карты с CD). */
   skipHeroCooldownTick?: boolean
   /** id карточки, на которую копятся очки за убийство врага в этом бою. */

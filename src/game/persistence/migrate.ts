@@ -3,6 +3,7 @@ import type {
   BattleAttemptSnapshot,
   BattleLoadout,
   BattlePlayerCard,
+  BattleState,
   CampaignState,
   CardInstance,
   Character,
@@ -12,6 +13,7 @@ import type {
   PartyMemberBattleSnapshot,
 } from '../types'
 import { cloneCards } from '../campaign/battleSnapshot'
+import { playerCardsByUnitFromParty } from '../battle/playerCards'
 import { playerCardsFromLoadout } from '../campaign/playerCardsFromLoadout'
 import { getPrimaryCharacter } from '../campaign/selectors'
 import { STARTER_CARDS } from '../campaign/runReducer'
@@ -251,21 +253,91 @@ function withDefaultBattleLoadout(c: CampaignState): CampaignState {
   return { ...c, characters }
 }
 
-function normalizeBattlePlayerCards(c: CampaignState): CampaignState {
-  if (!c.battle) return c
-  const playerCards: BattlePlayerCard[] = c.battle.playerCards.map((card) => ({
+type LegacyBattleState = BattleState & { playerCards?: readonly BattlePlayerCard[] }
+
+function normalizeBattleCard(card: BattlePlayerCard): BattlePlayerCard {
+  return {
     ...card,
     modifications: card.modifications.map((m) => ({ ...m })),
     cooldownRemaining:
-      typeof (card as BattlePlayerCard).cooldownRemaining === 'number'
-        ? (card as BattlePlayerCard).cooldownRemaining
-        : 0,
-  }))
-  const changed =
-    playerCards.length !== c.battle.playerCards.length ||
-    playerCards.some((card, i) => card !== c.battle!.playerCards[i])
-  if (!changed) return c
-  return { ...c, battle: { ...c.battle, playerCards } }
+      typeof card.cooldownRemaining === 'number' ? card.cooldownRemaining : 0,
+  }
+}
+
+function migrateLegacyPlayerCards(battle: LegacyBattleState): BattleState {
+  const legacyCards = battle.playerCards
+  if (battle.playerCardsByUnitId && !legacyCards) {
+    let changed = false
+    const playerCardsByUnitId: Record<string, BattlePlayerCard[]> = {}
+    for (const [unitId, cards] of Object.entries(battle.playerCardsByUnitId)) {
+      const normalized = cards.map(normalizeBattleCard)
+      playerCardsByUnitId[unitId] = normalized
+      if (normalized.some((card, i) => card !== cards[i])) changed = true
+    }
+    if (!changed && battle.playerCardsByUnitId === playerCardsByUnitId) return battle
+    return { ...battle, playerCardsByUnitId }
+  }
+
+  const playerUnit =
+    battle.units.find((u) => u.side === 'player')?.id ?? LEGACY_HERO_CHARACTER_ID
+  const cardsSource = legacyCards ?? []
+  const { playerCards: _legacy, ...rest } = battle
+  return {
+    ...rest,
+    playerCardsByUnitId: {
+      [playerUnit]: cardsSource.map(normalizeBattleCard),
+    },
+  }
+}
+
+function normalizeBattlePlayerCards(c: CampaignState): CampaignState {
+  if (!c.battle) return c
+  const battle = migrateLegacyPlayerCards(c.battle as LegacyBattleState)
+  if (battle === c.battle) return c
+  return { ...c, battle }
+}
+
+function normalizeBattleFromLoadout(c: CampaignState): CampaignState {
+  if (!c.battle) return c
+  const battle = migrateLegacyPlayerCards(c.battle as LegacyBattleState)
+  const snap = c.battleAttemptSnapshot
+  if (snap?.party.length) {
+    const fromParty = playerCardsByUnitFromParty(snap.party)
+    const same =
+      Object.keys(fromParty).length === Object.keys(battle.playerCardsByUnitId).length &&
+      Object.entries(fromParty).every(([unitId, cards]) => {
+        const existing = battle.playerCardsByUnitId[unitId]
+        if (!existing || existing.length !== cards.length) return false
+        return cards.every(
+          (card, i) =>
+            card.id === existing[i]?.id &&
+            card.cooldownRemaining === (existing[i]?.cooldownRemaining ?? 0),
+        )
+      })
+    if (same) return { ...c, battle }
+    return { ...c, battle: { ...battle, playerCardsByUnitId: fromParty } }
+  }
+
+  const hero = getPrimaryCharacter(c)
+  const playerUnit =
+    battle.units.find((u) => u.side === 'player')?.id ?? hero.id
+  const playerCards = playerCardsFromLoadout(hero.cards, hero.battleLoadout)
+  const existing = battle.playerCardsByUnitId[playerUnit] ?? []
+  const same =
+    playerCards.length === existing.length &&
+    playerCards.every(
+      (card, i) =>
+        card.id === existing[i]?.id &&
+        card.cooldownRemaining === (existing[i]?.cooldownRemaining ?? 0),
+    )
+  if (same) return { ...c, battle }
+  return {
+    ...c,
+    battle: {
+      ...battle,
+      playerCardsByUnitId: { ...battle.playerCardsByUnitId, [playerUnit]: playerCards },
+    },
+  }
 }
 
 function withNormalizedBattleAttemptSnapshot(c: CampaignState): CampaignState {
@@ -299,21 +371,6 @@ function withSnapshotBattleLoadout(c: CampaignState): CampaignState {
     ...c,
     battleAttemptSnapshot: { ...snap, party },
   }
-}
-
-function normalizeBattleFromLoadout(c: CampaignState): CampaignState {
-  if (!c.battle) return c
-  const hero = getPrimaryCharacter(c)
-  const playerCards = playerCardsFromLoadout(hero.cards, hero.battleLoadout)
-  const same =
-    playerCards.length === c.battle.playerCards.length &&
-    playerCards.every(
-      (card, i) =>
-        card.id === c.battle!.playerCards[i]?.id &&
-        card.cooldownRemaining === (c.battle!.playerCards[i]?.cooldownRemaining ?? 0),
-    )
-  if (same) return c
-  return { ...c, battle: { ...c.battle, playerCards } }
 }
 
 function withMissingStarterCards(c: CampaignState): CampaignState {
@@ -374,15 +431,22 @@ function withLegacyCardModTemplateIds(c: CampaignState): CampaignState {
     return { ...char, cards }
   })
 
-  let battle = c.battle
+  let battle = c.battle ? migrateLegacyPlayerCards(c.battle as LegacyBattleState) : null
   if (c.battle) {
-    const playerCards: BattlePlayerCard[] = c.battle.playerCards.map((card) => ({
-      ...normalizeCardModifications(card),
-      cooldownRemaining: card.cooldownRemaining ?? 0,
-    }))
-    const battleCardsChanged = playerCards.some((card, i) => card !== c.battle!.playerCards[i])
+    let battleCardsChanged = battle !== c.battle
+    const playerCardsByUnitId = { ...battle!.playerCardsByUnitId }
+    for (const [unitId, cards] of Object.entries(playerCardsByUnitId)) {
+      const normalized = cards.map((card) => ({
+        ...normalizeCardModifications(card),
+        cooldownRemaining: card.cooldownRemaining ?? 0,
+      }))
+      if (normalized.some((card, i) => card !== cards[i])) {
+        playerCardsByUnitId[unitId] = normalized
+        battleCardsChanged = true
+      }
+    }
     if (battleCardsChanged) {
-      battle = { ...c.battle, playerCards }
+      battle = { ...battle!, playerCardsByUnitId }
       changed = true
     }
   }
