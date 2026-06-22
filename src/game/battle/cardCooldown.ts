@@ -17,7 +17,9 @@ export function tickHeroCardCooldowns(state: BattleState): BattleState {
 export function heroTurnAdvanced(prev: BattleState, next: BattleState): boolean {
   if (prev.phase !== 'ongoing') return false
   const prevActor = prev.turnOrder[prev.currentTurnIndex]
-  if (prevActor !== 'hero') return false
+  if (!prevActor) return false
+  const unit = prev.units.find((u) => u.id === prevActor)
+  if (!unit || unit.side !== 'player') return false
   if (next.phase !== 'ongoing') return true
   return next.currentTurnIndex !== prev.currentTurnIndex
 }

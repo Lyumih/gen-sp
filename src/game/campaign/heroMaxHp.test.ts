@@ -1,42 +1,65 @@
 import { describe, expect, it } from 'vitest'
+import { LEGACY_HERO_CHARACTER_ID } from '../character/constants'
 import { EMPTY_EQUIPMENT } from '../equipment/equipmentOrder'
-import type { BattleAttemptSnapshot } from '../types'
-import { computeHeroMaxHpForScenario } from './heroMaxHp'
+import type { BattleAttemptSnapshot, PartyMemberBattleSnapshot } from '../types'
+import { computeCharacterMaxHpForScenario } from './heroMaxHp'
 import { SCENARIOS, battleStateFromScenario } from './scenarios'
 
-function minimalSnapshot(over: Partial<BattleAttemptSnapshot> = {}): BattleAttemptSnapshot {
+const HERO_ID = LEGACY_HERO_CHARACTER_ID
+
+function member(
+  over: Partial<PartyMemberBattleSnapshot> = {},
+): PartyMemberBattleSnapshot {
   return {
-    worldPower: 0,
-    cards: [],
-    battleLoadout: ['c1', 'c2'],
-    playerUnitLevel: 1,
-    modKillTargetCardId: null,
-    scenarioSlotIndex: 0,
-    gold: 0,
+    characterId: HERO_ID,
+    unitLevel: 1,
     items: [],
     equipment: { ...EMPTY_EQUIPMENT },
+    cards: [],
+    battleLoadout: ['c1', 'c2'],
+    metaStatus: 'active',
+    spawnIndex: 0,
     ...over,
   }
 }
 
-describe('computeHeroMaxHpForScenario', () => {
-  it('matches battleStateFromScenario hero maxHp for tutorial', () => {
+function minimalSnapshot(over: Partial<BattleAttemptSnapshot> = {}): BattleAttemptSnapshot {
+  return {
+    worldPower: 0,
+    modKillTargetCardId: null,
+    scenarioSlotIndex: 0,
+    gold: 0,
+    party: [member()],
+    ...over,
+  }
+}
+
+describe('computeCharacterMaxHpForScenario', () => {
+  it('matches battleStateFromScenario player maxHp for tutorial', () => {
     const scenario = SCENARIOS[0]!
     const snap = minimalSnapshot()
     const battle = battleStateFromScenario(scenario, snap)
-    const hero = battle.units.find((u) => u.id === 'hero')
-    expect(hero).toBeDefined()
-    expect(computeHeroMaxHpForScenario(snap, scenario)).toBe(hero!.maxHp)
+    const player = battle.units.find((u) => u.id === HERO_ID)
+    expect(player).toBeDefined()
+    expect(computeCharacterMaxHpForScenario(snap.party[0]!, scenario, snap.worldPower)).toBe(
+      player!.maxHp,
+    )
   })
 
-  it('matches battle hero maxHp with gear HP bonus', () => {
+  it('matches battle player maxHp with gear HP bonus', () => {
     const scenario = SCENARIOS[0]!
     const snap = minimalSnapshot({
-      items: [{ id: 'i1', templateId: 'leather_armor', itemLevel: 2 }],
-      equipment: { weapon: null, armor: 'i1', accessory: null },
+      party: [
+        member({
+          items: [{ id: 'i1', templateId: 'leather_armor', itemLevel: 2 }],
+          equipment: { weapon: null, armor: 'i1', accessory: null },
+        }),
+      ],
     })
     const battle = battleStateFromScenario(scenario, snap)
-    const hero = battle.units.find((u) => u.id === 'hero')
-    expect(computeHeroMaxHpForScenario(snap, scenario)).toBe(hero!.maxHp)
+    const player = battle.units.find((u) => u.id === HERO_ID)
+    expect(
+      computeCharacterMaxHpForScenario(snap.party[0]!, scenario, snap.worldPower),
+    ).toBe(player!.maxHp)
   })
 })

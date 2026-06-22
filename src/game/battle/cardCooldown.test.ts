@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { LEGACY_HERO_CHARACTER_ID } from '../character/constants'
 import type { BattlePlayerCard, BattleState } from '../types'
 import { tickHeroCardCooldowns } from './cardCooldown'
+
+const HERO_ID = LEGACY_HERO_CHARACTER_ID
 
 function card(partial: Partial<BattlePlayerCard> & Pick<BattlePlayerCard, 'id'>): BattlePlayerCard {
   return {
@@ -19,7 +22,7 @@ function baseState(playerCards: BattlePlayerCard[]): BattleState {
     height: 4,
     walls: [],
     units: [],
-    turnOrder: ['hero'],
+    turnOrder: [HERO_ID],
     currentTurnIndex: 0,
     phase: 'ongoing',
     worldPower: 0,

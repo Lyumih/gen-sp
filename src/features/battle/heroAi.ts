@@ -198,9 +198,12 @@ function pickHealSelf(hero: Unit, state: BattleState): { cardId: string; targetI
 
 export function pickHeroAiAction(state: BattleState): HeroAiDecision {
   if (state.phase !== 'ongoing') return null
-  if (getCurrentActorId(state) !== 'hero') return null
+  const actorId = getCurrentActorId(state)
+  if (!actorId) return null
 
-  const hero = state.units.find((u) => u.id === 'hero' && u.hp > 0)
+  const hero = state.units.find(
+    (u) => u.id === actorId && u.side === 'player' && u.hp > 0,
+  )
   if (!hero) return null
 
   const enemies = aliveEnemies(state)

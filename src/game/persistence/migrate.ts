@@ -9,6 +9,7 @@ import type {
   EquipmentSlot,
   ItemInstance,
   ModificationInstance,
+  PartyMemberBattleSnapshot,
 } from '../types'
 import { cloneCards } from '../campaign/battleSnapshot'
 import { playerCardsFromLoadout } from '../campaign/playerCardsFromLoadout'
@@ -103,17 +104,99 @@ function normalizeCharacter(char: Character): Character {
   }
 }
 
+function normalizePartyMember(member: PartyMemberBattleSnapshot): PartyMemberBattleSnapshot {
+  const items = (Array.isArray(member.items) ? member.items : [])
+    .filter(isItemInstance)
+    .map((i) => ({ ...i }))
+  const equipment = normalizeEquipmentRecord(member.equipment, items)
+  const cards = Array.isArray(member.cards)
+    ? member.cards.map((c) => ({
+        ...c,
+        modifications: c.modifications.map((m) => ({ ...m })),
+      }))
+    : []
+  const battleLoadout = normalizeBattleLoadout(member.battleLoadout, [
+    cards[0]?.id ?? null,
+    cards[1]?.id ?? null,
+  ])
+  const unitLevel =
+    typeof member.unitLevel === 'number' && Number.isFinite(member.unitLevel) ? member.unitLevel : 1
+  return {
+    characterId: member.characterId,
+    unitLevel,
+    items,
+    equipment,
+    cards,
+    battleLoadout,
+    metaStatus: member.metaStatus === 'downed' ? 'downed' : 'active',
+    spawnIndex: typeof member.spawnIndex === 'number' ? member.spawnIndex : 0,
+  }
+}
+
+function normalizeBattleAttemptSnapshot(
+  snap: BattleAttemptSnapshot | Record<string, unknown>,
+  characterId: string = LEGACY_HERO_CHARACTER_ID,
+): BattleAttemptSnapshot {
+  const raw = snap as Record<string, unknown>
+  if (Array.isArray(raw.party) && raw.party.length > 0) {
+    const sg = typeof raw.gold === 'number' && Number.isFinite(raw.gold) ? raw.gold : 0
+    return {
+      worldPower: typeof raw.worldPower === 'number' ? raw.worldPower : 0,
+      modKillTargetCardId:
+        typeof raw.modKillTargetCardId === 'string' ? raw.modKillTargetCardId : null,
+      scenarioSlotIndex: typeof raw.scenarioSlotIndex === 'number' ? raw.scenarioSlotIndex : 0,
+      gold: sg,
+      party: (raw.party as PartyMemberBattleSnapshot[]).map(normalizePartyMember),
+    }
+  }
+
+  const items = (Array.isArray(raw.items) ? raw.items : [])
+    .filter(isItemInstance)
+    .map((i) => ({ ...i }))
+  const equipment = normalizeEquipmentRecord(raw.equipment, items)
+  const cards = Array.isArray(raw.cards)
+    ? (raw.cards as CardInstance[]).map((c) => ({
+        ...c,
+        modifications: c.modifications.map((m) => ({ ...m })),
+      }))
+    : []
+  const battleLoadout = normalizeBattleLoadout(raw.battleLoadout, [
+    cards[0]?.id ?? null,
+    cards[1]?.id ?? null,
+  ])
+  const unitLevel =
+    typeof raw.playerUnitLevel === 'number' && Number.isFinite(raw.playerUnitLevel)
+      ? raw.playerUnitLevel
+      : 1
+
+  return {
+    worldPower: typeof raw.worldPower === 'number' ? raw.worldPower : 0,
+    modKillTargetCardId:
+      typeof raw.modKillTargetCardId === 'string' ? raw.modKillTargetCardId : null,
+    scenarioSlotIndex: typeof raw.scenarioSlotIndex === 'number' ? raw.scenarioSlotIndex : 0,
+    gold: typeof raw.gold === 'number' && Number.isFinite(raw.gold) ? raw.gold : 0,
+    party: [
+      normalizePartyMember({
+        characterId,
+        unitLevel,
+        items,
+        equipment,
+        cards,
+        battleLoadout,
+        metaStatus: 'active',
+        spawnIndex: 0,
+      }),
+    ],
+  }
+}
+
 function normalizeCampaignEconomy(c: CampaignState): CampaignState {
   const gold = typeof c.gold === 'number' && Number.isFinite(c.gold) ? c.gold : 0
   const characters = c.characters.map(normalizeCharacter)
 
   let snap: BattleAttemptSnapshot | null = c.battleAttemptSnapshot
   if (snap) {
-    const sg = typeof snap.gold === 'number' && Number.isFinite(snap.gold) ? snap.gold : 0
-    const sraw = Array.isArray(snap.items) ? snap.items : []
-    const si = sraw.filter(isItemInstance).map((i) => ({ ...i }))
-    const se = normalizeEquipmentRecord(snap.equipment, si)
-    snap = { ...snap, gold: sg, items: si, equipment: se }
+    snap = normalizeBattleAttemptSnapshot(snap as BattleAttemptSnapshot | Record<string, unknown>)
   }
 
   const battle =
@@ -181,21 +264,36 @@ function normalizeBattlePlayerCards(c: CampaignState): CampaignState {
   return { ...c, battle: { ...c.battle, playerCards } }
 }
 
+function withNormalizedBattleAttemptSnapshot(c: CampaignState): CampaignState {
+  if (!c.battleAttemptSnapshot) return c
+  const snap = normalizeBattleAttemptSnapshot(
+    c.battleAttemptSnapshot as BattleAttemptSnapshot | Record<string, unknown>,
+  )
+  if (snap === c.battleAttemptSnapshot) return c
+  return { ...c, battleAttemptSnapshot: snap }
+}
+
 function withSnapshotBattleLoadout(c: CampaignState): CampaignState {
   const snap = c.battleAttemptSnapshot
   if (!snap) return c
-  const raw = snap.battleLoadout as unknown
-  if (
-    Array.isArray(raw) &&
-    raw.length === 2 &&
-    (raw[0] === null || typeof raw[0] === 'string') &&
-    (raw[1] === null || typeof raw[1] === 'string')
-  ) {
-    return c
-  }
+  let changed = false
+  const party = snap.party.map((member) => {
+    const raw = member.battleLoadout as unknown
+    if (
+      Array.isArray(raw) &&
+      raw.length === 2 &&
+      (raw[0] === null || typeof raw[0] === 'string') &&
+      (raw[1] === null || typeof raw[1] === 'string')
+    ) {
+      return member
+    }
+    changed = true
+    return { ...member, battleLoadout: ['c1', 'c2'] as BattleLoadout }
+  })
+  if (!changed) return c
   return {
     ...c,
-    battleAttemptSnapshot: { ...snap, battleLoadout: ['c1', 'c2'] },
+    battleAttemptSnapshot: { ...snap, party },
   }
 }
 
@@ -225,10 +323,14 @@ function withMissingStarterCards(c: CampaignState): CampaignState {
 
   let battleAttemptSnapshot = c.battleAttemptSnapshot
   if (c.battleAttemptSnapshot) {
-    const snapCards = mergeMissingStarterCards(c.battleAttemptSnapshot.cards)
-    if (snapCards.length !== c.battleAttemptSnapshot.cards.length) {
-      battleAttemptSnapshot = { ...c.battleAttemptSnapshot, cards: snapCards }
+    const party = c.battleAttemptSnapshot.party.map((member) => {
+      const snapCards = mergeMissingStarterCards(member.cards)
+      if (snapCards.length === member.cards.length) return member
       changed = true
+      return { ...member, cards: snapCards }
+    })
+    if (changed) {
+      battleAttemptSnapshot = { ...c.battleAttemptSnapshot, party }
     }
   }
 
@@ -283,13 +385,15 @@ function withLegacyCardModTemplateIds(c: CampaignState): CampaignState {
 
   let battleAttemptSnapshot = c.battleAttemptSnapshot
   if (c.battleAttemptSnapshot) {
-    const snapCards = c.battleAttemptSnapshot.cards.map(normalizeCardModifications)
-    const snapChanged = snapCards.some(
-      (card, i) => card !== c.battleAttemptSnapshot!.cards[i],
-    )
-    if (snapChanged) {
-      battleAttemptSnapshot = { ...c.battleAttemptSnapshot, cards: snapCards }
+    const party = c.battleAttemptSnapshot.party.map((member) => {
+      const snapCards = member.cards.map(normalizeCardModifications)
+      const snapChanged = snapCards.some((card, i) => card !== member.cards[i])
+      if (!snapChanged) return member
       changed = true
+      return { ...member, cards: snapCards }
+    })
+    if (changed) {
+      battleAttemptSnapshot = { ...c.battleAttemptSnapshot, party }
     }
   }
 
@@ -335,6 +439,7 @@ export function normalizeLoadedCampaign(c: CampaignState): CampaignState {
   out = withDefaultExpedition(out)
   out = withDefaultSquad(out)
   out = withDefaultScenarioSlotIndex(out)
+  out = withNormalizedBattleAttemptSnapshot(out)
   out = withDefaultBattleLoadout(out)
   out = withSnapshotBattleLoadout(out)
   out = normalizeCampaignEconomy(out)

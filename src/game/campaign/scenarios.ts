@@ -1,9 +1,9 @@
 import { computeUnitStat } from '../balance'
 import { getItemTemplate } from '../content/itemTemplates'
 import { aggregateGearCardLevelBonus } from '../equipment/aggregates'
-import { computeHeroMaxHpForScenario } from './heroMaxHp'
+import { computeCharacterMaxHpForScenario } from './heroMaxHp'
 import { playerCardsFromLoadout } from './playerCardsFromLoadout'
-import type { BattleAttemptSnapshot, BattleState, Unit } from '../types'
+import type { BattleAttemptSnapshot, BattleState, PartyMemberBattleSnapshot, Unit } from '../types'
 import { cellKey } from '../battle/grid'
 
 export type BattleScenarioEnemy = {
@@ -67,17 +67,32 @@ export const SCENARIOS: readonly BattleScenario[] = [
   },
 ]
 
-function makeHero(snapshot: BattleAttemptSnapshot, scenario: BattleScenario): Unit {
-  const maxHp = computeHeroMaxHpForScenario(snapshot, scenario)
-  return {
-    id: 'hero',
-    side: 'player',
-    x: scenario.playerSpawns[0]!.x,
-    y: scenario.playerSpawns[0]!.y,
-    hp: maxHp,
-    maxHp,
-    unitLevel: snapshot.playerUnitLevel,
-  }
+function spawnForMember(
+  scenario: BattleScenario,
+  member: PartyMemberBattleSnapshot,
+): { x: number; y: number } {
+  return scenario.playerSpawns[member.spawnIndex] ?? scenario.playerSpawns[0]!
+}
+
+export function makePlayerUnits(
+  snapshot: BattleAttemptSnapshot,
+  scenario: BattleScenario,
+): Unit[] {
+  return snapshot.party
+    .filter((member) => member.metaStatus === 'active')
+    .map((member) => {
+      const spawn = spawnForMember(scenario, member)
+      const maxHp = computeCharacterMaxHpForScenario(member, scenario, snapshot.worldPower)
+      return {
+        id: member.characterId,
+        side: 'player' as const,
+        x: spawn.x,
+        y: spawn.y,
+        hp: maxHp,
+        maxHp,
+        unitLevel: member.unitLevel,
+      }
+    })
 }
 
 function makeEnemies(
@@ -103,9 +118,18 @@ function makeEnemies(
   })
 }
 
-/** Очередь: герой, затем враги по порядку в сценарии. */
-function defaultTurnOrder(enemyIds: readonly string[]): readonly string[] {
-  return ['hero', ...enemyIds]
+function primaryActiveMember(
+  snapshot: BattleAttemptSnapshot,
+): PartyMemberBattleSnapshot | undefined {
+  return snapshot.party.find((member) => member.metaStatus === 'active') ?? snapshot.party[0]
+}
+
+/** Очередь: союзники по порядку в party, затем враги по порядку в сценарии. */
+function defaultTurnOrder(
+  playerIds: readonly string[],
+  enemyIds: readonly string[],
+): readonly string[] {
+  return [...playerIds, ...enemyIds]
 }
 
 /**
@@ -115,25 +139,29 @@ export function battleStateFromScenario(
   scenario: BattleScenario,
   snapshot: BattleAttemptSnapshot,
 ): BattleState {
-  const hero = makeHero(snapshot, scenario)
+  const players = makePlayerUnits(snapshot, scenario)
   const enemies = makeEnemies(scenario, snapshot)
-  const units = [hero, ...enemies]
+  const units = [...players, ...enemies]
+  const primary = primaryActiveMember(snapshot)
   return {
     width: scenario.width,
     height: scenario.height,
     walls: scenario.walls,
     units,
-    turnOrder: defaultTurnOrder(scenario.enemies.map((e) => e.id)),
+    turnOrder: defaultTurnOrder(
+      players.map((u) => u.id),
+      scenario.enemies.map((e) => e.id),
+    ),
     currentTurnIndex: 0,
     phase: 'ongoing',
     worldPower: snapshot.worldPower,
-    playerCards: playerCardsFromLoadout(snapshot.cards, snapshot.battleLoadout),
+    playerCards: primary
+      ? playerCardsFromLoadout(primary.cards, primary.battleLoadout)
+      : [],
     modKillTargetCardId: snapshot.modKillTargetCardId,
     battleLog: [],
-    gearCardLevelBonus: aggregateGearCardLevelBonus(
-      snapshot.items,
-      snapshot.equipment,
-      getItemTemplate,
-    ),
+    gearCardLevelBonus: primary
+      ? aggregateGearCardLevelBonus(primary.items, primary.equipment, getItemTemplate)
+      : 0,
   }
 }

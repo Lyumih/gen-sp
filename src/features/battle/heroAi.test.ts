@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { LEGACY_HERO_CHARACTER_ID } from '../../game/character/constants'
 import type { BattlePlayerCard, BattleState, Unit } from '../../game/types'
 import { pickHeroAiAction } from './heroAi'
+
+const HERO_ID = LEGACY_HERO_CHARACTER_ID
 
 function unit(partial: Unit): Unit {
   return partial
@@ -23,10 +26,10 @@ function battle(overrides: Partial<BattleState> = {}): BattleState {
     height: 4,
     walls: [],
     units: [
-      unit({ id: 'hero', side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
+      unit({ id: HERO_ID, side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
       unit({ id: 'e1', side: 'enemy', x: 1, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
     ],
-    turnOrder: ['hero', 'e1'],
+    turnOrder: [HERO_ID, 'e1'],
     currentTurnIndex: 0,
     phase: 'ongoing',
     worldPower: 0,
@@ -47,21 +50,21 @@ describe('pickHeroAiAction', () => {
   it('moves toward closest enemy when no attack available', () => {
     const s = battle({
       units: [
-        unit({ id: 'hero', side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
+        unit({ id: HERO_ID, side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
         unit({ id: 'e1', side: 'enemy', x: 5, y: 3, hp: 10, maxHp: 10, unitLevel: 1 }),
       ],
     })
     const d = pickHeroAiAction(s)
     expect(d).toEqual({
       kind: 'battle',
-      action: { type: 'move', unitId: 'hero', toX: 3, toY: 0 },
+      action: { type: 'move', unitId: HERO_ID, toX: 3, toY: 0 },
     })
   })
 
   it('prefers kill shot target over closer non-lethal enemy', () => {
     const s = battle({
       units: [
-        unit({ id: 'hero', side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
+        unit({ id: HERO_ID, side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
         unit({ id: 'e1', side: 'enemy', x: 1, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
         unit({ id: 'e2', side: 'enemy', x: 3, y: 0, hp: 4, maxHp: 4, unitLevel: 1 }),
       ],
@@ -71,7 +74,7 @@ describe('pickHeroAiAction', () => {
       kind: 'battle',
       action: {
         type: 'attack',
-        attackerId: 'hero',
+        attackerId: HERO_ID,
         targetId: 'e2',
         damage: 4,
         kind: 'ranged',
@@ -83,7 +86,7 @@ describe('pickHeroAiAction', () => {
   it('uses card when in range and stronger than basic attack', () => {
     const s = battle({
       units: [
-        unit({ id: 'hero', side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
+        unit({ id: HERO_ID, side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
         unit({ id: 'e1', side: 'enemy', x: 1, y: 0, hp: 20, maxHp: 20, unitLevel: 1 }),
       ],
       playerCards: [card({ id: 'c1', global_level: 100 })],
@@ -95,7 +98,7 @@ describe('pickHeroAiAction', () => {
   it('prefers modKillTargetCardId on equal card damage', () => {
     const s = battle({
       units: [
-        unit({ id: 'hero', side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
+        unit({ id: HERO_ID, side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
         unit({ id: 'e1', side: 'enemy', x: 1, y: 0, hp: 20, maxHp: 20, unitLevel: 1 }),
       ],
       playerCards: [
@@ -111,7 +114,7 @@ describe('pickHeroAiAction', () => {
   it('does not pick fireball when no enemy in aoe', () => {
     const s = battle({
       units: [
-        unit({ id: 'hero', side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
+        unit({ id: HERO_ID, side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
         unit({ id: 'e1', side: 'enemy', x: 5, y: 3, hp: 10, maxHp: 10, unitLevel: 1 }),
       ],
       playerCards: [card({ id: 'c2', templateId: 'fireball' })],
@@ -123,7 +126,7 @@ describe('pickHeroAiAction', () => {
   it('picks fireball when enemies cluster in aoe', () => {
     const s = battle({
       units: [
-        unit({ id: 'hero', side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
+        unit({ id: HERO_ID, side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
         unit({ id: 'e1', side: 'enemy', x: 2, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
         unit({ id: 'e2', side: 'enemy', x: 2, y: 1, hp: 10, maxHp: 10, unitLevel: 1 }),
       ],
@@ -142,12 +145,12 @@ describe('pickHeroAiAction', () => {
     const s = battle({
       width: 10,
       units: [
-        unit({ id: 'hero', side: 'player', x: 0, y: 0, hp: 4, maxHp: 10, unitLevel: 1 }),
+        unit({ id: HERO_ID, side: 'player', x: 0, y: 0, hp: 4, maxHp: 10, unitLevel: 1 }),
         unit({ id: 'e1', side: 'enemy', x: 9, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
       ],
       playerCards: [card({ id: 'c3', templateId: 'heal' })],
     })
     const d = pickHeroAiAction(s)
-    expect(d).toEqual({ kind: 'card_heal', cardId: 'c3', targetId: 'hero' })
+    expect(d).toEqual({ kind: 'card_heal', cardId: 'c3', targetId: HERO_ID })
   })
 })

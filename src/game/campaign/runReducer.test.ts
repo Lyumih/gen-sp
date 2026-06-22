@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { codexEntryId } from '../codex/discovery'
-import type { BattleState, CampaignState, Unit } from '../types'
+import type {
+  BattleAttemptSnapshot,
+  BattleState,
+  CampaignState,
+  PartyMemberBattleSnapshot,
+  Unit,
+} from '../types'
 import {
   applyRunAction,
   cloneCards,
@@ -42,7 +48,7 @@ function makeBattle(overrides: Partial<BattleState> = {}): BattleState {
     walls: [],
     units: [
       unit({
-        id: 'hero',
+        id: HERO_ID,
         side: 'player',
         x: 3,
         y: 2,
@@ -60,7 +66,7 @@ function makeBattle(overrides: Partial<BattleState> = {}): BattleState {
         unitLevel: 1,
       }),
     ],
-    turnOrder: ['hero', 'e1'],
+    turnOrder: [HERO_ID, 'e1'],
     currentTurnIndex: 0,
     phase: 'ongoing',
     worldPower: 0,
@@ -81,6 +87,38 @@ function makeBattle(overrides: Partial<BattleState> = {}): BattleState {
   return { ...base, ...overrides, units: overrides.units ?? base.units }
 }
 
+function partyMemberFromHero(
+  h: ReturnType<typeof getPrimaryCharacter>,
+  over: Partial<PartyMemberBattleSnapshot> = {},
+): PartyMemberBattleSnapshot {
+  return {
+    characterId: h.id,
+    unitLevel: h.unitLevel,
+    items: cloneItems(h.items),
+    equipment: { ...h.equipment },
+    cards: cloneCards(h.cards),
+    battleLoadout: [...h.battleLoadout] as [string | null, string | null],
+    metaStatus: 'active',
+    spawnIndex: 0,
+    ...over,
+  }
+}
+
+function battleSnapshotFromHero(
+  c: CampaignState,
+  over: Partial<BattleAttemptSnapshot> = {},
+): BattleAttemptSnapshot {
+  const h = hero(c)
+  return {
+    worldPower: 0,
+    modKillTargetCardId: 'c1',
+    scenarioSlotIndex: 0,
+    gold: c.gold,
+    party: [partyMemberFromHero(h)],
+    ...over,
+  }
+}
+
 function campaignWithBattle(b: BattleState): CampaignState {
   const init = initialCampaignState()
   const h = hero(init)
@@ -88,17 +126,15 @@ function campaignWithBattle(b: BattleState): CampaignState {
     ...init,
     phase: 'battle',
     battle: b,
-    battleAttemptSnapshot: {
+    battleAttemptSnapshot: battleSnapshotFromHero(init, {
       worldPower: b.worldPower,
-      cards: cloneCards(b.playerCards),
-      battleLoadout: ['c1', 'c2'],
-      playerUnitLevel: h.unitLevel,
-      modKillTargetCardId: 'c1',
-      scenarioSlotIndex: 0,
-      gold: init.gold,
-      items: cloneItems(h.items),
-      equipment: { ...h.equipment },
-    },
+      party: [
+        partyMemberFromHero(h, {
+          cards: cloneCards(b.playerCards),
+          battleLoadout: ['c1', 'c2'],
+        }),
+      ],
+    }),
   }
 }
 
@@ -113,7 +149,7 @@ describe('runReducer', () => {
       type: 'BATTLE_DISPATCH',
       battleAction: {
         type: 'attack',
-        attackerId: 'hero',
+        attackerId: HERO_ID,
         targetId: 'e1',
         damage: 999,
         kind: 'ranged',
@@ -151,7 +187,7 @@ describe('runReducer', () => {
       type: 'BATTLE_DISPATCH',
       battleAction: {
         type: 'attack',
-        attackerId: 'hero',
+        attackerId: HERO_ID,
         targetId: 'e1',
         damage: 999,
         kind: 'ranged',
@@ -165,7 +201,7 @@ describe('runReducer', () => {
       battleAction: {
         type: 'attack',
         attackerId: 'e2',
-        targetId: 'hero',
+        targetId: HERO_ID,
         damage: 999,
         kind: 'ranged',
         maxRange: 10,
@@ -188,7 +224,7 @@ describe('runReducer', () => {
     s = applyRunAction(s, { type: 'START_OR_CONTINUE_BATTLE' })
     s = applyRunAction(s, {
       type: 'BATTLE_DISPATCH',
-      battleAction: { type: 'move', unitId: 'hero', toX: 1, toY: 2 },
+      battleAction: { type: 'move', unitId: HERO_ID, toX: 1, toY: 2 },
     })
     expect(s.battle!.battleLog.length).toBeGreaterThan(0)
 
@@ -197,7 +233,7 @@ describe('runReducer', () => {
       battleAction: {
         type: 'attack',
         attackerId: 'e1',
-        targetId: 'hero',
+        targetId: HERO_ID,
         damage: 999,
         kind: 'ranged',
         maxRange: 10,
@@ -215,7 +251,7 @@ describe('runReducer', () => {
     const wpBefore = s.worldPower
     s = applyRunAction(s, {
       type: 'BATTLE_DISPATCH',
-      battleAction: { type: 'move', unitId: 'hero', toX: 1, toY: 2 },
+      battleAction: { type: 'move', unitId: HERO_ID, toX: 1, toY: 2 },
     })
     expect(s.battle!.battleLog.length).toBeGreaterThan(0)
 
@@ -243,7 +279,7 @@ describe('runReducer', () => {
       type: 'BATTLE_DISPATCH',
       battleAction: {
         type: 'attack',
-        attackerId: 'hero',
+        attackerId: HERO_ID,
         targetId: 'e1',
         damage: 999,
         kind: 'ranged',
@@ -278,7 +314,7 @@ describe('runReducer', () => {
       type: 'BATTLE_DISPATCH',
       battleAction: {
         type: 'attack',
-        attackerId: 'hero',
+        attackerId: HERO_ID,
         targetId: 'e1',
         damage: 999,
         kind: 'ranged',
@@ -291,7 +327,7 @@ describe('runReducer', () => {
       battleAction: {
         type: 'attack',
         attackerId: 'e2',
-        targetId: 'hero',
+        targetId: HERO_ID,
         damage: 999,
         kind: 'ranged',
         maxRange: 10,
@@ -328,7 +364,7 @@ describe('USE_CARD_ATTACK', () => {
     const b = makeBattle({
       units: [
         unit({
-          id: 'hero',
+          id: HERO_ID,
           side: 'player',
           x: 0,
           y: 0,
@@ -436,7 +472,7 @@ describe('USE_CARD_AOE', () => {
     const b = makeBattle({
       units: [
         unit({
-          id: 'hero',
+          id: HERO_ID,
           side: 'player',
           x: 2,
           y: 2,
@@ -481,7 +517,7 @@ describe('USE_CARD_AOE', () => {
     const b = makeBattle({
       units: [
         unit({
-          id: 'hero',
+          id: HERO_ID,
           side: 'player',
           x: 0,
           y: 0,
@@ -541,17 +577,16 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
     const h = hero(init)
     const items = [{ id: 'w1', templateId: 'wooden_sword', itemLevel: 1 }]
     const equipment = { ...h.equipment, weapon: 'w1' as const }
-    const snap = {
-      worldPower: 0,
-      cards: cloneCards(h.cards),
-      battleLoadout: ['c1', 'c2'] as [string | null, string | null],
-      playerUnitLevel: 1,
-      modKillTargetCardId: 'c1' as const,
-      scenarioSlotIndex: 0,
+    const snap = battleSnapshotFromHero(init, {
       gold: 100,
-      items: cloneItems(items),
-      equipment: { ...equipment },
-    }
+      party: [
+        partyMemberFromHero(h, {
+          unitLevel: 1,
+          items: cloneItems(items),
+          equipment: { ...equipment },
+        }),
+      ],
+    })
     const b = makeBattle({ phase: 'victory' })
     const s: CampaignState = withHero(
       { ...init, gold: 100, phase: 'victory', battle: b, battleAttemptSnapshot: snap },
@@ -574,17 +609,16 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
     const h = hero(init)
     const items = [{ id: 'w1', templateId: 'wooden_sword', itemLevel: 1 }]
     const equipment = { ...h.equipment, weapon: 'w1' as const }
-    const snap = {
-      worldPower: 0,
-      cards: cloneCards(h.cards),
-      battleLoadout: ['c1', 'c2'] as [string | null, string | null],
-      playerUnitLevel: 1,
-      modKillTargetCardId: 'c1' as const,
-      scenarioSlotIndex: 0,
+    const snap = battleSnapshotFromHero(init, {
       gold: 10,
-      items: cloneItems(items),
-      equipment: { ...equipment },
-    }
+      party: [
+        partyMemberFromHero(h, {
+          unitLevel: 1,
+          items: cloneItems(items),
+          equipment: { ...equipment },
+        }),
+      ],
+    })
     const b = makeBattle({ phase: 'victory' })
     let s: CampaignState = withHero(
       { ...init, gold: 10, phase: 'victory', battle: b, battleAttemptSnapshot: snap },
@@ -610,17 +644,9 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
         ...init,
         phase: 'victory',
         battle: b,
-        battleAttemptSnapshot: {
-          worldPower: 0,
-          cards: cloneCards(h.cards),
-          battleLoadout: ['c1', 'c2'],
-          playerUnitLevel: 50,
-          modKillTargetCardId: 'c1',
-          scenarioSlotIndex: 0,
-          gold: 0,
-          items: [],
-          equipment: { ...h.equipment },
-        },
+        battleAttemptSnapshot: battleSnapshotFromHero(init, {
+          party: [partyMemberFromHero(h, { unitLevel: 50 })],
+        }),
       },
       { unitLevel: 50 },
     )
@@ -653,14 +679,14 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
 
     s = applyRunAction(s, {
       type: 'BATTLE_DISPATCH',
-      battleAction: { type: 'move', unitId: 'hero', toX: 1, toY: 2 },
+      battleAction: { type: 'move', unitId: HERO_ID, toX: 1, toY: 2 },
     })
     s = applyRunAction(s, {
       type: 'BATTLE_DISPATCH',
       battleAction: {
         type: 'attack',
         attackerId: 'e1',
-        targetId: 'hero',
+        targetId: HERO_ID,
         damage: 999,
         kind: 'ranged',
         maxRange: 10,
@@ -682,7 +708,7 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
       type: 'BATTLE_DISPATCH',
       battleAction: {
         type: 'attack',
-        attackerId: 'hero',
+        attackerId: HERO_ID,
         targetId: 'e1',
         damage: 999,
         kind: 'ranged',
@@ -933,15 +959,15 @@ describe('expedition state machine', () => {
       const b = current.battle!
       const actorId = b.turnOrder[b.currentTurnIndex]
       const before = current
-      if (actorId === 'hero') {
-        const hero = b.units.find((u) => u.id === 'hero' && u.hp > 0)
+      if (actorId === HERO_ID) {
+        const hero = b.units.find((u) => u.id === HERO_ID && u.hp > 0)
         const enemy = b.units.find((u) => u.side === 'enemy' && u.hp > 0)
         if (!hero || !enemy) break
         current = applyRunAction(current, {
           type: 'BATTLE_DISPATCH',
           battleAction: {
             type: 'attack',
-            attackerId: 'hero',
+            attackerId: HERO_ID,
             targetId: enemy.id,
             damage: 999,
             kind: 'ranged',
@@ -953,7 +979,7 @@ describe('expedition state machine', () => {
             type: 'BATTLE_DISPATCH',
             battleAction: {
               type: 'attack',
-              attackerId: 'hero',
+              attackerId: HERO_ID,
               targetId: enemy.id,
               damage: 999,
               kind: 'melee',
@@ -967,7 +993,7 @@ describe('expedition state machine', () => {
             type: 'BATTLE_DISPATCH',
             battleAction: {
               type: 'move',
-              unitId: 'hero',
+              unitId: HERO_ID,
               toX: hero.x + dx,
               toY: hero.y + dy,
             },
@@ -978,7 +1004,7 @@ describe('expedition state machine', () => {
             type: 'BATTLE_DISPATCH',
             battleAction: {
               type: 'move',
-              unitId: 'hero',
+              unitId: HERO_ID,
               toX: hero.x,
               toY: hero.y + (enemy.y !== hero.y ? (enemy.y > hero.y ? 1 : -1) : 1),
             },
@@ -1016,10 +1042,10 @@ describe('expedition state machine', () => {
   function loseCurrentBattle(s: CampaignState): CampaignState {
     let current = s
     const b = current.battle!
-    if (b.turnOrder[b.currentTurnIndex] === 'hero') {
+    if (b.turnOrder[b.currentTurnIndex] === HERO_ID) {
       current = applyRunAction(current, {
         type: 'BATTLE_DISPATCH',
-        battleAction: { type: 'move', unitId: 'hero', toX: 1, toY: 2 },
+        battleAction: { type: 'move', unitId: HERO_ID, toX: 1, toY: 2 },
       })
     }
     const enemy = current.battle!.units.find((u) => u.side === 'enemy' && u.hp > 0)
@@ -1029,7 +1055,7 @@ describe('expedition state machine', () => {
       battleAction: {
         type: 'attack',
         attackerId: enemy.id,
-        targetId: 'hero',
+        targetId: HERO_ID,
         damage: 999,
         kind: 'ranged',
         maxRange: 10,

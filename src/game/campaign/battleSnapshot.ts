@@ -3,13 +3,17 @@ import type {
   BattleAttemptSnapshot,
   BattleLoadout,
   CampaignState,
-  CardInstance,
+  Character,
+  CharacterMetaStatus,
   Expedition,
   ItemInstance,
+  PartyMemberBattleSnapshot,
 } from '../types'
 import { getPrimaryCharacter } from './selectors'
 
-export function cloneCards(cards: readonly CardInstance[]): CardInstance[] {
+export function cloneCards(
+  cards: readonly PartyMemberBattleSnapshot['cards'][number][],
+): PartyMemberBattleSnapshot['cards'] {
   return cards.map((c) => ({
     ...c,
     modifications: c.modifications.map((m) => ({ ...m })),
@@ -20,21 +24,58 @@ export function cloneItems(items: readonly ItemInstance[]): ItemInstance[] {
   return items.map((i) => ({ ...i }))
 }
 
+export function partyMemberFromCharacter(
+  character: Character,
+  spawnIndex: number,
+  metaStatus: CharacterMetaStatus = 'active',
+): PartyMemberBattleSnapshot {
+  return {
+    characterId: character.id,
+    unitLevel: character.unitLevel,
+    items: cloneItems(character.items),
+    equipment: { ...character.equipment },
+    cards: cloneCards(character.cards),
+    battleLoadout: [...character.battleLoadout] as BattleLoadout,
+    metaStatus,
+    spawnIndex,
+  }
+}
+
+export function clonePartyMember(member: PartyMemberBattleSnapshot): PartyMemberBattleSnapshot {
+  return {
+    characterId: member.characterId,
+    unitLevel: member.unitLevel,
+    items: cloneItems(member.items),
+    equipment: { ...member.equipment },
+    cards: cloneCards(member.cards),
+    battleLoadout: [...member.battleLoadout] as BattleLoadout,
+    metaStatus: member.metaStatus,
+    spawnIndex: member.spawnIndex,
+  }
+}
+
 export function buildBattleAttemptSnapshot(
   state: CampaignState,
   scenarioSlotIndex: number,
 ): BattleAttemptSnapshot {
-  const hero = getPrimaryCharacter(state)
+  const party: PartyMemberBattleSnapshot[] = []
+  state.squad.forEach((id, spawnIndex) => {
+    if (id === null) return
+    const character = getCharacter(state, id)
+    if (!character) return
+    party.push(partyMemberFromCharacter(character, spawnIndex, 'active'))
+  })
+
+  if (party.length === 0) {
+    party.push(partyMemberFromCharacter(getPrimaryCharacter(state), 0, 'active'))
+  }
+
   return {
     worldPower: state.worldPower,
-    cards: cloneCards(hero.cards),
-    battleLoadout: [...hero.battleLoadout] as BattleLoadout,
-    playerUnitLevel: hero.unitLevel,
     modKillTargetCardId: state.modKillTargetCardId,
     scenarioSlotIndex,
     gold: state.gold,
-    items: cloneItems(hero.items),
-    equipment: { ...hero.equipment },
+    party,
   }
 }
 
@@ -51,37 +92,40 @@ export function buildExpeditionBattleSnapshot(
   expedition: Expedition,
   scenarioSlotIndex: number,
 ): BattleAttemptSnapshot | null {
-  const characterId = getExpeditionBattleCharacterId(expedition)
-  if (!characterId) return null
+  const party: PartyMemberBattleSnapshot[] = []
 
-  const slot = expedition.squadSnapshot.find(
-    (s) => s !== null && s.characterId === characterId,
-  )
-  const character = getCharacter(state, characterId) ?? getPrimaryCharacter(state)
+  expedition.squadSnapshot.forEach((slot, spawnIndex) => {
+    if (!slot || slot.metaStatus !== 'active') return
+    const character = getCharacter(state, slot.characterId) ?? getPrimaryCharacter(state)
+    party.push({
+      characterId: slot.characterId,
+      unitLevel: character.unitLevel,
+      items: cloneItems(character.items),
+      equipment: { ...slot.equipment },
+      cards: cloneCards(character.cards),
+      battleLoadout: [...slot.battleLoadout] as BattleLoadout,
+      metaStatus: slot.metaStatus,
+      spawnIndex,
+    })
+  })
+
+  if (party.length === 0) return null
 
   return {
     worldPower: state.worldPower,
-    cards: cloneCards(character.cards),
-    battleLoadout: slot ? ([...slot.battleLoadout] as BattleLoadout) : [...character.battleLoadout],
-    playerUnitLevel: character.unitLevel,
     modKillTargetCardId: state.modKillTargetCardId,
     scenarioSlotIndex,
     gold: state.gold,
-    items: cloneItems(character.items),
-    equipment: slot ? { ...slot.equipment } : { ...character.equipment },
+    party,
   }
 }
 
 export function copyBattleAttemptSnapshot(snap: BattleAttemptSnapshot): BattleAttemptSnapshot {
   return {
     worldPower: snap.worldPower,
-    cards: cloneCards(snap.cards),
-    battleLoadout: [...snap.battleLoadout] as BattleLoadout,
-    playerUnitLevel: snap.playerUnitLevel,
     modKillTargetCardId: snap.modKillTargetCardId,
     scenarioSlotIndex: snap.scenarioSlotIndex,
     gold: snap.gold,
-    items: cloneItems(snap.items),
-    equipment: { ...snap.equipment },
+    party: snap.party.map(clonePartyMember),
   }
 }

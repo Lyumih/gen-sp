@@ -1,21 +1,25 @@
 import { computeUnitStat } from '../balance'
 import { getItemTemplate } from '../content/itemTemplates'
 import { aggregateGearHpBonus } from '../equipment/aggregates'
-import type { BattleAttemptSnapshot } from '../types'
+import type { PartyMemberBattleSnapshot } from '../types'
 import type { BattleScenario } from './scenarios'
 
 /**
- * Max HP героя при входе в сценарий: база от сценария и снимка + бонус от экипировки.
+ * Max HP персонажа при входе в сценарий: база от сценария и уровня + бонус от экипировки.
  */
-export function computeHeroMaxHpForScenario(
-  snapshot: BattleAttemptSnapshot,
+export function computeCharacterMaxHpForScenario(
+  member: Pick<PartyMemberBattleSnapshot, 'unitLevel' | 'items' | 'equipment'>,
   scenario: BattleScenario,
+  worldPower: number,
 ): number {
   const baseMaxHp = computeUnitStat({
     baseStat: scenario.heroBaseHpStat,
-    unitLevel: snapshot.playerUnitLevel,
-    worldPower: snapshot.worldPower,
+    unitLevel: member.unitLevel,
+    worldPower,
   })
-  const gearHp = aggregateGearHpBonus(snapshot.items, snapshot.equipment, getItemTemplate)
+  const gearHp = aggregateGearHpBonus(member.items, member.equipment, getItemTemplate)
   return baseMaxHp + gearHp
 }
+
+/** @deprecated use computeCharacterMaxHpForScenario */
+export const computeHeroMaxHpForScenario = computeCharacterMaxHpForScenario

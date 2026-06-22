@@ -28,6 +28,7 @@ import { applyCardUse } from '../memento/cardProgress'
 import { rollMementoLevelUp } from '../memento/rollMementoLevelUp'
 import type {
   BattleAction,
+  BattleAttemptSnapshot,
   BattleLoadout,
   BattlePlayerCard,
   BattleState,
@@ -141,9 +142,7 @@ function syncExpeditionDownedFromBattle(expedition: Expedition, battle: BattleSt
   const squadSnapshot = expedition.squadSnapshot.map((slot) => {
     if (!slot) return null
     const playerUnit = battle.units.find(
-      (u) =>
-        u.side === 'player' &&
-        (u.id === slot.characterId || u.id === 'hero'),
+      (u) => u.side === 'player' && u.id === slot.characterId,
     )
     if (playerUnit && playerUnit.hp <= 0) {
       return { ...slot, metaStatus: 'downed' as const }
@@ -151,6 +150,30 @@ function syncExpeditionDownedFromBattle(expedition: Expedition, battle: BattleSt
     return slot
   })
   return { ...expedition, squadSnapshot }
+}
+
+function isLivingPlayerActor(b: BattleState, unitId: string | undefined): boolean {
+  if (!unitId) return false
+  const unit = b.units.find((u) => u.id === unitId)
+  return unit?.side === 'player' && unit.hp > 0
+}
+
+function restorePartyFromSnapshot(
+  state: CampaignState,
+  snap: BattleAttemptSnapshot,
+): CampaignState {
+  let next = state
+  for (const member of snap.party) {
+    next = updateCharacter(next, member.characterId, (c) => ({
+      ...c,
+      cards: cloneCards(member.cards),
+      battleLoadout: [...member.battleLoadout] as BattleLoadout,
+      unitLevel: member.unitLevel,
+      items: cloneItems(member.items),
+      equipment: { ...member.equipment },
+    }))
+  }
+  return next
 }
 
 function applyInterBattleCampRevive(expedition: Expedition): Expedition {
@@ -386,13 +409,14 @@ function tryUseCardAttack(
 ): CampaignState {
   if (!state.battle || state.battle.phase !== 'ongoing') return state
   const b = state.battle
-  if (getCurrentActorId(b) !== 'hero') return state
+  const actorId = getCurrentActorId(b)
+  if (!isLivingPlayerActor(b, actorId)) return state
 
-  const hero = b.units.find((u) => u.id === 'hero' && u.hp > 0)
+  const actor = b.units.find((u) => u.id === actorId && u.side === 'player' && u.hp > 0)
   const target = b.units.find(
     (u) => u.id === action.targetId && u.side === 'enemy' && u.hp > 0,
   )
-  if (!hero || !target) return state
+  if (!actor || !target) return state
 
   const card = b.playerCards.find((c) => c.id === action.cardId)
   if (!card) return state
@@ -401,9 +425,9 @@ function tryUseCardAttack(
   const tmpl = getCardAttackTemplate(card.templateId)
   if (!tmpl) return state
 
-  if (tmpl.kind === 'melee' && !canMeleeAttack(hero, target)) return state
+  if (tmpl.kind === 'melee' && !canMeleeAttack(actor, target)) return state
   const walls = wallSet(b.walls)
-  if (tmpl.kind === 'ranged' && !canRangedAttack(hero, target, tmpl.maxRange, walls)) {
+  if (tmpl.kind === 'ranged' && !canRangedAttack(actor, target, tmpl.maxRange, walls)) {
     return state
   }
   if (tmpl.kind === 'aoe' || tmpl.kind === 'heal') return state
@@ -428,7 +452,7 @@ function tryUseCardAttack(
     tmpl.kind === 'melee'
       ? {
           type: 'attack',
-          attackerId: 'hero',
+          attackerId: actorId!,
           targetId: target.id,
           damage,
           kind: 'melee',
@@ -436,7 +460,7 @@ function tryUseCardAttack(
         }
       : {
           type: 'attack',
-          attackerId: 'hero',
+          attackerId: actorId!,
           targetId: target.id,
           damage,
           kind: 'ranged',
@@ -458,10 +482,11 @@ function tryUseCardAoE(
 ): CampaignState {
   if (!state.battle || state.battle.phase !== 'ongoing') return state
   const b = state.battle
-  if (getCurrentActorId(b) !== 'hero') return state
+  const actorId = getCurrentActorId(b)
+  if (!isLivingPlayerActor(b, actorId)) return state
 
-  const hero = b.units.find((u) => u.id === 'hero' && u.hp > 0)
-  if (!hero) return state
+  const actor = b.units.find((u) => u.id === actorId && u.side === 'player' && u.hp > 0)
+  if (!actor) return state
 
   const card = b.playerCards.find((c) => c.id === action.cardId)
   if (!card) return state
@@ -474,7 +499,7 @@ function tryUseCardAoE(
   if (!inBounds(targetX, targetY, b.width, b.height)) return state
   const walls = wallSet(b.walls)
   if (walls.has(cellKey(targetX, targetY))) return state
-  if (!canCastAoEAt(hero, targetX, targetY, tmpl.maxRange, walls)) return state
+  if (!canCastAoEAt(actor, targetX, targetY, tmpl.maxRange, walls)) return state
 
   const used = applyCardUse(card, action.randomInt1to100)
   const cd = tmpl.cooldownTurns ?? 0
@@ -494,7 +519,7 @@ function tryUseCardAoE(
   const fromCard = { cardId: card.id, templateId: card.templateId }
   let nextBattle = applyAction(bWithCards, {
     type: 'aoe_strike',
-    attackerId: 'hero',
+    attackerId: actorId!,
     centerX: targetX,
     centerY: targetY,
     damage,
@@ -514,13 +539,14 @@ function tryUseCardHeal(
 ): CampaignState {
   if (!state.battle || state.battle.phase !== 'ongoing') return state
   const b = state.battle
-  if (getCurrentActorId(b) !== 'hero') return state
+  const actorId = getCurrentActorId(b)
+  if (!isLivingPlayerActor(b, actorId)) return state
 
-  const hero = b.units.find((u) => u.id === 'hero' && u.hp > 0)
+  const actor = b.units.find((u) => u.id === actorId && u.side === 'player' && u.hp > 0)
   const target = b.units.find(
     (u) => u.id === action.targetId && u.side === 'player' && u.hp > 0,
   )
-  if (!hero || !target) return state
+  if (!actor || !target) return state
 
   const card = b.playerCards.find((c) => c.id === action.cardId)
   if (!card) return state
@@ -530,7 +556,7 @@ function tryUseCardHeal(
   if (!tmpl || tmpl.kind !== 'heal') return state
 
   const walls = wallSet(b.walls)
-  if (!canHealTarget(hero, target, tmpl.maxRange, walls)) return state
+  if (!canHealTarget(actor, target, tmpl.maxRange, walls)) return state
 
   const used = applyCardUse(card, action.randomInt1to100)
   const cd = tmpl.cooldownTurns ?? 0
@@ -550,7 +576,7 @@ function tryUseCardHeal(
 
   let nextBattle = applyAction(bWithCards, {
     type: 'heal',
-    healerId: 'hero',
+    healerId: actorId!,
     targetId: target.id,
     amount,
     fromCard,
@@ -782,7 +808,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       if (!scenario) return state
 
       const snapCopy = copyBattleAttemptSnapshot(snap)
-      return updatePrimaryCharacter(
+      return restorePartyFromSnapshot(
         {
           ...state,
           worldPower: snap.worldPower,
@@ -793,20 +819,13 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
           battleAttemptId: state.battleAttemptId + 1,
           battleAttemptSnapshot: snapCopy,
         },
-        (hero) => ({
-          ...hero,
-          cards: cloneCards(snap.cards),
-          battleLoadout: [...snap.battleLoadout],
-          unitLevel: snap.playerUnitLevel,
-          items: cloneItems(snap.items),
-          equipment: { ...snap.equipment },
-        }),
+        snapCopy,
       )
     }
     case 'ABANDON_BATTLE': {
       const snap = state.battleAttemptSnapshot
       if (!state.battle || !snap) return state
-      return updatePrimaryCharacter(
+      return restorePartyFromSnapshot(
         {
           ...state,
           worldPower: snap.worldPower,
@@ -816,13 +835,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
           phase: 'hub',
           battleAttemptSnapshot: null,
         },
-        (hero) => ({
-          ...hero,
-          cards: cloneCards(snap.cards),
-          unitLevel: snap.playerUnitLevel,
-          items: cloneItems(snap.items),
-          equipment: { ...snap.equipment },
-        }),
+        snap,
       )
     }
     case 'FINALIZE_VICTORY': {

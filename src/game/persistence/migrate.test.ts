@@ -101,7 +101,7 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
         items: [],
         equipment: { ...EMPTY_EQUIPMENT },
       },
-    }
+    } as unknown as CampaignState
     const out = normalizeLoadedCampaign(c)
     expect(out.battleAttemptSnapshot?.scenarioSlotIndex).toBe(2)
   })

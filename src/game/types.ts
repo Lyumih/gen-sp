@@ -172,18 +172,25 @@ export type BattleAction =
 
 export type RunPhase = 'hub' | 'battle' | 'victory' | 'defeat' | 'inter_battle'
 
+export type PartyMemberBattleSnapshot = {
+  characterId: string
+  unitLevel: number
+  items: ItemInstance[]
+  equipment: Record<EquipmentSlot, string | null>
+  cards: CardInstance[]
+  battleLoadout: BattleLoadout
+  metaStatus: CharacterMetaStatus
+  spawnIndex: number
+}
+
 /** Снимок мета-состояния на начало попытки боя (retry откатывает сюда). */
 export type BattleAttemptSnapshot = {
   worldPower: number
-  cards: CardInstance[]
-  playerUnitLevel: number
   modKillTargetCardId: string | null
   /** Индекс в `SCENARIOS` для этой попытки (нужен для retry после финала кампании). */
   scenarioSlotIndex: number
   gold: number
-  items: ItemInstance[]
-  equipment: Record<EquipmentSlot, string | null>
-  battleLoadout: BattleLoadout
+  party: readonly PartyMemberBattleSnapshot[]
 }
 
 /** Снимок кампании: цепочка сценариев и мета-прогресс. */

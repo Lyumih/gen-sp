@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { LEGACY_HERO_CHARACTER_ID } from '../character/constants'
 import type { BattleState, Unit } from '../types'
 import { cellKey, manhattan, orthoNeighbors } from './grid'
 import { applyAction } from './reducer'
+
+const HERO_ID = LEGACY_HERO_CHARACTER_ID
 
 function unit(partial: Unit): Unit {
   return partial
@@ -14,7 +17,7 @@ function battle(overrides: Partial<BattleState> = {}): BattleState {
     walls: [],
     units: [
       unit({
-        id: 'hero',
+        id: HERO_ID,
         side: 'player',
         x: 0,
         y: 0,
@@ -32,7 +35,7 @@ function battle(overrides: Partial<BattleState> = {}): BattleState {
         unitLevel: 1,
       }),
     ],
-    turnOrder: ['hero', 'e1'],
+    turnOrder: [HERO_ID, 'e1'],
     currentTurnIndex: 0,
     phase: 'ongoing',
     worldPower: 0,
@@ -65,16 +68,16 @@ describe('grid helpers', () => {
 describe('applyAction move', () => {
   it('rejects move into wall', () => {
     const s = battle({ walls: [cellKey(1, 0)] })
-    const next = applyAction(s, { type: 'move', unitId: 'hero', toX: 1, toY: 0 })
+    const next = applyAction(s, { type: 'move', unitId: HERO_ID, toX: 1, toY: 0 })
     expect(next).toBe(s)
-    expect(next.units.find((u) => u.id === 'hero')).toMatchObject({ x: 0, y: 0 })
+    expect(next.units.find((u) => u.id === HERO_ID)).toMatchObject({ x: 0, y: 0 })
   })
 
   it('rejects move into occupied cell', () => {
     const s = battle({
       units: [
         unit({
-          id: 'hero',
+          id: HERO_ID,
           side: 'player',
           x: 0,
           y: 0,
@@ -93,19 +96,19 @@ describe('applyAction move', () => {
         }),
       ],
     })
-    const next = applyAction(s, { type: 'move', unitId: 'hero', toX: 1, toY: 0 })
+    const next = applyAction(s, { type: 'move', unitId: HERO_ID, toX: 1, toY: 0 })
     expect(next).toBe(s)
   })
 
   it('accepts orthogonal move to empty cell', () => {
     const s = battle()
-    const next = applyAction(s, { type: 'move', unitId: 'hero', toX: 1, toY: 0 })
-    expect(next.units.find((u) => u.id === 'hero')).toMatchObject({ x: 1, y: 0 })
+    const next = applyAction(s, { type: 'move', unitId: HERO_ID, toX: 1, toY: 0 })
+    expect(next.units.find((u) => u.id === HERO_ID)).toMatchObject({ x: 1, y: 0 })
     expect(next.currentTurnIndex).toBe(1)
     expect(next.battleLog).toHaveLength(1)
     expect(next.battleLog[0]).toMatchObject({
       type: 'move',
-      unitId: 'hero',
+      unitId: HERO_ID,
       fromX: 0,
       fromY: 0,
       toX: 1,
@@ -119,7 +122,7 @@ describe('applyAction attack', () => {
     const s = battle({
       units: [
         unit({
-          id: 'hero',
+          id: HERO_ID,
           side: 'player',
           x: 0,
           y: 0,
@@ -140,7 +143,7 @@ describe('applyAction attack', () => {
     })
     const rejected = applyAction(s, {
       type: 'attack',
-      attackerId: 'hero',
+      attackerId: HERO_ID,
       targetId: 'e1',
       damage: 1,
       kind: 'melee',
@@ -150,7 +153,7 @@ describe('applyAction attack', () => {
     const adjacent = battle({
       units: [
         unit({
-          id: 'hero',
+          id: HERO_ID,
           side: 'player',
           x: 1,
           y: 0,
@@ -169,11 +172,11 @@ describe('applyAction attack', () => {
         }),
       ],
       currentTurnIndex: 0,
-      turnOrder: ['hero', 'e1'],
+      turnOrder: [HERO_ID, 'e1'],
     })
     const hit = applyAction(adjacent, {
       type: 'attack',
-      attackerId: 'hero',
+      attackerId: HERO_ID,
       targetId: 'e1',
       damage: 2,
       kind: 'melee',
@@ -182,7 +185,7 @@ describe('applyAction attack', () => {
     const last = hit.battleLog[hit.battleLog.length - 1]
     expect(last).toMatchObject({
       type: 'strike',
-      attackerId: 'hero',
+      attackerId: HERO_ID,
       targetId: 'e1',
       damage: 2,
       attackKind: 'melee',
@@ -194,7 +197,7 @@ describe('applyAction attack', () => {
     const s = battle({
       units: [
         unit({
-          id: 'hero',
+          id: HERO_ID,
           side: 'player',
           x: 0,
           y: 0,
@@ -215,7 +218,7 @@ describe('applyAction attack', () => {
     })
     const tooFar = applyAction(s, {
       type: 'attack',
-      attackerId: 'hero',
+      attackerId: HERO_ID,
       targetId: 'e1',
       damage: 1,
       kind: 'ranged',
@@ -225,7 +228,7 @@ describe('applyAction attack', () => {
 
     const ok = applyAction(s, {
       type: 'attack',
-      attackerId: 'hero',
+      attackerId: HERO_ID,
       targetId: 'e1',
       damage: 1,
       kind: 'ranged',
@@ -240,7 +243,7 @@ describe('battle end', () => {
     const s = battle({
       units: [
         unit({
-          id: 'hero',
+          id: HERO_ID,
           side: 'player',
           x: 1,
           y: 0,
@@ -261,7 +264,7 @@ describe('battle end', () => {
     })
     const end = applyAction(s, {
       type: 'attack',
-      attackerId: 'hero',
+      attackerId: HERO_ID,
       targetId: 'e1',
       damage: 5,
       kind: 'melee',
@@ -273,7 +276,7 @@ describe('battle end', () => {
     const s = battle({
       units: [
         unit({
-          id: 'hero',
+          id: HERO_ID,
           side: 'player',
           x: 1,
           y: 0,
@@ -292,12 +295,12 @@ describe('battle end', () => {
         }),
       ],
       currentTurnIndex: 1,
-      turnOrder: ['hero', 'e1'],
+      turnOrder: [HERO_ID, 'e1'],
     })
     const end = applyAction(s, {
       type: 'attack',
       attackerId: 'e1',
-      targetId: 'hero',
+      targetId: HERO_ID,
       damage: 5,
       kind: 'melee',
     })
@@ -309,18 +312,18 @@ describe('applyAction heal', () => {
   it('heals ally up to maxHp and advances turn', () => {
     const s = battle({
       units: [
-        unit({ id: 'hero', side: 'player', x: 0, y: 0, hp: 10, maxHp: 30, unitLevel: 1 }),
+        unit({ id: HERO_ID, side: 'player', x: 0, y: 0, hp: 10, maxHp: 30, unitLevel: 1 }),
         unit({ id: 'e1', side: 'enemy', x: 5, y: 0, hp: 5, maxHp: 5, unitLevel: 1 }),
       ],
     })
     const next = applyAction(s, {
       type: 'heal',
-      healerId: 'hero',
-      targetId: 'hero',
+      healerId: HERO_ID,
+      targetId: HERO_ID,
       amount: 6,
       fromCard: { cardId: 'c3', templateId: 'heal' },
     })
-    expect(next.units.find((u) => u.id === 'hero')!.hp).toBe(16)
+    expect(next.units.find((u) => u.id === HERO_ID)!.hp).toBe(16)
     expect(next.battleLog.at(-1)).toMatchObject({ type: 'heal', amount: 6 })
     expect(next.currentTurnIndex).toBe(1)
   })
@@ -330,14 +333,14 @@ describe('applyAction aoe_strike', () => {
   it('damages all units in 3x3 and advances turn once', () => {
     const s = battle({
       units: [
-        unit({ id: 'hero', side: 'player', x: 2, y: 2, hp: 10, maxHp: 10, unitLevel: 1 }),
+        unit({ id: HERO_ID, side: 'player', x: 2, y: 2, hp: 10, maxHp: 10, unitLevel: 1 }),
         unit({ id: 'e1', side: 'enemy', x: 2, y: 1, hp: 10, maxHp: 10, unitLevel: 1 }),
         unit({ id: 'e2', side: 'enemy', x: 3, y: 2, hp: 10, maxHp: 10, unitLevel: 1 }),
       ],
     })
     const next = applyAction(s, {
       type: 'aoe_strike',
-      attackerId: 'hero',
+      attackerId: HERO_ID,
       centerX: 2,
       centerY: 2,
       damage: 8,
@@ -345,7 +348,7 @@ describe('applyAction aoe_strike', () => {
     })
     expect(next.units.find((u) => u.id === 'e1')!.hp).toBe(2)
     expect(next.units.find((u) => u.id === 'e2')!.hp).toBe(2)
-    expect(next.units.find((u) => u.id === 'hero')!.hp).toBe(2)
+    expect(next.units.find((u) => u.id === HERO_ID)!.hp).toBe(2)
     expect(next.currentTurnIndex).toBe(1)
     const strikes = next.battleLog.filter((e) => e.type === 'strike')
     expect(strikes).toHaveLength(3)
@@ -357,11 +360,11 @@ describe('applyAction move multi-step', () => {
   it('accepts move within BFS range', () => {
     const s = battle({
       units: [
-        unit({ id: 'hero', side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
+        unit({ id: HERO_ID, side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
         unit({ id: 'e1', side: 'enemy', x: 4, y: 0, hp: 5, maxHp: 5, unitLevel: 1 }),
       ],
     })
-    const next = applyAction(s, { type: 'move', unitId: 'hero', toX: 2, toY: 0 })
-    expect(next.units.find((u) => u.id === 'hero')).toMatchObject({ x: 2, y: 0 })
+    const next = applyAction(s, { type: 'move', unitId: HERO_ID, toX: 2, toY: 0 })
+    expect(next.units.find((u) => u.id === HERO_ID)).toMatchObject({ x: 2, y: 0 })
   })
 })

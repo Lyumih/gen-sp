@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { LEGACY_HERO_CHARACTER_ID } from '../character/constants'
 import type { BattlePlayerCard, BattleState, Unit } from '../types'
 import { applyAction, WORLD_POWER_PER_ENEMY_KILL } from './reducer'
+
+const HERO_ID = LEGACY_HERO_CHARACTER_ID
 
 function unit(partial: Unit): Unit {
   return partial
@@ -22,7 +25,7 @@ function battle(overrides: Partial<BattleState> = {}): BattleState {
     walls: [],
     units: [
       unit({
-        id: 'hero',
+        id: HERO_ID,
         side: 'player',
         x: 1,
         y: 0,
@@ -40,7 +43,7 @@ function battle(overrides: Partial<BattleState> = {}): BattleState {
         unitLevel: 1,
       }),
     ],
-    turnOrder: ['hero', 'e1'],
+    turnOrder: [HERO_ID, 'e1'],
     currentTurnIndex: 0,
     phase: 'ongoing',
     worldPower: 0,
@@ -62,7 +65,7 @@ describe('battle outcomes (kills & defeat)', () => {
     })
     const end = applyAction(s, {
       type: 'attack',
-      attackerId: 'hero',
+      attackerId: HERO_ID,
       targetId: 'e1',
       damage: 2,
       kind: 'melee',
@@ -78,7 +81,7 @@ describe('battle outcomes (kills & defeat)', () => {
     })
     const end = applyAction(s, {
       type: 'attack',
-      attackerId: 'hero',
+      attackerId: HERO_ID,
       targetId: 'e1',
       damage: 2,
       kind: 'melee',
@@ -91,7 +94,7 @@ describe('battle outcomes (kills & defeat)', () => {
       worldPower: 7,
       units: [
         unit({
-          id: 'hero',
+          id: HERO_ID,
           side: 'player',
           x: 1,
           y: 0,
@@ -110,12 +113,12 @@ describe('battle outcomes (kills & defeat)', () => {
         }),
       ],
       currentTurnIndex: 1,
-      turnOrder: ['hero', 'e1'],
+      turnOrder: [HERO_ID, 'e1'],
     })
     const end = applyAction(s, {
       type: 'attack',
       attackerId: 'e1',
-      targetId: 'hero',
+      targetId: HERO_ID,
       damage: 5,
       kind: 'melee',
     })

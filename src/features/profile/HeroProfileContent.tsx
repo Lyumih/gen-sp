@@ -1,6 +1,6 @@
 import { Collapse, Divider, Typography } from 'antd'
 import { buildBattleAttemptSnapshot } from '../../game/campaign/battleSnapshot'
-import { computeHeroMaxHpForScenario } from '../../game/campaign/heroMaxHp'
+import { computeCharacterMaxHpForScenario } from '../../game/campaign/heroMaxHp'
 import { getPrimaryCharacter } from '../../game/campaign/selectors'
 import { SCENARIOS } from '../../game/campaign/scenarios'
 import { describeCardCombatStats, getCardDisplayLabel } from '../../game/descriptions/cardText'
@@ -48,8 +48,15 @@ export function HeroProfileContent({
   const heroUnit = battle?.units.find((u) => u.side === 'player')
   const gearCardBattle = battle?.gearCardLevelBonus ?? 0
 
+  const primaryMember = hubSnapshot.party[0]
   const expectedMaxHpHub =
-    hubScenario !== undefined ? computeHeroMaxHpForScenario(hubSnapshot, hubScenario) : null
+    hubScenario !== undefined && primaryMember
+      ? computeCharacterMaxHpForScenario(
+          primaryMember,
+          hubScenario,
+          hubSnapshot.worldPower,
+        )
+      : null
 
   return (
     <>

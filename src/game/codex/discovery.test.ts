@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { LEGACY_HERO_CHARACTER_ID } from '../character/constants'
 import { initialCampaignState } from '../campaign/runReducer'
 import type { BattlePlayerCard, BattleState, CardInstance, Unit } from '../types'
 import { codexEntriesByCategory } from './registry'
@@ -11,6 +12,8 @@ import {
   unreadCodexEntryIds,
   visibleCodexEntries,
 } from './discovery'
+
+const HERO_ID = LEGACY_HERO_CHARACTER_ID
 
 function unit(partial: Unit): Unit {
   return partial
@@ -164,7 +167,7 @@ describe('mergeBattleCodexDiscoveries', () => {
       battleLog: [
         {
           type: 'strike',
-          attackerId: 'hero',
+          attackerId: HERO_ID,
           targetId: 'e1',
           damage: 5,
           attackKind: 'melee',
