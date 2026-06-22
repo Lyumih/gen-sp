@@ -10,7 +10,7 @@ import {
   RobotOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons'
-import { Alert, App, Badge, Button, Card, Collapse, Radio, Space, Switch, Typography } from 'antd'
+import { Alert, App, Badge, Button, Card, Collapse, Radio, Space, Switch, Tooltip, Typography } from 'antd'
 import { computeCardAttackDamage } from '../../game/content/cardAttackDamage'
 import { computeCardHealAmount } from '../../game/content/cardHealAmount'
 import { getCardAttackTemplate } from '../../game/content/cardTemplates'
@@ -21,12 +21,13 @@ import {
   HERO_MOVE_RANGE,
 } from '../../game/battle/combat'
 import { describeCardCombatStats, getCardDisplayLabel } from '../../game/descriptions/cardText'
+import { describeCardModSummary } from '../../game/descriptions/modText'
 import { UI_CELL, UI_DAMAGE, UI_HEART, UI_LEVEL } from '../../game/ui/labels'
 import { computeEffectiveStats } from '../../game/stats/effectiveStats'
 import { BattleUnitTooltip } from './BattleUnitTooltip'
 import { UnitToken } from './UnitToken'
 import { HeroProfileModal } from '../profile/HeroProfileModal'
-import type { CampaignState, Unit } from '../../game/types'
+import type { BattlePlayerCard, CampaignState, Unit } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
 import { getUnitDisplay } from '../../game/character/display'
 import { turnBadgeLabel } from '../../game/battle/turnBadge'
@@ -59,6 +60,17 @@ type ActionMode = 'move' | 'melee' | 'ranged' | 'card'
 
 const CELL_PX = 58
 const HERO_AI_DELAY_MS = 2000
+
+function cardDetailLines(card: BattlePlayerCard, gearCardLevelBonus: number): string[] {
+  const desc = describeCardCombatStats(card, gearCardLevelBonus)
+  const modSummary = describeCardModSummary(card.modSlots)
+  if (!modSummary) return desc.lines
+  return [...desc.lines, `Моды: ${modSummary}`]
+}
+
+function cardTooltipTitle(card: BattlePlayerCard, gearCardLevelBonus: number): string {
+  return cardDetailLines(card, gearCardLevelBonus).join('\n')
+}
 
 function BattleUnitCell({
   unit,
@@ -914,17 +926,22 @@ export function BattleScreen() {
                         : ''
                     const cdHint = onCd ? ` · CD ${c.cooldownRemaining}` : ''
                     return (
-                      <Radio.Button
+                      <Tooltip
                         key={c.id}
-                        value={c.id}
-                        disabled={actionsDisabled || onCd}
-                        style={onCd ? { opacity: 0.5 } : undefined}
+                        title={cardTooltipTitle(c, battle.gearCardLevelBonus)}
+                        mouseEnterDelay={0.3}
                       >
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                          <CreditCardOutlined aria-hidden />
-                          {`${getCardDisplayLabel(c.templateId)}${effect !== null ? ` — ${String(effect)}${effectUi}` : ''}${aoeHint}${cdHint}`}
-                        </span>
-                      </Radio.Button>
+                        <Radio.Button
+                          value={c.id}
+                          disabled={actionsDisabled || onCd}
+                          style={onCd ? { opacity: 0.5 } : undefined}
+                        >
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <CreditCardOutlined aria-hidden />
+                            {`${getCardDisplayLabel(c.templateId)}${effect !== null ? ` — ${String(effect)}${effectUi}` : ''}${aoeHint}${cdHint}`}
+                          </span>
+                        </Radio.Button>
+                      </Tooltip>
                     )
                   })}
                 </Radio.Group>
@@ -963,7 +980,7 @@ export function BattleScreen() {
             <Collapse
               size="small"
               items={actorCards.map((c) => {
-                const desc = describeCardCombatStats(c, battle.gearCardLevelBonus)
+                const lines = cardDetailLines(c, battle.gearCardLevelBonus)
                 const tmpl = getCardAttackTemplate(c.templateId)
                 const dmg =
                   tmpl !== undefined
@@ -983,7 +1000,7 @@ export function BattleScreen() {
                   ),
                   children: (
                     <ul style={{ margin: 0, paddingLeft: 18 }}>
-                      {desc.lines.map((line, i) => (
+                      {lines.map((line, i) => (
                         <li key={i}>
                           <Typography.Text style={{ fontSize: 12 }}>{line}</Typography.Text>
                         </li>

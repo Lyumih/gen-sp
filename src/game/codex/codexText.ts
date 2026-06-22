@@ -59,7 +59,7 @@ export function describeCodexEntry(
       const d = describeModCodex(entry.templateId)
       return {
         label: d.label,
-        summaryLines: d.lines.slice(0, 1),
+        summaryLines: d.lines.slice(0, 2),
         detailLines: d.lines,
       }
     }
