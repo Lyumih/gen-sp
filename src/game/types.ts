@@ -5,10 +5,17 @@ export type { BaseStats, StatId } from './config/baseStats'
 
 export type EquipmentSlot = 'weapon' | 'armor' | 'accessory'
 
+export type ModOffer = { modIds: [string, string, string]; rollSeed: number }
+
+export type ModSlotState =
+  | { status: 'empty'; offer: ModOffer | null }
+  | { status: 'filled'; templateId: string; lm: number }
+
 export type ItemInstance = {
   id: string
   templateId: string
   itemLevel: number
+  modSlots: ModSlotState[]
 }
 
 export type Side = 'player' | 'enemy'
@@ -43,23 +50,13 @@ export type Unit = {
   iconAccent?: IconAccentId
 }
 
-export type ModificationInstance = {
-  templateId: string
-  level: number
-}
-
-export type ModOffer = { modIds: [string, string, string]; rollSeed: number }
-
-export type ModSlotState =
-  | { status: 'empty'; offer: ModOffer | null }
-  | { status: 'filled'; templateId: string; lm: number }
 
 export type CardInstance = {
   id: string
   templateId: string
   global_level: number
   uses_count: number
-  modifications: ModificationInstance[]
+  modSlots: ModSlotState[]
 }
 
 /** Поля карточки, участвующие в прогрессе за использование. */

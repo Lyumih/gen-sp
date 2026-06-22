@@ -15,7 +15,7 @@ function card(partial: Partial<BattlePlayerCard> & Pick<BattlePlayerCard, 'id'>)
     templateId: 'strike',
     global_level: 1,
     uses_count: 0,
-    modifications: [],
+    modSlots: [],
     cooldownRemaining: 0,
     ...partial,
   }

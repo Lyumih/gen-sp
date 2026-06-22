@@ -5,11 +5,11 @@ export function modSlotsUnlocked(cardLevel: number): number {
   return Math.floor(cardLevel / 75)
 }
 
-/** Начисление очков на первую модификацию карты за убийство врага (MVP). */
+/** Начисление очков на первый заполненный слот карты за убийство врага (MVP). */
 export function applyModKillReward(card: CardInstance, points: number): CardInstance {
-  if (card.modifications.length === 0) return card
-  const modifications = card.modifications.map((m, i) =>
-    i === 0 ? { templateId: m.templateId, level: m.level + points } : m,
+  if (card.modSlots.length === 0) return card
+  const modSlots = card.modSlots.map((slot, i) =>
+    i === 0 && slot.status === 'filled' ? { ...slot, lm: slot.lm + points } : slot,
   )
-  return { ...card, modifications }
+  return { ...card, modSlots }
 }

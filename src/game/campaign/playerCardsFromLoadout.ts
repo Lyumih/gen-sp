@@ -1,4 +1,5 @@
 import type { BattlePlayerCard, CardInstance } from '../types'
+import { cloneModSlots } from '../memento/modSlotsClone'
 
 export type BattleLoadout = [string | null, string | null]
 
@@ -14,7 +15,7 @@ export function playerCardsFromLoadout(
     if (!c) continue
     out.push({
       ...c,
-      modifications: c.modifications.map((m) => ({ ...m })),
+      modSlots: cloneModSlots(c.modSlots),
       cooldownRemaining: 0,
     })
   }

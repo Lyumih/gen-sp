@@ -38,7 +38,7 @@ export function describeCodexEntry(
         templateId: entry.templateId,
         global_level: 1,
         uses_count: 0,
-        modifications: [],
+        modSlots: [],
       }
       const d = describeCardCombatStats(card, gearCardLevelBonus)
       return {

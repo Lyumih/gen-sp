@@ -53,7 +53,7 @@ describe('computeCharacterMaxHpForScenario', () => {
     const snap = minimalSnapshot({
       party: [
         member({
-          items: [{ id: 'i1', templateId: 'leather_armor', itemLevel: 2 }],
+          items: [{ id: 'i1', templateId: 'leather_armor', itemLevel: 2, modSlots: [] }],
           equipment: { weapon: null, armor: 'i1', accessory: null },
         }),
       ],

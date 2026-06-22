@@ -9,10 +9,11 @@ import type {
   Character,
   EquipmentSlot,
   ItemInstance,
-  ModificationInstance,
+  ModSlotState,
   PartyMemberBattleSnapshot,
 } from '../types'
 import { cloneCards } from '../campaign/battleSnapshot'
+import { cloneModSlots } from '../memento/modSlotsClone'
 import { playerCardsByUnitFromParty } from '../battle/playerCards'
 import { playerCardsFromLoadout } from '../campaign/playerCardsFromLoadout'
 import { getPrimaryCharacter } from '../campaign/selectors'
@@ -53,6 +54,57 @@ function isItemInstance(x: unknown): x is ItemInstance {
   )
 }
 
+type LegacyModificationRaw = { templateId?: string; level?: number }
+
+function legacyModificationsToModSlots(mods: unknown[]): ModSlotState[] {
+  return mods.map((mod) => {
+    const m = mod as LegacyModificationRaw
+    const templateId =
+      typeof m?.templateId === 'string' ? m.templateId : DEFAULT_MOD_KILL_TEMPLATE_ID
+    const lm = typeof m?.level === 'number' && Number.isFinite(m.level) ? m.level : 0
+    return { status: 'filled' as const, templateId, lm }
+  })
+}
+
+function modSlotsFromRaw(o: Record<string, unknown>): ModSlotState[] {
+  if (Array.isArray(o.modSlots)) {
+    return cloneModSlots(o.modSlots as ModSlotState[])
+  }
+  if (Array.isArray(o.modifications)) {
+    return legacyModificationsToModSlots(o.modifications)
+  }
+  return []
+}
+
+function parseCardInstance(raw: unknown): CardInstance {
+  if (!raw || typeof raw !== 'object') {
+    return { id: '', templateId: '', global_level: 1, uses_count: 0, modSlots: [] }
+  }
+  const o = raw as Record<string, unknown>
+  return {
+    id: typeof o.id === 'string' ? o.id : '',
+    templateId: typeof o.templateId === 'string' ? o.templateId : '',
+    global_level:
+      typeof o.global_level === 'number' && Number.isFinite(o.global_level) ? o.global_level : 1,
+    uses_count:
+      typeof o.uses_count === 'number' && Number.isFinite(o.uses_count) ? o.uses_count : 0,
+    modSlots: modSlotsFromRaw(o),
+  }
+}
+
+function normalizeItemInstance(raw: unknown): ItemInstance {
+  if (!isItemInstance(raw)) {
+    return { id: '', templateId: '', itemLevel: 1, modSlots: [] }
+  }
+  const o = raw as Record<string, unknown>
+  return {
+    id: raw.id,
+    templateId: raw.templateId,
+    itemLevel: raw.itemLevel,
+    modSlots: modSlotsFromRaw(o),
+  }
+}
+
 function normalizeEquipmentRecord(
   equipment: unknown,
   items: ItemInstance[],
@@ -89,11 +141,9 @@ function normalizeBattleLoadout(
 function normalizeCharacter(char: Character): Character {
   const items = (Array.isArray(char.items) ? char.items : [])
     .filter(isItemInstance)
-    .map((i) => ({ ...i }))
+    .map((i) => normalizeItemInstance(i))
   const equipment = normalizeEquipmentRecord(char.equipment, items)
-  const cards = Array.isArray(char.cards)
-    ? char.cards.map((c) => ({ ...c, modifications: c.modifications.map((m) => ({ ...m })) }))
-    : []
+  const cards = Array.isArray(char.cards) ? char.cards.map((c) => parseCardInstance(c)) : []
   const battleLoadout = normalizeBattleLoadout(char.battleLoadout, [
     cards[0]?.id ?? null,
     cards[1]?.id ?? null,
@@ -132,14 +182,9 @@ function normalizePartyMember(
 ): PartyMemberBattleSnapshot {
   const items = (Array.isArray(member.items) ? member.items : [])
     .filter(isItemInstance)
-    .map((i) => ({ ...i }))
+    .map((i) => normalizeItemInstance(i))
   const equipment = normalizeEquipmentRecord(member.equipment, items)
-  const cards = Array.isArray(member.cards)
-    ? member.cards.map((c) => ({
-        ...c,
-        modifications: c.modifications.map((m) => ({ ...m })),
-      }))
-    : []
+  const cards = Array.isArray(member.cards) ? member.cards.map((c) => parseCardInstance(c)) : []
   const battleLoadout = normalizeBattleLoadout(member.battleLoadout, [
     cards[0]?.id ?? null,
     cards[1]?.id ?? null,
@@ -185,13 +230,10 @@ function normalizeBattleAttemptSnapshot(
 
   const items = (Array.isArray(raw.items) ? raw.items : [])
     .filter(isItemInstance)
-    .map((i) => ({ ...i }))
+    .map((i) => normalizeItemInstance(i))
   const equipment = normalizeEquipmentRecord(raw.equipment, items)
   const cards = Array.isArray(raw.cards)
-    ? (raw.cards as CardInstance[]).map((c) => ({
-        ...c,
-        modifications: c.modifications.map((m) => ({ ...m })),
-      }))
+    ? (raw.cards as unknown[]).map((c) => parseCardInstance(c))
     : []
   const battleLoadout = normalizeBattleLoadout(raw.battleLoadout, [
     cards[0]?.id ?? null,
@@ -289,9 +331,9 @@ function withDefaultBattleLoadout(c: CampaignState): CampaignState {
 type LegacyBattleState = BattleState & { playerCards?: readonly BattlePlayerCard[] }
 
 function normalizeBattleCard(card: BattlePlayerCard): BattlePlayerCard {
+  const parsed = parseCardInstance(card)
   return {
-    ...card,
-    modifications: card.modifications.map((m) => ({ ...m })),
+    ...parsed,
     cooldownRemaining:
       typeof card.cooldownRemaining === 'number' ? card.cooldownRemaining : 0,
   }
@@ -432,33 +474,24 @@ function withMissingStarterCards(c: CampaignState): CampaignState {
   return { ...c, characters, battleAttemptSnapshot }
 }
 
-function normalizeCardModifications(card: CardInstance): CardInstance {
-  let changed = false
-  const modifications = card.modifications.map((mod) => {
-    if (
-      mod &&
-      typeof mod === 'object' &&
-      typeof (mod as ModificationInstance).templateId === 'string'
-    ) {
-      return mod
+function normalizeCardModSlots(card: CardInstance): CardInstance {
+  const raw = card as CardInstance & { modifications?: unknown[] }
+  if (Array.isArray(raw.modifications) && raw.modSlots === undefined) {
+    return {
+      id: card.id,
+      templateId: card.templateId,
+      global_level: card.global_level,
+      uses_count: card.uses_count,
+      modSlots: legacyModificationsToModSlots(raw.modifications),
     }
-    changed = true
-    const level =
-      mod &&
-      typeof mod === 'object' &&
-      typeof (mod as { level?: unknown }).level === 'number' &&
-      Number.isFinite((mod as { level: number }).level)
-        ? (mod as { level: number }).level
-        : 0
-    return { templateId: DEFAULT_MOD_KILL_TEMPLATE_ID, level }
-  })
-  return changed ? { ...card, modifications } : card
+  }
+  return { ...card, modSlots: cloneModSlots(card.modSlots ?? []) }
 }
 
 function withLegacyCardModTemplateIds(c: CampaignState): CampaignState {
   let changed = false
   const characters = c.characters.map((char) => {
-    const cards = char.cards.map(normalizeCardModifications)
+    const cards = char.cards.map(normalizeCardModSlots)
     if (cards.every((card, i) => card === char.cards[i])) return char
     changed = true
     return { ...char, cards }
@@ -470,7 +503,7 @@ function withLegacyCardModTemplateIds(c: CampaignState): CampaignState {
     const playerCardsByUnitId = { ...battle!.playerCardsByUnitId }
     for (const [unitId, cards] of Object.entries(playerCardsByUnitId)) {
       const normalized = cards.map((card) => ({
-        ...normalizeCardModifications(card),
+        ...normalizeCardModSlots(card),
         cooldownRemaining: card.cooldownRemaining ?? 0,
       }))
       if (normalized.some((card, i) => card !== cards[i])) {
@@ -487,7 +520,7 @@ function withLegacyCardModTemplateIds(c: CampaignState): CampaignState {
   let battleAttemptSnapshot = c.battleAttemptSnapshot
   if (c.battleAttemptSnapshot) {
     const party = c.battleAttemptSnapshot.party.map((member) => {
-      const snapCards = member.cards.map(normalizeCardModifications)
+      const snapCards = member.cards.map(normalizeCardModSlots)
       const snapChanged = snapCards.some((card, i) => card !== member.cards[i])
       if (!snapChanged) return member
       changed = true
@@ -570,13 +603,10 @@ export function migrateV2CampaignToV3(c: LegacyCampaignStateV2): CampaignState {
     unitLevel: typeof raw.playerUnitLevel === 'number' ? raw.playerUnitLevel : 1,
   })
   hero.cards = Array.isArray(raw.cards)
-    ? (raw.cards as CardInstance[]).map((x) => ({
-        ...x,
-        modifications: x.modifications.map((m) => ({ ...m })),
-      }))
+    ? (raw.cards as unknown[]).map((x) => parseCardInstance(x))
     : hero.cards
   hero.items = Array.isArray(raw.items)
-    ? (raw.items as ItemInstance[]).map((x) => ({ ...x }))
+    ? (raw.items as unknown[]).map((x) => normalizeItemInstance(x))
     : []
   hero.equipment = normalizeEquipmentRecord(raw.equipment, hero.items)
   hero.battleLoadout = normalizeBattleLoadout(raw.battleLoadout, [

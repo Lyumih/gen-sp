@@ -153,11 +153,11 @@ describe('mergeBattleCodexDiscoveries', () => {
       templateId: 'strike',
       global_level: 1,
       uses_count: 0,
-      modifications: [{ templateId: 'kill_reward', level: 0 }],
+      modSlots: [{ status: 'filled', templateId: 'kill_reward', lm: 0 }],
     }
     const prev = battle({ playerCards: [battleCard(card)] })
     const next = battle({
-      playerCards: [battleCard({ ...card, modifications: [{ templateId: 'kill_reward', level: 1 }] })],
+      playerCards: [battleCard({ ...card, modSlots: [{ status: 'filled', templateId: 'kill_reward', lm: 1 }] })],
     })
     expect(mergeBattleCodexDiscoveries(prev, next, [])).toEqual([
       codexEntryId('mod', 'kill_reward'),

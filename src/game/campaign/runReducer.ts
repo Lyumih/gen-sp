@@ -491,7 +491,7 @@ function tryUseCardAttack(
     templateId: used.templateId,
     global_level: used.global_level,
     uses_count: used.uses_count,
-    modifications: used.modifications,
+    modSlots: used.modSlots,
     cooldownRemaining: cd,
   }
   const levelForDamage = card.global_level + b.gearCardLevelBonus
@@ -564,7 +564,7 @@ function tryUseCardAoE(
     templateId: used.templateId,
     global_level: used.global_level,
     uses_count: used.uses_count,
-    modifications: used.modifications,
+    modSlots: used.modSlots,
     cooldownRemaining: cd,
   }
   const levelForDamage = card.global_level + b.gearCardLevelBonus
@@ -625,7 +625,7 @@ function tryUseCardHeal(
     templateId: used.templateId,
     global_level: used.global_level,
     uses_count: used.uses_count,
-    modifications: used.modifications,
+    modSlots: used.modSlots,
     cooldownRemaining: cd,
   }
   const levelForHeal = card.global_level + b.gearCardLevelBonus
@@ -723,6 +723,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         id: newItemId(),
         templateId,
         itemLevel: 1,
+        modSlots: [],
       }
       return withCodexDiscoveries(
         updateCharacter(
@@ -994,7 +995,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         if (!templateId) continue
         const tmpl = getItemTemplate(templateId)
         if (!tmpl || tmpl.slot !== slot) continue
-        const inst: ItemInstance = { id: newItemId(), templateId, itemLevel: 1 }
+        const inst: ItemInstance = { id: newItemId(), templateId, itemLevel: 1, modSlots: [] }
         items.push(inst)
         equipment[slot] = inst.id
       }
@@ -1047,21 +1048,21 @@ export const STARTER_CARDS: CardInstance[] = [
     templateId: 'strike',
     global_level: 1,
     uses_count: 0,
-    modifications: [{ templateId: DEFAULT_MOD_KILL_TEMPLATE_ID, level: 0 }],
+    modSlots: [{ status: 'filled', templateId: DEFAULT_MOD_KILL_TEMPLATE_ID, lm: 0 }],
   },
   {
     id: 'c2',
     templateId: 'fireball',
     global_level: 1,
     uses_count: 0,
-    modifications: [],
+    modSlots: [],
   },
   {
     id: 'c3',
     templateId: 'heal',
     global_level: 1,
     uses_count: 0,
-    modifications: [],
+    modSlots: [],
   },
 ]
 

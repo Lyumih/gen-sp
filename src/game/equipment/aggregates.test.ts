@@ -23,8 +23,8 @@ describe('aggregateGearHpBonus / aggregateGearCardLevelBonus', () => {
 
   it('sums bonuses for two equipped items by template and level', () => {
     const items: ItemInstance[] = [
-      { id: 'i1', templateId: 't_w', itemLevel: 2 },
-      { id: 'i2', templateId: 't_a', itemLevel: 3 },
+      { id: 'i1', templateId: 't_w', itemLevel: 2, modSlots: [] },
+      { id: 'i2', templateId: 't_a', itemLevel: 3, modSlots: [] },
     ]
     const equipment = { ...EMPTY_EQUIPMENT, weapon: 'i1', armor: 'i2' }
     const catalog: Record<string, ItemTemplate> = {

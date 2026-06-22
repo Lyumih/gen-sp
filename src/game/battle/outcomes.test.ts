@@ -21,7 +21,7 @@ const defaultCard = (id: string): BattlePlayerCard => ({
   templateId: 't1',
   global_level: 75,
   uses_count: 0,
-  modifications: [{ templateId: 'kill_reward', level: 0 }],
+  modSlots: [{ status: 'filled', templateId: 'kill_reward', lm: 0 }],
   cooldownRemaining: 0,
 })
 
@@ -199,7 +199,11 @@ describe('battle outcomes (kills & defeat)', () => {
       damage: 2,
       kind: 'melee',
     })
-    expect(end.playerCardsByUnitId[HERO_ID]![0]?.modifications[0]?.level).toBe(1)
+    expect(end.playerCardsByUnitId[HERO_ID]![0]?.modSlots[0]).toEqual({
+      status: 'filled',
+      templateId: 'kill_reward',
+      lm: 1,
+    })
   })
 
   it('party wipe defeat does not change worldPower', () => {

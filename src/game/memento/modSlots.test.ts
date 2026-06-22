@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { ModOffer } from '../types'
 import {
   milestoneThreshold,
   unlockedSlotCount,
@@ -34,7 +35,7 @@ describe('rollbackCarrierLevel', () => {
 })
 
 describe('syncModSlotsForLevel', () => {
-  const offer = { modIds: ['a', 'b', 'c'] as const, rollSeed: 1 }
+  const offer: ModOffer = { modIds: ['a', 'b', 'c'], rollSeed: 1 }
 
   it('adds empty slot with offer when level crosses milestone', () => {
     const threshold = milestoneThreshold(0)

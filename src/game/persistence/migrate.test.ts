@@ -19,7 +19,7 @@ describe('migrateFromUnknown v2 → v3', () => {
         scenarioIndex: 0,
         worldPower: 2,
         playerUnitLevel: 3,
-        cards: [{ id: 'c1', templateId: 'strike', global_level: 1, uses_count: 0, modifications: [] }],
+        cards: [{ id: 'c1', templateId: 'strike', global_level: 1, uses_count: 0, modSlots: [] }],
         battleLoadout: ['c1', null] as const,
         modKillTargetCardId: 'c1',
         gold: 50,
@@ -204,8 +204,8 @@ describe('normalizeLoadedCampaign legacy codex and mod fields', () => {
       ],
     } as unknown as CampaignState
     const out = normalizeLoadedCampaign(c)
-    expect(hero(out).cards[0].modifications).toEqual([
-      { templateId: DEFAULT_MOD_KILL_TEMPLATE_ID, level: 0 },
+    expect(hero(out).cards[0].modSlots).toEqual([
+      { status: 'filled', templateId: DEFAULT_MOD_KILL_TEMPLATE_ID, lm: 0 },
     ])
   })
 })

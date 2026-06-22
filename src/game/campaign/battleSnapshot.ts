@@ -9,6 +9,7 @@ import type {
   ItemInstance,
   PartyMemberBattleSnapshot,
 } from '../types'
+import { cloneModSlots } from '../memento/modSlotsClone'
 import { getPrimaryCharacter } from './selectors'
 
 export function cloneCards(
@@ -16,12 +17,12 @@ export function cloneCards(
 ): PartyMemberBattleSnapshot['cards'] {
   return cards.map((c) => ({
     ...c,
-    modifications: c.modifications.map((m) => ({ ...m })),
+    modSlots: cloneModSlots(c.modSlots),
   }))
 }
 
 export function cloneItems(items: readonly ItemInstance[]): ItemInstance[] {
-  return items.map((i) => ({ ...i }))
+  return items.map((i) => ({ ...i, modSlots: cloneModSlots(i.modSlots) }))
 }
 
 export function partyMemberFromCharacter(

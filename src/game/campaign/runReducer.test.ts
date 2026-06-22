@@ -64,7 +64,7 @@ function makeBattle(
       templateId: 'strike',
       global_level: 50,
       uses_count: 0,
-      modifications: [],
+      modSlots: [],
       cooldownRemaining: 0,
     },
   ]
@@ -448,7 +448,7 @@ describe('USE_CARD_ATTACK', () => {
           templateId: 'strike',
           global_level: 1,
           uses_count: 0,
-          modifications: [],
+          modSlots: [],
           cooldownRemaining: 0,
         },
       ],
@@ -517,7 +517,7 @@ describe('USE_CARD_AOE', () => {
           templateId: 'fireball',
           global_level: 50,
           uses_count: 0,
-          modifications: [],
+          modSlots: [],
           cooldownRemaining: 0,
         },
       ],
@@ -562,7 +562,7 @@ describe('USE_CARD_AOE', () => {
           templateId: 'fireball',
           global_level: 50,
           uses_count: 0,
-          modifications: [],
+          modSlots: [],
           cooldownRemaining: 0,
         },
       ],
@@ -596,7 +596,7 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
   it('FINALIZE_VICTORY no-op when itemLevelRolls length mismatches equipped count', () => {
     const init = initialCampaignState()
     const h = hero(init)
-    const items = [{ id: 'w1', templateId: 'wooden_sword', itemLevel: 1 }]
+    const items = [{ id: 'w1', templateId: 'wooden_sword', itemLevel: 1, modSlots: [] }]
     const equipment = { ...h.equipment, weapon: 'w1' as const }
     const snap = battleSnapshotFromHero(init, {
       gold: 100,
@@ -628,7 +628,7 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
   it('FINALIZE_VICTORY applies memento roll and gold when length matches', () => {
     const init = initialCampaignState()
     const h = hero(init)
-    const items = [{ id: 'w1', templateId: 'wooden_sword', itemLevel: 1 }]
+    const items = [{ id: 'w1', templateId: 'wooden_sword', itemLevel: 1, modSlots: [] }]
     const equipment = { ...h.equipment, weapon: 'w1' as const }
     const snap = battleSnapshotFromHero(init, {
       gold: 10,

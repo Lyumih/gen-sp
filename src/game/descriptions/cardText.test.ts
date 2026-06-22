@@ -21,7 +21,7 @@ describe('describeCardCombatStats', () => {
       templateId: 'strike',
       global_level: 10,
       uses_count: 0,
-      modifications: [],
+      modSlots: [],
     }
     const gear = 3
     const tmpl = getCardAttackTemplate('strike')!
@@ -41,7 +41,7 @@ describe('describeCardCombatStats', () => {
       templateId: 'nope',
       global_level: 1,
       uses_count: 0,
-      modifications: [],
+      modSlots: [],
     }
     const d = describeCardCombatStats(card, 0)
     expect(d.expectedDamage).toBeNull()

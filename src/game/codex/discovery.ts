@@ -87,11 +87,16 @@ export function mergeBattleCodexDiscoveries(
   for (const nextCard of allBattlePlayerCards(next)) {
     const prevCard = prevCardsById.get(nextCard.id)
     if (!prevCard) continue
-    for (let i = 0; i < nextCard.modifications.length; i++) {
-      const prevMod = prevCard.modifications[i]
-      const nextMod = nextCard.modifications[i]
-      if (prevMod && nextMod && prevMod.level === 0 && nextMod.level > 0) {
-        result = discoverCodexEntry(result, codexEntryId('mod', nextMod.templateId))
+    for (let i = 0; i < nextCard.modSlots.length; i++) {
+      const prevSlot = prevCard.modSlots[i]
+      const nextSlot = nextCard.modSlots[i]
+      if (
+        prevSlot?.status === 'filled' &&
+        nextSlot?.status === 'filled' &&
+        prevSlot.lm === 0 &&
+        nextSlot.lm > 0
+      ) {
+        result = discoverCodexEntry(result, codexEntryId('mod', nextSlot.templateId))
       }
     }
   }

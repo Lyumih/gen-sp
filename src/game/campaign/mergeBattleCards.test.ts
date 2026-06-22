@@ -5,8 +5,8 @@ import type { BattlePlayerCard, CardInstance } from '../types'
 describe('mergeBattleCardsIntoCollection', () => {
   it('updates collection progress without dropping non-loadout cards', () => {
     const collection: CardInstance[] = [
-      { id: 'c1', templateId: 'strike', global_level: 1, uses_count: 0, modifications: [] },
-      { id: 'c3', templateId: 'heal', global_level: 1, uses_count: 0, modifications: [] },
+      { id: 'c1', templateId: 'strike', global_level: 1, uses_count: 0, modSlots: [] },
+      { id: 'c3', templateId: 'heal', global_level: 1, uses_count: 0, modSlots: [] },
     ]
     const battle: BattlePlayerCard[] = [
       {
@@ -14,7 +14,7 @@ describe('mergeBattleCardsIntoCollection', () => {
         templateId: 'strike',
         global_level: 1,
         uses_count: 5,
-        modifications: [],
+        modSlots: [],
         cooldownRemaining: 2,
       },
     ]

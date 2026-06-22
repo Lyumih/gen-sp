@@ -7,21 +7,21 @@ const c1: CardInstance = {
   templateId: 'strike',
   global_level: 1,
   uses_count: 0,
-  modifications: [],
+  modSlots: [],
 }
 const c2: CardInstance = {
   id: 'c2',
   templateId: 'fireball',
   global_level: 1,
   uses_count: 0,
-  modifications: [],
+  modSlots: [],
 }
 const c3: CardInstance = {
   id: 'c3',
   templateId: 'heal',
   global_level: 1,
   uses_count: 0,
-  modifications: [],
+  modSlots: [],
 }
 
 describe('playerCardsFromLoadout', () => {
