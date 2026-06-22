@@ -7,3 +7,21 @@ export const UI_LEVEL = '⭐'
 export const UI_DAMAGE = '💥'
 
 export const UI_CELL = '⬜'
+
+export const UI_DEFENSE = '🛡'
+
+export const UI_ATTACK = '⚔'
+
+export const UI_MAGIC = '✨'
+
+export const UI_MANA = '🔮'
+
+export const UI_HEAL = '💚'
+
+export const UI_SPEED = '👟'
+
+export const UI_INITIATIVE = '⚡'
+
+export const UI_CRIT = '🎯'
+
+export const UI_RATING = '★'
