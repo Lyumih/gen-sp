@@ -34,6 +34,21 @@ export function resolveBattleCount(config: BattleCountConfig, rng: () => number)
   return resolveRangedConfig(config, rng)
 }
 
+/** Human-readable preview for fixed or ranged config (e.g. `3` or `2–4`). */
+export function formatConfigPreview(config: number | { min: number; max: number }): string {
+  if (typeof config === 'number') return String(config)
+  if (config.min === config.max) return String(config.min)
+  return `${config.min}–${config.max}`
+}
+
+export function getPartySizeSlotCount(config: PartySizeConfig): number {
+  return typeof config === 'number' ? config : config.max
+}
+
+export function getPartySizeRequiredCount(config: PartySizeConfig): number {
+  return typeof config === 'number' ? config : config.min
+}
+
 export const EXPEDITION_CHAINS: readonly ExpeditionChainConfig[] = [
   {
     id: 'campaign-main',

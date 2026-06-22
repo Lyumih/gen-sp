@@ -11,6 +11,8 @@ describe('CampaignHubNav', () => {
         onTabChange: () => {},
         unreadCodexCount: 3,
         codexDisabled: false,
+        shopDisabled: false,
+        tavernDisabled: false,
       }),
     )
 
@@ -25,10 +27,30 @@ describe('CampaignHubNav', () => {
         onTabChange: () => {},
         unreadCodexCount: 0,
         codexDisabled: true,
+        shopDisabled: false,
+        tavernDisabled: false,
       }),
     )
 
     expect(html).toContain('Кодекс')
     expect(html).toContain('disabled')
+  })
+
+  it('disables shop and tavern tabs during expedition', () => {
+    const html = renderToStaticMarkup(
+      createElement(CampaignHubNav, {
+        activeTab: 'battle',
+        onTabChange: () => {},
+        unreadCodexCount: 0,
+        codexDisabled: false,
+        shopDisabled: true,
+        tavernDisabled: true,
+      }),
+    )
+
+    expect(html).toContain('Магазин')
+    expect(html).toContain('Таверна')
+    const disabledCount = html.match(/disabled/g)?.length ?? 0
+    expect(disabledCount).toBeGreaterThanOrEqual(2)
   })
 })

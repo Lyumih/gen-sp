@@ -15,6 +15,7 @@ import type { CampaignHubTab } from './campaignHubShared'
 import { CampaignHubHud } from './CampaignHubHud'
 import { CampaignHubNav } from './CampaignHubNav'
 import { CampaignShopTab } from './CampaignShopTab'
+import { CampaignTavernTab } from './CampaignTavernTab'
 
 export function CampaignHub() {
   const { message } = App.useApp()
@@ -25,6 +26,7 @@ export function CampaignHub() {
   const done = campaign.scenarioIndex >= SCENARIOS.length
   const scenario = SCENARIOS[campaign.scenarioIndex]
   const inBattle = campaign.battle !== null
+  const expeditionActive = campaign.expedition !== null
   const unreadCodexCount = unreadCodexEntryIds(campaign).length
 
   const handleTabChange = (tab: CampaignHubTab) => {
@@ -110,10 +112,13 @@ export function CampaignHub() {
           onTabChange={handleTabChange}
           unreadCodexCount={unreadCodexCount}
           codexDisabled={inBattle}
+          shopDisabled={expeditionActive}
+          tavernDisabled={expeditionActive}
         />
 
         {activeTab === 'battle' ? (
           <CampaignBattleTab
+            campaign={campaign}
             done={done}
             inBattle={inBattle}
             scenarioIndex={campaign.scenarioIndex}
@@ -126,6 +131,9 @@ export function CampaignHub() {
                 type: 'START_REPLAY_BATTLE',
                 scenarioSlotIndex: replaySlot,
               })
+            }
+            onStartExpedition={(chainId, selectedCharacterIds) =>
+              dispatchRun({ type: 'START_EXPEDITION', chainId, selectedCharacterIds })
             }
           />
         ) : null}
@@ -153,6 +161,18 @@ export function CampaignHub() {
             onBuy={buy}
             onInsufficientGold={() => message.warning('Недостаточно золота')}
             onSell={sellItem}
+          />
+        ) : null}
+
+        {activeTab === 'tavern' ? (
+          <CampaignTavernTab
+            campaign={campaign}
+            inBattle={inBattle}
+            onRefresh={() => dispatchRun({ type: 'REFRESH_TAVERN' })}
+            onHire={(candidateId) =>
+              dispatchRun({ type: 'HIRE_TAVERN_CANDIDATE', candidateId })
+            }
+            onInsufficientGold={() => message.warning('Недостаточно золота')}
           />
         ) : null}
 

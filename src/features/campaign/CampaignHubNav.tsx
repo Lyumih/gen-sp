@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import {
   BookOutlined,
+  CoffeeOutlined,
   PlayCircleOutlined,
   ShoppingOutlined,
   UserOutlined,
@@ -13,9 +14,11 @@ type CampaignHubNavProps = {
   onTabChange: (tab: CampaignHubTab) => void
   unreadCodexCount: number
   codexDisabled: boolean
+  shopDisabled: boolean
+  tavernDisabled: boolean
 }
 
-const TAB_ORDER: CampaignHubTab[] = ['character', 'battle', 'shop', 'codex']
+const TAB_ORDER: CampaignHubTab[] = ['character', 'battle', 'shop', 'tavern', 'codex']
 
 const TAB_LABEL: Record<CampaignHubTab, string> = {
   character: 'Персонаж',
@@ -30,7 +33,19 @@ const TAB_ICON: Record<CampaignHubTab, ReactNode> = {
   battle: <PlayCircleOutlined aria-hidden />,
   shop: <ShoppingOutlined aria-hidden />,
   codex: <BookOutlined aria-hidden />,
-  tavern: <UserOutlined aria-hidden />,
+  tavern: <CoffeeOutlined aria-hidden />,
+}
+
+function isTabDisabled(
+  tab: CampaignHubTab,
+  codexDisabled: boolean,
+  shopDisabled: boolean,
+  tavernDisabled: boolean,
+): boolean {
+  if (tab === 'codex') return codexDisabled
+  if (tab === 'shop') return shopDisabled
+  if (tab === 'tavern') return tavernDisabled
+  return false
 }
 
 export function CampaignHubNav({
@@ -38,6 +53,8 @@ export function CampaignHubNav({
   onTabChange,
   unreadCodexCount,
   codexDisabled,
+  shopDisabled,
+  tavernDisabled,
 }: CampaignHubNavProps) {
   return (
     <Space
@@ -56,7 +73,7 @@ export function CampaignHubNav({
             aria-label={TAB_LABEL[tab]}
             type={activeTab === tab ? 'primary' : 'default'}
             icon={TAB_ICON[tab]}
-            disabled={tab === 'codex' ? codexDisabled : false}
+            disabled={isTabDisabled(tab, codexDisabled, shopDisabled, tavernDisabled)}
             onClick={() => onTabChange(tab)}
           >
             {TAB_LABEL[tab]}
