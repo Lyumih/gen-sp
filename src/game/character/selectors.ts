@@ -17,6 +17,23 @@ export function getReserveCharacters(campaign: CampaignState): Character[] {
   return campaign.characters.filter((c) => !squadIds.has(c.id))
 }
 
+export function hasEmptySquadSlot(squad: readonly (string | null)[]): boolean {
+  return squad.some((id) => id === null)
+}
+
+export function findFirstEmptySquadSlotIndex(squad: readonly (string | null)[]): number | null {
+  const idx = squad.findIndex((id) => id === null)
+  return idx >= 0 ? idx : null
+}
+
+export function findSquadSlotIndex(
+  squad: readonly (string | null)[],
+  characterId: string,
+): number | null {
+  const idx = squad.indexOf(characterId)
+  return idx >= 0 ? idx : null
+}
+
 /** Первый занятый слот отряда или characters[0] — для UI и solo-совместимости. */
 export function getActiveCharacter(campaign: CampaignState): Character {
   const firstSquadId = campaign.squad.find((id): id is string => id !== null)

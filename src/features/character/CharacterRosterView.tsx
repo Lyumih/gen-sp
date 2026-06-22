@@ -1,6 +1,10 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core'
-import { List, Tag, Typography } from 'antd'
-import { getCharacter, getReserveCharacters } from '../../game/character/selectors'
+import { Button, List, Tag, Typography } from 'antd'
+import {
+  getCharacter,
+  getReserveCharacters,
+  hasEmptySquadSlot,
+} from '../../game/character/selectors'
 import { getCharacterClass } from '../../game/content/characterClasses'
 import type { CampaignState, Character } from '../../game/types'
 import { UI_LEVEL } from '../../game/ui/labels'
@@ -14,6 +18,8 @@ type CharacterRosterViewProps = {
   squadLocked: boolean
   activeDragId: string | null
   onSelectCharacter: (characterId: string) => void
+  onAssignToSquad: (characterId: string) => void
+  onRemoveFromSquad: (characterId: string) => void
 }
 
 function RosterRow({
@@ -25,6 +31,9 @@ function RosterRow({
   squadLocked,
   activeDragId,
   onSelectCharacter,
+  onAssignToSquad,
+  onRemoveFromSquad,
+  squadHasEmptySlot,
 }: {
   character: Character
   campaign: CampaignState
@@ -34,6 +43,9 @@ function RosterRow({
   squadLocked: boolean
   activeDragId: string | null
   onSelectCharacter: (characterId: string) => void
+  onAssignToSquad: (characterId: string) => void
+  onRemoveFromSquad: (characterId: string) => void
+  squadHasEmptySlot: boolean
 }) {
   const inSquad = campaign.squad.includes(character.id)
   const isSelected = character.id === selectedCharacterId
@@ -58,6 +70,36 @@ function RosterRow({
   const cls = getCharacterClass(character.classId)
   const stashCount = character.items.length
 
+  const squadActions = !squadLocked
+    ? inSquad
+        ? [
+            <Button
+              key="remove"
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation()
+                onRemoveFromSquad(character.id)
+              }}
+            >
+              Снять
+            </Button>,
+          ]
+        : [
+            <Button
+              key="assign"
+              size="small"
+              type="primary"
+              disabled={!squadHasEmptySlot}
+              onClick={(e) => {
+                e.stopPropagation()
+                onAssignToSquad(character.id)
+              }}
+            >
+              Назначить
+            </Button>,
+          ]
+      : undefined
+
   return (
     <List.Item
       ref={(node) => {
@@ -65,6 +107,7 @@ function RosterRow({
         if (!inSquad) setDragRef(node)
       }}
       {...(!inSquad && !squadLocked ? { ...attributes, ...listeners } : {})}
+      actions={squadActions}
       style={{
         cursor: 'pointer',
         padding: '8px 12px',
@@ -112,6 +155,8 @@ export function CharacterRosterView({
   squadLocked,
   activeDragId,
   onSelectCharacter,
+  onAssignToSquad,
+  onRemoveFromSquad,
 }: CharacterRosterViewProps) {
   const reserve = getReserveCharacters(campaign)
   const squadIds = campaign.squad.filter((id): id is string => id !== null)
@@ -119,6 +164,7 @@ export function CharacterRosterView({
     .map((id) => getCharacter(campaign, id))
     .filter((c): c is Character => c !== undefined)
   const roster = [...squadChars, ...reserve.filter((c) => !squadIds.includes(c.id))]
+  const squadHasEmptySlot = hasEmptySquadSlot(campaign.squad)
 
   return (
     <div>
@@ -143,6 +189,9 @@ export function CharacterRosterView({
               squadLocked={squadLocked}
               activeDragId={activeDragId}
               onSelectCharacter={onSelectCharacter}
+              onAssignToSquad={onAssignToSquad}
+              onRemoveFromSquad={onRemoveFromSquad}
+              squadHasEmptySlot={squadHasEmptySlot}
             />
           )}
         />

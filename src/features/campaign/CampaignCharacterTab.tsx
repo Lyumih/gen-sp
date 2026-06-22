@@ -23,6 +23,8 @@ type CampaignCharacterTabProps = {
   onTransferItem: (itemId: string, fromCharacterId: string, toCharacterId: string) => void
   onSetSquadSlot: (slotIndex: number, characterId: string | null) => void
   onSwapSquadSlots: (from: number, to: number) => void
+  onAssignToSquad: (characterId: string) => void
+  onRemoveFromSquad: (characterId: string) => void
   onInvalidSlot: () => void
 }
 
@@ -38,6 +40,8 @@ export function CampaignCharacterTab({
   onTransferItem,
   onSetSquadSlot,
   onSwapSquadSlots,
+  onAssignToSquad,
+  onRemoveFromSquad,
   onInvalidSlot,
 }: CampaignCharacterTabProps) {
   const [selectedCharacterId, setSelectedCharacterId] = useState(
@@ -83,6 +87,7 @@ export function CampaignCharacterTab({
               squadLocked={squadLocked || inBattle}
               activeDragId={activeDragId}
               onSelectCharacter={setSelectedCharacterId}
+              onRemoveFromSquad={onRemoveFromSquad}
             />
             <CharacterRosterView
               campaign={campaign}
@@ -92,6 +97,8 @@ export function CampaignCharacterTab({
               squadLocked={squadLocked || inBattle}
               activeDragId={activeDragId}
               onSelectCharacter={setSelectedCharacterId}
+              onAssignToSquad={onAssignToSquad}
+              onRemoveFromSquad={onRemoveFromSquad}
             />
             <HeroProfileContent
               mode="hub"

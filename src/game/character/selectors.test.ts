@@ -3,10 +3,13 @@ import { initialCampaignState } from '../campaign/runReducer'
 import { LEGACY_HERO_CHARACTER_ID } from './constants'
 import { createCharacter } from './createCharacter'
 import {
+  findFirstEmptySquadSlotIndex,
+  findSquadSlotIndex,
   getActiveCharacter,
   getCharacter,
   getReserveCharacters,
   getSquadCharacters,
+  hasEmptySquadSlot,
 } from './selectors'
 
 function campaignWithTwoCharacters() {
@@ -44,5 +47,17 @@ describe('character selectors', () => {
   it('getActiveCharacter returns first squad slot', () => {
     const c = campaignWithTwoCharacters()
     expect(getActiveCharacter(c).id).toBe(LEGACY_HERO_CHARACTER_ID)
+  })
+
+  it('squad slot helpers', () => {
+    const squad = [LEGACY_HERO_CHARACTER_ID, null, 'char-2', null] as const
+    expect(hasEmptySquadSlot(squad)).toBe(true)
+    expect(findFirstEmptySquadSlotIndex(squad)).toBe(1)
+    expect(findSquadSlotIndex(squad, 'char-2')).toBe(2)
+    expect(findSquadSlotIndex(squad, 'missing')).toBeNull()
+
+    const full = ['a', 'b', 'c', 'd'] as const
+    expect(hasEmptySquadSlot(full)).toBe(false)
+    expect(findFirstEmptySquadSlotIndex(full)).toBeNull()
   })
 })

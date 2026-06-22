@@ -1,5 +1,5 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core'
-import { Tag, Typography } from 'antd'
+import { Button, Tag, Typography } from 'antd'
 import { getCharacter } from '../../game/character/selectors'
 import { getCharacterClass } from '../../game/content/characterClasses'
 import type { CampaignState } from '../../game/types'
@@ -14,6 +14,7 @@ type SquadSlotRowProps = {
   squadLocked: boolean
   activeDragId: string | null
   onSelectCharacter: (characterId: string) => void
+  onRemoveFromSquad: (characterId: string) => void
 }
 
 function SquadSlotCell({
@@ -24,6 +25,7 @@ function SquadSlotCell({
   squadLocked,
   activeDragId,
   onSelectCharacter,
+  onRemoveFromSquad,
 }: {
   slotIndex: number
   characterId: string | null
@@ -32,6 +34,7 @@ function SquadSlotCell({
   squadLocked: boolean
   activeDragId: string | null
   onSelectCharacter: (characterId: string) => void
+  onRemoveFromSquad: (characterId: string) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: squadSlotDragId(slotIndex),
@@ -91,13 +94,28 @@ function SquadSlotCell({
         />
       </div>
       {character ? (
-        <Typography.Text
-          type="secondary"
-          style={{ fontSize: 11, display: 'block', textAlign: 'center', marginTop: 2 }}
-          ellipsis
-        >
-          {character.name}
-        </Typography.Text>
+        <>
+          <Typography.Text
+            type="secondary"
+            style={{ fontSize: 11, display: 'block', textAlign: 'center', marginTop: 2 }}
+            ellipsis
+          >
+            {character.name}
+          </Typography.Text>
+          {!squadLocked ? (
+            <Button
+              type="link"
+              size="small"
+              style={{ padding: 0, fontSize: 11, height: 'auto' }}
+              onClick={(e) => {
+                e.stopPropagation()
+                onRemoveFromSquad(character.id)
+              }}
+            >
+              Снять
+            </Button>
+          ) : null}
+        </>
       ) : null}
     </div>
   )
@@ -109,6 +127,7 @@ export function SquadSlotRow({
   squadLocked,
   activeDragId,
   onSelectCharacter,
+  onRemoveFromSquad,
 }: SquadSlotRowProps) {
   return (
     <div>
@@ -131,6 +150,7 @@ export function SquadSlotRow({
             squadLocked={squadLocked}
             activeDragId={activeDragId}
             onSelectCharacter={onSelectCharacter}
+            onRemoveFromSquad={onRemoveFromSquad}
           />
         ))}
       </div>

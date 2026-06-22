@@ -4,7 +4,7 @@ import { App, Card, Divider, Space } from 'antd'
 import { SCENARIOS } from '../../game/campaign/scenarios'
 import { unreadCodexEntryIds } from '../../game/codex/discovery'
 import { getItemTemplate } from '../../game/content/itemTemplates'
-import { getActiveCharacter } from '../../game/character/selectors'
+import { findFirstEmptySquadSlotIndex, findSquadSlotIndex, getActiveCharacter } from '../../game/character/selectors'
 import { isItemEquipped } from '../../game/equipment/stashOrder'
 import type { EquipmentSlot } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
@@ -99,6 +99,21 @@ export function CampaignHub() {
     dispatchRun({ type: 'SWAP_SQUAD_SLOTS', from, to })
   }
 
+  const assignToSquad = (characterId: string) => {
+    const slotIndex = findFirstEmptySquadSlotIndex(campaign.squad)
+    if (slotIndex === null) {
+      message.warning('Все слоты отряда заняты')
+      return
+    }
+    dispatchRun({ type: 'SET_SQUAD_SLOT', slotIndex, characterId })
+  }
+
+  const removeFromSquad = (characterId: string) => {
+    const slotIndex = findSquadSlotIndex(campaign.squad, characterId)
+    if (slotIndex === null) return
+    dispatchRun({ type: 'SET_SQUAD_SLOT', slotIndex, characterId: null })
+  }
+
   return (
     <Card
       title={
@@ -155,6 +170,8 @@ export function CampaignHub() {
             onTransferItem={transferItem}
             onSetSquadSlot={setSquadSlot}
             onSwapSquadSlots={swapSquadSlots}
+            onAssignToSquad={assignToSquad}
+            onRemoveFromSquad={removeFromSquad}
             onInvalidSlot={() => message.warning('Не подходит к этому слоту')}
           />
         ) : null}
