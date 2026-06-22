@@ -1,6 +1,14 @@
 import { computeCardAttackDamage } from '../content/cardAttackDamage'
 import { computeCardHealAmount } from '../content/cardHealAmount'
 import { getCardAttackTemplate } from '../content/cardTemplates'
+import { resolveCarrierTags } from '../mods/carrierTags'
+import {
+  applyAoeSizeMods,
+  applyCooldownMods,
+  applyDamageMods,
+  applyHealMods,
+  applyRangeMods,
+} from '../mods/modPipeline'
 import type { CardInstance } from '../types'
 import { UI_CELL, UI_DAMAGE, UI_HEART, UI_LEVEL } from '../ui/labels'
 
@@ -14,6 +22,14 @@ export type CardCombatStatsDescription = {
   lines: string[]
   /** null если шаблон не найден */
   expectedDamage: number | null
+}
+
+function modContextForCard(card: CardInstance) {
+  return {
+    carrierTags: resolveCarrierTags('card', card.templateId),
+    modSlots: card.modSlots,
+    rng: () => 50,
+  }
 }
 
 export function describeCardCombatStats(
@@ -31,19 +47,21 @@ export function describeCardCombatStats(
   }
 
   const levelForEffect = card.global_level + gearCardLevelBonus
+  const modCtx = modContextForCard(card)
+  const effectiveRange = applyRangeMods(tmpl.maxRange, modCtx)
+  const effectiveCd = applyCooldownMods(tmpl.cooldownTurns ?? 0, modCtx)
 
   if (tmpl.kind === 'heal') {
-    const expectedHeal = computeCardHealAmount(tmpl, levelForEffect)
+    const baseHeal = computeCardHealAmount(tmpl, levelForEffect)
+    const expectedHeal = applyHealMods(baseHeal, modCtx)
     const tokenLine =
       tmpl.healToken !== undefined
         ? `Токен ${UI_HEART}: ${tmpl.healToken}`
         : `Без токена (запасное ${UI_HEART} ${tmpl.fallbackHeal})`
     const cdLine =
-      tmpl.cooldownTurns !== undefined && tmpl.cooldownTurns > 0
-        ? `Перезарядка: ${tmpl.cooldownTurns} ход(ов) героя`
-        : null
+      effectiveCd > 0 ? `Перезарядка: ${effectiveCd} ход(ов) героя` : null
     const lines = [
-      `Лечение, дальность ${tmpl.maxRange} ${UI_CELL}`,
+      `Лечение, дальность ${effectiveRange} ${UI_CELL}`,
       tokenLine,
       `${UI_LEVEL} карты: ${card.global_level}, бонус экипировки: +${gearCardLevelBonus}`,
       `Ожидаемое ${UI_HEART} сейчас: ${expectedHeal}`,
@@ -52,25 +70,28 @@ export function describeCardCombatStats(
     return { displayLabel, lines, expectedDamage: expectedHeal }
   }
 
-  const expectedDamage = computeCardAttackDamage(tmpl, levelForEffect)
+  const baseDamage = computeCardAttackDamage(tmpl, levelForEffect)
+  const expectedDamage = applyDamageMods(baseDamage, modCtx)
   const kindRu =
     tmpl.kind === 'melee'
       ? 'Ближний бой'
       : tmpl.kind === 'ranged'
         ? 'Дальний бой'
         : 'Дальний бой (область)'
-  const rangeLine =
+  const effectiveAoeSize =
     tmpl.kind === 'aoe' && tmpl.aoeSize !== undefined
-      ? `${kindRu}, дальность ${tmpl.maxRange} ${UI_CELL}, область ${tmpl.aoeSize}×${tmpl.aoeSize}`
-      : `${kindRu}, дальность ${tmpl.maxRange} ${UI_CELL}`
+      ? applyAoeSizeMods(tmpl.aoeSize, modCtx)
+      : undefined
+  const rangeLine =
+    tmpl.kind === 'aoe' && effectiveAoeSize !== undefined
+      ? `${kindRu}, дальность ${effectiveRange} ${UI_CELL}, область ${effectiveAoeSize}×${effectiveAoeSize}`
+      : `${kindRu}, дальность ${effectiveRange} ${UI_CELL}`
   const tokenLine =
     tmpl.damageToken !== undefined
       ? `Токен ${UI_DAMAGE}: ${tmpl.damageToken}`
       : `Без токена (запасной ${UI_DAMAGE} ${tmpl.fallbackDamage})`
   const cdLine =
-    tmpl.cooldownTurns !== undefined && tmpl.cooldownTurns > 0
-      ? `Перезарядка: ${tmpl.cooldownTurns} ход(ов) героя`
-      : null
+    effectiveCd > 0 ? `Перезарядка: ${effectiveCd} ход(ов) героя` : null
 
   const lines = [
     rangeLine,

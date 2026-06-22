@@ -47,4 +47,18 @@ describe('describeCardCombatStats', () => {
     expect(d.expectedDamage).toBeNull()
     expect(d.lines[0]).toContain('не найден')
   })
+
+  it('shows mod-adjusted damage when modSlots filled', () => {
+    const card: CardInstance = {
+      id: 'c1',
+      templateId: 'strike',
+      global_level: 10,
+      uses_count: 0,
+      modSlots: [{ status: 'filled', templateId: 'mod-damage-up', lm: 0 }],
+    }
+    const tmpl = getCardAttackTemplate('strike')!
+    const base = computeCardAttackDamage(tmpl, 10)
+    const d = describeCardCombatStats(card, 0)
+    expect(d.expectedDamage).toBe(Math.round(base * 1.5))
+  })
 })

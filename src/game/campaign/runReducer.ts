@@ -29,6 +29,14 @@ import { afterCarrierLevelChange, modOfferSeed, occupiedModTemplateIds } from '.
 import { generateOffer } from '../memento/modOffers'
 import { rollbackCarrierLevel } from '../memento/modSlots'
 import { resolveCarrierTags } from '../mods/carrierTags'
+import {
+  applyAoeSizeMods,
+  applyCooldownMods,
+  applyDamageMods,
+  applyHealMods,
+  applyRangeMods,
+  type ModCombatContext,
+} from '../mods/modPipeline'
 import { MOD_OFFER_POOL, getModTemplate } from '../content/modTemplates'
 import { rollMementoLevelUp } from '../memento/rollMementoLevelUp'
 import type {
@@ -494,6 +502,17 @@ function withCardCooldownSkip(battle: BattleState, cooldownTurns: number): Battl
   return { ...battle, skipHeroCooldownTick: true }
 }
 
+function cardModCombatContext(
+  card: BattlePlayerCard,
+  randomInt1to100: number,
+): ModCombatContext {
+  return {
+    carrierTags: resolveCarrierTags('card', card.templateId),
+    modSlots: card.modSlots,
+    rng: () => randomInt1to100,
+  }
+}
+
 function tryUseCardAttack(
   state: CampaignState,
   action: Extract<RunAction, { type: 'USE_CARD_ATTACK' }>,
@@ -519,13 +538,15 @@ function tryUseCardAttack(
 
   if (tmpl.kind === 'melee' && !canMeleeAttack(actor, target)) return state
   const walls = wallSet(b.walls)
-  if (tmpl.kind === 'ranged' && !canRangedAttack(actor, target, tmpl.maxRange, walls)) {
+  const modCtx = cardModCombatContext(card, action.randomInt1to100)
+  const effectiveRange = applyRangeMods(tmpl.maxRange, modCtx)
+  if (tmpl.kind === 'ranged' && !canRangedAttack(actor, target, effectiveRange, walls)) {
     return state
   }
   if (tmpl.kind === 'aoe' || tmpl.kind === 'heal') return state
 
   const used = applyCardUse(card, action.randomInt1to100)
-  const cd = tmpl.cooldownTurns ?? 0
+  const cd = applyCooldownMods(tmpl.cooldownTurns ?? 0, modCtx)
   const nextCard: BattlePlayerCard = {
     id: used.id,
     templateId: used.templateId,
@@ -535,7 +556,8 @@ function tryUseCardAttack(
     cooldownRemaining: cd,
   }
   const levelForDamage = card.global_level + b.gearCardLevelBonus
-  const damage = computeCardAttackDamage(tmpl, levelForDamage)
+  const baseDamage = computeCardAttackDamage(tmpl, levelForDamage)
+  const damage = applyDamageMods(baseDamage, modCtx)
   const bWithCards = updateActorPlayerCards(
     b,
     actorId!,
@@ -559,7 +581,7 @@ function tryUseCardAttack(
           targetId: target.id,
           damage,
           kind: 'ranged',
-          maxRange: tmpl.maxRange,
+          maxRange: effectiveRange,
           fromCard,
         }
 
@@ -595,10 +617,12 @@ function tryUseCardAoE(
   if (!inBounds(targetX, targetY, b.width, b.height)) return state
   const walls = wallSet(b.walls)
   if (walls.has(cellKey(targetX, targetY))) return state
-  if (!canCastAoEAt(actor, targetX, targetY, tmpl.maxRange, walls)) return state
+  const modCtx = cardModCombatContext(card, action.randomInt1to100)
+  const effectiveRange = applyRangeMods(tmpl.maxRange, modCtx)
+  if (!canCastAoEAt(actor, targetX, targetY, effectiveRange, walls)) return state
 
   const used = applyCardUse(card, action.randomInt1to100)
-  const cd = tmpl.cooldownTurns ?? 0
+  const cd = applyCooldownMods(tmpl.cooldownTurns ?? 0, modCtx)
   const nextCard: BattlePlayerCard = {
     id: used.id,
     templateId: used.templateId,
@@ -608,7 +632,9 @@ function tryUseCardAoE(
     cooldownRemaining: cd,
   }
   const levelForDamage = card.global_level + b.gearCardLevelBonus
-  const damage = computeCardAttackDamage(tmpl, levelForDamage)
+  const baseDamage = computeCardAttackDamage(tmpl, levelForDamage)
+  const damage = applyDamageMods(baseDamage, modCtx)
+  const aoeSize = applyAoeSizeMods(tmpl.aoeSize, modCtx)
   const bWithCards = updateActorPlayerCards(
     b,
     actorId!,
@@ -622,7 +648,7 @@ function tryUseCardAoE(
     centerX: targetX,
     centerY: targetY,
     damage,
-    aoeSize: tmpl.aoeSize,
+    aoeSize,
     fromCard,
   })
   if (used.leveledUp) {
@@ -656,10 +682,12 @@ function tryUseCardHeal(
   if (!tmpl || tmpl.kind !== 'heal') return state
 
   const walls = wallSet(b.walls)
-  if (!canHealTarget(actor, target, tmpl.maxRange, walls)) return state
+  const modCtx = cardModCombatContext(card, action.randomInt1to100)
+  const effectiveRange = applyRangeMods(tmpl.maxRange, modCtx)
+  if (!canHealTarget(actor, target, effectiveRange, walls)) return state
 
   const used = applyCardUse(card, action.randomInt1to100)
-  const cd = tmpl.cooldownTurns ?? 0
+  const cd = applyCooldownMods(tmpl.cooldownTurns ?? 0, modCtx)
   const nextCard: BattlePlayerCard = {
     id: used.id,
     templateId: used.templateId,
@@ -669,7 +697,8 @@ function tryUseCardHeal(
     cooldownRemaining: cd,
   }
   const levelForHeal = card.global_level + b.gearCardLevelBonus
-  const amount = computeCardHealAmount(tmpl, levelForHeal)
+  const baseHeal = computeCardHealAmount(tmpl, levelForHeal)
+  const amount = applyHealMods(baseHeal, modCtx)
   const bWithCards = updateActorPlayerCards(
     b,
     actorId!,
