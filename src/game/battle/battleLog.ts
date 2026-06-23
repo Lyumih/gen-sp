@@ -1,4 +1,5 @@
 import { getCardDisplayLabel } from '../descriptions/cardText'
+import { getPassiveTemplate } from '../content/passiveTemplates'
 import type { BattleLogEntry } from '../types'
 import type { UnitDisplay } from '../character/display'
 import { UI_DAMAGE, UI_HEART } from '../ui/labels'
@@ -39,6 +40,12 @@ export function formatBattleLogEntry(
       return `Карта «${getCardDisplayLabel(entry.templateId)}»: уровень ${entry.fromLevel} → ${entry.toLevel}; выпало ${entry.roll} из 100`
     case 'mod_proc':
       return `✨ ${entry.label}!`
+    case 'passive_proc': {
+      const label = getPassiveTemplate(entry.templateId)?.label ?? entry.templateId
+      return entry.procSuccess
+        ? `✨ Навык «${label}» сработал`
+        : `Навык «${label}»: не сработал`
+    }
     case 'status_applied':
       return `${formatUnitRef(entry.unitId, lookup)}: статус «${entry.statusKind}»`
     case 'status_tick': {

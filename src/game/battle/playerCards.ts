@@ -1,4 +1,5 @@
 import { mergeBattleCardsIntoCollection } from '../campaign/mergeBattleCards'
+import { mergeBattlePassivesIntoCollection } from '../passives/mergeBattlePassives'
 import { playerCardsFromLoadout } from '../campaign/playerCardsFromLoadout'
 import type {
   BattlePlayerCard,
@@ -24,11 +25,21 @@ export function mergeBattleCardsToParty(
 ): Character[] {
   return party.map((c) => {
     const battleCards = battle.playerCardsByUnitId[c.id]
-    if (!battleCards) return c
-    return {
-      ...c,
-      cards: mergeBattleCardsIntoCollection(c.cards, battleCards),
+    const battlePassives = battle.passivesByUnitId?.[c.id]
+    let next = c
+    if (battleCards) {
+      next = {
+        ...next,
+        cards: mergeBattleCardsIntoCollection(c.cards, battleCards),
+      }
     }
+    if (battlePassives) {
+      next = {
+        ...next,
+        passives: mergeBattlePassivesIntoCollection(c.passives, battlePassives),
+      }
+    }
+    return next
   })
 }
 

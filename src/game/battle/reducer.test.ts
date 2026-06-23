@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { LEGACY_HERO_CHARACTER_ID } from '../character/constants'
 import type { BattleModContext, BattleState, ModSlotState, Unit } from '../types'
+import { createPassiveInstance } from '../passives/passiveFactory'
 import { cellKey, manhattan, orthoNeighbors } from './grid'
 import { applyAction } from './reducer'
 
@@ -395,6 +396,33 @@ describe('applyAction move multi-step', () => {
 function modCtx(slots: ModSlotState[], rng: () => number): BattleModContext {
   return { modSlots: slots, rng }
 }
+
+describe('applyAction passive procs', () => {
+  it('on_damaged riposte proc adds passive_proc log entry', () => {
+    const riposte = createPassiveInstance('warrior_riposte')
+    const s = battle({
+      units: [
+        unit({ id: HERO_ID, side: 'player', x: 1, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
+        unit({ id: 'e1', side: 'enemy', x: 2, y: 0, hp: 20, maxHp: 20, unitLevel: 1 }),
+      ],
+      currentTurnIndex: 1,
+      turnOrder: [HERO_ID, 'e1'],
+      passivesByUnitId: { [HERO_ID]: [riposte] },
+      passiveRng: () => 0.01,
+    })
+    const next = applyAction(s, {
+      type: 'attack',
+      attackerId: 'e1',
+      targetId: HERO_ID,
+      damage: 2,
+      kind: 'melee',
+    })
+    expect(next.battleLog.some((e) => e.type === 'passive_proc' && e.templateId === 'warrior_riposte')).toBe(
+      true,
+    )
+    expect(next.units.find((u) => u.id === 'e1')!.hp).toBeLessThan(20)
+  })
+})
 
 describe('applyAction mod procs', () => {
   it('reflects thorns damage when player takes a hit', () => {

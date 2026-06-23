@@ -19,6 +19,7 @@ import {
   applyRunAction,
   cloneCards,
   cloneItems,
+  clonePassives,
   initialCampaignState,
 } from './runReducer'
 import { getCurrentActorId } from '../battle/reducer'
@@ -141,6 +142,8 @@ function partyMemberFromHero(
     items: cloneItems(h.items),
     equipment: { ...h.equipment },
     cards: cloneCards(h.cards),
+    passives: clonePassives(h.passives),
+    passiveEquip: [...h.passiveEquip],
     battleLoadout: [...h.battleLoadout] as BattleLoadout,
     metaStatus: 'active',
     spawnIndex: 0,

@@ -60,6 +60,7 @@ import {
   buildExpeditionBattleSnapshot,
   cloneCards,
   cloneItems,
+  clonePassives,
   copyBattleAttemptSnapshot,
   getExpeditionBattleCharacterId,
 } from './battleSnapshot'
@@ -195,7 +196,7 @@ export type RunAction =
 
 export { afterCarrierLevelChange }
 
-export { cloneCards, cloneItems }
+export { cloneCards, cloneItems, clonePassives }
 
 function inHub(state: CampaignState): boolean {
   return state.battle === null

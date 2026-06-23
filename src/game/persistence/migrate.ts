@@ -238,9 +238,11 @@ function normalizeCharacter(char: Character): Character {
 }
 
 function normalizePartyMember(
-  member: Omit<PartyMemberBattleSnapshot, 'baseStats'> & {
+  member: Omit<PartyMemberBattleSnapshot, 'baseStats' | 'passives' | 'passiveEquip'> & {
     baseStats?: PartyMemberBattleSnapshot['baseStats']
     initiativeBase?: number
+    passives?: PartyMemberBattleSnapshot['passives']
+    passiveEquip?: PartyMemberBattleSnapshot['passiveEquip']
   },
 ): PartyMemberBattleSnapshot {
   const items = (Array.isArray(member.items) ? member.items : [])
@@ -269,6 +271,15 @@ function normalizePartyMember(
     items,
     equipment,
     cards,
+    passives: Array.isArray(member.passives) ? member.passives.map((p) => ({ ...p })) : [],
+    passiveEquip: Array.isArray(member.passiveEquip)
+      ? ([
+          member.passiveEquip[0] ?? null,
+          member.passiveEquip[1] ?? null,
+          member.passiveEquip[2] ?? null,
+          member.passiveEquip[3] ?? null,
+        ] as PartyMemberBattleSnapshot['passiveEquip'])
+      : [null, null, null, null],
     battleLoadout,
     metaStatus: member.metaStatus === 'downed' ? 'downed' : 'active',
     spawnIndex: typeof member.spawnIndex === 'number' ? member.spawnIndex : 0,

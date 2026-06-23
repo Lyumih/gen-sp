@@ -1,7 +1,7 @@
 import { occupiedEquipmentSlotsInOrder } from '../equipment/equipmentOrder'
 import { rollCardLevelUp } from '../memento/rollCardLevelUp'
 import { seededRng } from '../tavern/generateCandidates'
-import type { BattlePlayerCard, BattleState, Character, ModSlotState } from '../types'
+import type { BattlePlayerCard, BattleState, Character, ModSlotState, PassiveInstance } from '../types'
 
 export function victoryModRollRng(seed: number): () => number {
   const rng = seededRng(seed)
@@ -49,6 +49,15 @@ export function applyVictoryModRollsToPartyBattle(
     )
   }
 
+  const passivesByUnitId: Record<string, PassiveInstance[]> = {}
+  if (battle.passivesByUnitId) {
+    for (const [unitId, passives] of Object.entries(battle.passivesByUnitId)) {
+      passivesByUnitId[unitId] = passives.map((passive) =>
+        applyVictoryModRollsToCarrier(passive, rollForSlot),
+      )
+    }
+  }
+
   const equipped = equippedItemIds(characters)
   const nextCharacters = characters.map((ch) => ({
     ...ch,
@@ -59,6 +68,10 @@ export function applyVictoryModRollsToPartyBattle(
 
   return {
     characters: nextCharacters,
-    battle: { ...battle, playerCardsByUnitId },
+    battle: {
+      ...battle,
+      playerCardsByUnitId,
+      ...(Object.keys(passivesByUnitId).length > 0 ? { passivesByUnitId } : {}),
+    },
   }
 }

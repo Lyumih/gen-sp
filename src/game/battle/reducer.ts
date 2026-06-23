@@ -1,4 +1,4 @@
-import type { BattleAction, BattleLogEntry, BattleModContext, BattleState, ModSlotState, Unit } from '../types'
+import type { BattleAction, BattleLogEntry, BattleModContext, BattleState, ModSlotState, PassiveInstance, Unit } from '../types'
 import { isUnitRooted } from './unitStatus'
 import { canMeleeAttack, canRangedAttack, withDamage, withHeal } from './combat'
 import { cellKey, manhattan, orthoNeighbors, wallSet } from './grid'
@@ -17,6 +17,14 @@ import {
   type ModCombatContext,
 } from '../mods/modPipeline'
 import { getModTemplate } from '../content/modTemplates'
+import { passiveEquipFromBattlePassives } from '../campaign/playerPassivesFromParty'
+import {
+  computePassiveStrikeDamageMult,
+  firePassives,
+  type PassiveCombatPatch,
+  type PassiveFireInput,
+} from '../passives/passiveEngine'
+import type { PassiveTrigger } from '../content/passiveTemplates'
 
 /** Приращение worldPower за смерть врага (MVP-заглушка §6). */
 export const WORLD_POWER_PER_ENEMY_KILL = 1
@@ -68,6 +76,139 @@ function toModCtx(modCtx: BattleModContext | undefined): ModCombatContext | unde
 function appendLog(state: BattleState, entries: BattleLogEntry[]): BattleState {
   if (entries.length === 0) return state
   return { ...state, battleLog: [...state.battleLog, ...entries] }
+}
+
+function unitPassives(state: BattleState, unitId: string): readonly PassiveInstance[] {
+  return state.passivesByUnitId?.[unitId] ?? []
+}
+
+function updateUnitPassives(
+  state: BattleState,
+  unitId: string,
+  passives: readonly PassiveInstance[],
+): BattleState {
+  if (passives.length === 0) return state
+  return {
+    ...state,
+    passivesByUnitId: {
+      ...state.passivesByUnitId,
+      [unitId]: passives,
+    },
+  }
+}
+
+function passiveChanceRng(state: BattleState): () => number {
+  if (state.passiveRng) return state.passiveRng
+  return () => ((state.battleLog.length * 17 + 31) % 100) / 100
+}
+
+function passiveLevelRng(state: BattleState): () => number {
+  let seq = 0
+  return () => {
+    seq += 1
+    if (state.passiveRng) {
+      return Math.floor(state.passiveRng() * 100) + 1
+    }
+    return ((state.battleLog.length * 17 + 31 + seq * 13) % 100) + 1
+  }
+}
+
+function applyPassivePatches(
+  state: BattleState,
+  patches: readonly PassiveCombatPatch[],
+  fromCard?: { cardId: string; templateId: string },
+): { state: BattleState; killed: Unit | null } {
+  let next = state
+  const log: BattleLogEntry[] = []
+  let killed: Unit | null = null
+
+  for (const patch of patches) {
+    if (patch.kind === 'dodge_heal') {
+      const unit = getUnit(next, patch.targetId)
+      if (!isAliveUnit(unit)) continue
+      const healed = withHeal(unit, patch.amount)
+      next = updateUnit(next, patch.targetId, healed)
+      log.push({
+        type: 'heal',
+        healerId: patch.targetId,
+        targetId: patch.targetId,
+        amount: patch.amount,
+      })
+      continue
+    }
+
+    if (patch.kind === 'heal' || patch.kind === 'heal_splash') {
+      const target = getUnit(next, patch.targetId)
+      if (!isAliveUnit(target)) continue
+      const healed = withHeal(target, patch.amount)
+      next = updateUnit(next, patch.targetId, healed)
+      log.push({
+        type: 'heal',
+        healerId: patch.healerId,
+        targetId: patch.targetId,
+        amount: patch.amount,
+        ...(fromCard ? { fromCard } : {}),
+      })
+      continue
+    }
+
+    if (patch.kind === 'reflect' || patch.kind === 'counter_strike' || patch.kind === 'extra_strike') {
+      const target = getUnit(next, patch.targetId)
+      if (!isAliveUnit(target)) continue
+      const updated = withDamage(target, patch.damage)
+      const wasKill = updated.hp <= 0 && target.hp > 0
+      next = updateUnit(next, patch.targetId, updated)
+      log.push({
+        type: 'strike',
+        attackerId: patch.attackerId,
+        targetId: patch.targetId,
+        damage: patch.damage,
+        attackKind: patch.kind === 'extra_strike' ? patch.attackKind : 'melee',
+        targetKilled: wasKill,
+        ...(fromCard ? { fromCard } : {}),
+      })
+      if (wasKill) killed = updated
+      continue
+    }
+
+    if (patch.kind === 'initiative_add') {
+      const unit = getUnit(next, patch.unitId)
+      if (!isAliveUnit(unit)) continue
+      next = updateUnit(next, patch.unitId, {
+        ...unit,
+        initiativeBase: (unit.initiativeBase ?? 0) + patch.amount,
+      })
+    }
+  }
+
+  next = appendLog(next, log)
+  return { state: next, killed }
+}
+
+function triggerUnitPassives(
+  state: BattleState,
+  trigger: PassiveTrigger,
+  actor: Unit,
+  ctx: Omit<PassiveFireInput, 'trigger' | 'passives' | 'passiveEquip' | 'actor' | 'battle' | 'rng' | 'randomInt1to100'>,
+): { state: BattleState; killed: Unit | null } {
+  const passives = unitPassives(state, actor.id)
+  if (passives.length === 0) return { state, killed: null }
+
+  const result = firePassives({
+    trigger,
+    passives,
+    passiveEquip: passiveEquipFromBattlePassives(passives),
+    actor,
+    battle: state,
+    rng: passiveChanceRng(state),
+    randomInt1to100: passiveLevelRng(state),
+    ...ctx,
+  })
+
+  let next = updateUnitPassives(state, actor.id, result.passives)
+  next = appendLog(next, result.log)
+  const patchResult = applyPassivePatches(next, result.combatPatches, ctx.fromCard)
+  return { state: patchResult.state, killed: patchResult.killed }
 }
 
 function updateUnit(state: BattleState, unitId: string, next: Unit): BattleState {
@@ -276,9 +417,16 @@ function applySingleStrike(
   params: StrikeParams,
 ): { state: BattleState; killed: Unit | null } {
   const target = getUnit(state, params.targetId)
-  if (!isAliveUnit(target)) return { state, killed: null }
+  const attacker = getUnit(state, params.attackerId)
+  if (!isAliveUnit(target) || !isAliveUnit(attacker)) return { state, killed: null }
 
-  const updated = withDamage(target, params.damage)
+  let damage = params.damage
+  if (attacker.side === 'player') {
+    const mult = computePassiveStrikeDamageMult(unitPassives(state, attacker.id), attacker)
+    damage = Math.round(damage * mult)
+  }
+
+  const updated = withDamage(target, damage)
   const wasKill = updated.hp <= 0 && target.hp > 0
   let next = updateUnit(state, params.targetId, updated)
   const log: BattleLogEntry[] = [
@@ -286,7 +434,7 @@ function applySingleStrike(
       type: 'strike',
       attackerId: params.attackerId,
       targetId: params.targetId,
-      damage: params.damage,
+      damage,
       attackKind: params.attackKind,
       targetKilled: wasKill,
       ...(params.fromCard ? { fromCard: params.fromCard } : {}),
@@ -300,9 +448,45 @@ function applySingleStrike(
   next = gearResult.state
   if (gearResult.killed) killed = gearResult.killed
 
-  const attackerProcs = applyAttackerOnHitProcs(next, params, params.damage)
+  const attackerProcs = applyAttackerOnHitProcs(next, params, damage)
   next = attackerProcs.state
   if (attackerProcs.killed) killed = attackerProcs.killed
+
+  const damagedTarget = getUnit(next, params.targetId)
+  if (isAliveUnit(damagedTarget) && damagedTarget.side === 'player') {
+    const damaged = triggerUnitPassives(next, 'on_damaged', damagedTarget, {
+      attackerId: params.attackerId,
+      damageDealt: damage,
+      attackKind: params.attackKind,
+      ...(params.fromCard !== undefined ? { fromCard: params.fromCard } : {}),
+    })
+    next = damaged.state
+    if (damaged.killed) killed = damaged.killed
+  }
+
+  const strikingAttacker = getUnit(next, params.attackerId)
+  if (isAliveUnit(strikingAttacker) && strikingAttacker.side === 'player') {
+    const trigger = params.fromCard ? 'on_card_attack' : 'on_strike'
+    const fired = triggerUnitPassives(next, trigger, strikingAttacker, {
+      targetId: params.targetId,
+      damageDealt: damage,
+      attackKind: params.attackKind,
+      ...(params.fromCard !== undefined ? { fromCard: params.fromCard } : {}),
+    })
+    next = fired.state
+    if (fired.killed) killed = fired.killed
+  }
+
+  if (wasKill && target.side === 'enemy') {
+    const killer = getUnit(next, params.attackerId)
+    if (isAliveUnit(killer) && killer.side === 'player') {
+      const killFired = triggerUnitPassives(next, 'on_kill', killer, {
+        targetId: params.targetId,
+      })
+      next = killFired.state
+      if (killFired.killed) killed = killFired.killed
+    }
+  }
 
   return { state: next, killed }
 }
@@ -342,6 +526,13 @@ function tryMove(state: BattleState, action: Extract<BattleAction, { type: 'move
     units,
     battleLog: [...state.battleLog, moveLog],
   }
+
+  if (moved.side === 'player') {
+    const moveCells = manhattan(unit.x, unit.y, toX, toY)
+    const fired = triggerUnitPassives(next, 'on_move', moved, { moveCells })
+    next = fired.state
+  }
+
   next = afterHpChange(next, null)
   if (next.phase !== 'ongoing') return next
   return advanceTurn(next)
@@ -500,6 +691,17 @@ function tryHeal(state: BattleState, action: Extract<BattleAction, { type: 'heal
 
   next = appendLog(next, log)
   next = applySelfHealOnUse(next, action.healerId, action.modCtx, action.fromCard)
+
+  const healerAfter = getUnit(next, action.healerId)
+  if (isAliveUnit(healerAfter) && healerAfter.side === 'player') {
+    const fired = triggerUnitPassives(next, 'on_card_heal', healerAfter, {
+      targetId: action.targetId,
+      healAmount: action.amount,
+      ...(action.fromCard !== undefined ? { fromCard: action.fromCard } : {}),
+    })
+    next = fired.state
+  }
+
   next = afterHpChange(next, null)
   if (next.phase !== 'ongoing') return next
   return advanceTurn(next)

@@ -18,6 +18,8 @@ function member(
     items: [],
     equipment: { ...EMPTY_EQUIPMENT },
     cards: [],
+    passives: [],
+    passiveEquip: [null, null, null, null],
     battleLoadout: ['c1', 'c2', null],
     metaStatus: 'active',
     spawnIndex: 0,

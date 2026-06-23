@@ -28,6 +28,8 @@ function member(
       },
     ],
     battleLoadout: ['c1', null, null],
+    passives: [],
+    passiveEquip: [null, null, null, null],
     metaStatus: 'active',
     spawnIndex: 0,
     ...partial,

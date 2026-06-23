@@ -12,6 +12,15 @@ import type {
 import { cloneModSlots } from '../memento/modSlotsClone'
 import { getPrimaryCharacter } from './selectors'
 
+export function clonePassives(
+  passives: readonly PartyMemberBattleSnapshot['passives'][number][],
+): PartyMemberBattleSnapshot['passives'] {
+  return passives.map((p) => ({
+    ...p,
+    modSlots: cloneModSlots(p.modSlots),
+  }))
+}
+
 export function cloneCards(
   cards: readonly PartyMemberBattleSnapshot['cards'][number][],
 ): PartyMemberBattleSnapshot['cards'] {
@@ -37,6 +46,8 @@ export function partyMemberFromCharacter(
     items: cloneItems(character.items),
     equipment: { ...character.equipment },
     cards: cloneCards(character.cards),
+    passives: clonePassives(character.passives),
+    passiveEquip: [...character.passiveEquip] as PartyMemberBattleSnapshot['passiveEquip'],
     battleLoadout: [...character.battleLoadout] as BattleLoadout,
     metaStatus,
     spawnIndex,
@@ -51,6 +62,8 @@ export function clonePartyMember(member: PartyMemberBattleSnapshot): PartyMember
     items: cloneItems(member.items),
     equipment: { ...member.equipment },
     cards: cloneCards(member.cards),
+    passives: clonePassives(member.passives),
+    passiveEquip: [...member.passiveEquip],
     battleLoadout: [...member.battleLoadout] as BattleLoadout,
     metaStatus: member.metaStatus,
     spawnIndex: member.spawnIndex,
@@ -106,6 +119,8 @@ export function buildExpeditionBattleSnapshot(
       items: cloneItems(character.items),
       equipment: { ...slot.equipment },
       cards: cloneCards(character.cards),
+      passives: clonePassives(character.passives),
+      passiveEquip: [...character.passiveEquip],
       battleLoadout: [...slot.battleLoadout] as BattleLoadout,
       metaStatus: slot.metaStatus,
       spawnIndex,

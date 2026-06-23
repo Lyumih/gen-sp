@@ -181,6 +181,13 @@ export type BattleLogEntry =
       unitId: string
     }
   | {
+      type: 'passive_proc'
+      templateId: string
+      procSuccess: boolean
+      unitId: string
+      targetId?: string
+    }
+  | {
       type: 'status_applied'
       unitId: string
       statusKind: string
@@ -219,6 +226,10 @@ export type BattleState = {
   worldPower: number
   /** Карты игрока по id юнита (characterId) на поле боя. */
   playerCardsByUnitId: Readonly<Record<string, readonly BattlePlayerCard[]>>
+  /** Equipped passives per player unit id (battle copy with L progress). */
+  passivesByUnitId?: Readonly<Record<string, readonly PassiveInstance[]>>
+  /** Optional override for passive proc rolls (tests). Returns 0–1. */
+  passiveRng?: () => number
   /** Filled gear mod slots (armor + accessory) per player unit id. */
   playerGearModSlotsByUnitId?: Readonly<Record<string, readonly ModSlotState[]>>
   /** Текущий актор владеет UI карт (опционально). */
@@ -284,6 +295,8 @@ export type PartyMemberBattleSnapshot = {
   items: ItemInstance[]
   equipment: Record<EquipmentSlot, string | null>
   cards: CardInstance[]
+  passives: PassiveInstance[]
+  passiveEquip: PassiveEquipLoadout
   battleLoadout: BattleLoadout
   metaStatus: CharacterMetaStatus
   spawnIndex: number

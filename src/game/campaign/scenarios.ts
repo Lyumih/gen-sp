@@ -4,6 +4,7 @@ import { computeEffectiveStat, computeGearStatBonuses } from '../stats/effective
 import { buildRoundTurnOrder } from '../battle/initiative'
 import { computeCharacterMaxHpForScenario } from './heroMaxHp'
 import { playerCardsByUnitFromParty } from '../battle/playerCards'
+import { passivesByUnitFromParty } from './playerPassivesFromParty'
 import { playerGearModSlotsByUnitFromParty } from './playerGearFromParty'
 import { getItemTemplate } from '../content/itemTemplates'
 import { computeUnitStat } from '../balance'
@@ -213,6 +214,7 @@ export function battleStateFromScenario(
     phase,
     worldPower: snapshot.worldPower,
     playerCardsByUnitId: playerCardsByUnitFromParty(snapshot.party),
+    passivesByUnitId: passivesByUnitFromParty(snapshot.party),
     playerGearModSlotsByUnitId: playerGearModSlotsByUnitFromParty(snapshot.party),
     battleLog: [],
     excludedCharacterIds:
