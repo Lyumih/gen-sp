@@ -5,6 +5,7 @@ import { resolveCarrierTags } from '../mods/carrierTags'
 import { scaleModValue } from '../memento/modScaling'
 import { HERO_BASIC_MELEE_DAMAGE } from '../battle/combat'
 import { manhattan, orthoNeighbors } from '../battle/grid'
+import { bossNoFlankDefenseBonus } from './enemyPassiveCombat'
 import type { BattleLogEntry, BattleState, PassiveEquipLoadout, PassiveInstance, Unit } from '../types'
 import { getEquippedPassives } from './equippedPassives'
 import { applyPassiveProgress } from './passiveProgress'
@@ -187,6 +188,51 @@ function resolveTemplatePassive(
   }
 
   if (template.id === 'berserker_desperation') {
+    const lowHp = input.actor.hp * 2 < input.actor.maxHp
+    return { patches: [], triggered: lowHp }
+  }
+
+  if (template.id === 'enemy_thorns' && input.attackerId && input.attackKind === 'melee') {
+    const damage = input.damageDealt ?? 0
+    if (damage <= 0) return { patches: [], triggered: false }
+    const reflectDamage = Math.max(
+      1,
+      Math.round(damage * scaledPassiveOpValue(0.2, passive, 'percent')),
+    )
+    patches.push({
+      kind: 'reflect',
+      attackerId: input.actor.id,
+      targetId: input.attackerId,
+      damage: reflectDamage,
+    })
+    return { patches, triggered: true }
+  }
+
+  if (template.id === 'boss_reflect_rage' && input.attackerId && input.attackKind === 'melee') {
+    const damage = input.damageDealt ?? 0
+    if (damage <= 0) return { patches: [], triggered: false }
+    const reflectDamage = Math.max(
+      1,
+      Math.round(damage * scaledPassiveOpValue(0.3, passive, 'percent')),
+    )
+    patches.push({
+      kind: 'reflect',
+      attackerId: input.actor.id,
+      targetId: input.attackerId,
+      damage: reflectDamage,
+    })
+    return { patches, triggered: true }
+  }
+
+  if (template.id === 'boss_no_flank' && input.trigger === 'on_turn_start') {
+    const bonus = bossNoFlankDefenseBonus([passive])
+    if (bonus > 0) {
+      patches.push({ kind: 'defense_add', unitId: input.actor.id, amount: bonus })
+    }
+    return { patches, triggered: bonus > 0 }
+  }
+
+  if (template.id === 'enemy_rage_trait' && input.trigger === 'on_strike') {
     const lowHp = input.actor.hp * 2 < input.actor.maxHp
     return { patches: [], triggered: lowHp }
   }
@@ -379,7 +425,7 @@ function countAdjacentAllies(battle: BattleState, actor: Unit): number {
   for (const [nx, ny] of orthoNeighbors(actor.x, actor.y)) {
     const ally = battle.units.find(
       (u) =>
-        u.side === 'player' &&
+        u.side === actor.side &&
         u.hp > 0 &&
         u.id !== actor.id &&
         u.x === nx &&
@@ -423,12 +469,21 @@ export function computePassiveStrikeDamageMult(
   passives: readonly PassiveInstance[],
   actor: Unit,
 ): number {
+  let mult = 1
   const desperate = passives.find((p) => p.templateId === 'berserker_desperation')
-  if (!desperate) return 1
-  if (actor.hp * 2 >= actor.maxHp) return 1
-  const template = getPassiveTemplate('berserker_desperation')
-  if (!template) return 1
-  return 1 + scaledPassiveOpValue(0.25, desperate, 'percent')
+  if (desperate) {
+    if (actor.hp * 2 < actor.maxHp) {
+      const template = getPassiveTemplate('berserker_desperation')
+      if (template) {
+        mult *= 1 + scaledPassiveOpValue(0.25, desperate, 'percent')
+      }
+    }
+  }
+  const rageTrait = passives.find((p) => p.templateId === 'enemy_rage_trait')
+  if (rageTrait && actor.hp * 2 < actor.maxHp) {
+    mult *= 1 + scaledPassiveOpValue(0.25, rageTrait, 'percent')
+  }
+  return mult
 }
 
 export function computePassiveRangedRangeBonus(

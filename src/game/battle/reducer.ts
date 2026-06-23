@@ -24,6 +24,12 @@ import {
   type ModCombatContext,
 } from '../mods/modPipeline'
 import { getModTemplate } from '../content/modTemplates'
+import {
+  applyEnemyAffinityDamageMult,
+  antiHealMultiplierFromAdjacentEnemies,
+  defenseMitigationFactor,
+  mitigateEnemyRangedWard,
+} from '../passives/enemyPassiveCombat'
 import { passiveEquipFromBattlePassives } from '../campaign/playerPassivesFromParty'
 import {
   computePassiveRangedRangeBonus,
@@ -312,7 +318,7 @@ function triggerUnitPassives(
   }
 }
 
-/** Advances turn and fires on_turn_start / on_regen_tick passives for player actors. */
+/** Advances turn and fires on_turn_start / on_regen_tick passives for the current actor. */
 export function advanceBattleTurn(state: BattleState): BattleState {
   const logLen = state.battleLog.length
   let next = advanceTurn(state)
@@ -321,7 +327,8 @@ export function advanceBattleTurn(state: BattleState): BattleState {
   const actorId = getCurrentActorId(next)
   if (!actorId) return next
   const actor = getUnit(next, actorId)
-  if (!isAliveUnit(actor) || actor.side !== 'player') return next
+  if (!isAliveUnit(actor)) return next
+  if (unitPassives(next, actorId).length === 0) return next
 
   let regenHeal = 0
   for (const entry of next.battleLog.slice(logLen)) {
@@ -551,10 +558,12 @@ function applySingleStrike(
   if (!isAliveUnit(target) || !isAliveUnit(attacker)) return { state, killed: null }
 
   let damage = params.damage
-  if (attacker.side === 'player') {
+  const attackerPassives = unitPassives(state, attacker.id)
+  if (attacker.baseStats) {
     damage = applyPassiveAttackBonus(state, attacker, damage)
-    const mult = computePassiveStrikeDamageMult(unitPassives(state, attacker.id), attacker)
+    const mult = computePassiveStrikeDamageMult(attackerPassives, attacker)
     damage = Math.round(damage * mult)
+    damage = applyEnemyAffinityDamageMult(state, attacker, damage, params.fromCard)
     if (!params.fromCard) {
       damage = rollPassiveCritDamage(state, attacker, damage, passiveChanceRng(state))
     }
@@ -563,7 +572,7 @@ function applySingleStrike(
   let next = state
   let dodged = false
 
-  if (target.side === 'player') {
+  if (unitPassives(next, target.id).length > 0) {
     const dodgeCheck = triggerUnitPassives(next, 'on_damaged', target, {
       phase: 'dodge',
       attackerId: params.attackerId,
@@ -579,13 +588,16 @@ function applySingleStrike(
     return { state: next, killed: null }
   }
 
-  if (target.side === 'player') {
-    damage = mitigatePassiveDefense(next, target, damage)
-  }
-
   const damageTags = params.fromCard
     ? resolveCardDamageTags(params.fromCard.templateId)
     : [params.attackKind]
+
+  if (target.baseStats) {
+    const ignoreFactor = defenseMitigationFactor(next, attacker, target)
+    damage = mitigatePassiveDefense(next, target, damage, ignoreFactor)
+  }
+
+  damage = mitigateEnemyRangedWard(next, target, damage, params.attackKind, damageTags)
 
   const currentTarget = getUnit(next, params.targetId)
   if (!isAliveUnit(currentTarget)) return { state: next, killed: null }
@@ -638,7 +650,7 @@ function applySingleStrike(
   if (attackerProcs.killed) killed = attackerProcs.killed
 
   const damagedTarget = getUnit(next, params.targetId)
-  if (isAliveUnit(damagedTarget) && damagedTarget.side === 'player' && damage > 0) {
+  if (isAliveUnit(damagedTarget) && damage > 0 && unitPassives(next, damagedTarget.id).length > 0) {
     const damaged = triggerUnitPassives(next, 'on_damaged', damagedTarget, {
       phase: 'post_damage',
       attackerId: params.attackerId,
@@ -651,7 +663,7 @@ function applySingleStrike(
   }
 
   const strikingAttacker = getUnit(next, params.attackerId)
-  if (isAliveUnit(strikingAttacker) && strikingAttacker.side === 'player') {
+  if (isAliveUnit(strikingAttacker) && unitPassives(next, strikingAttacker.id).length > 0) {
     const trigger = params.fromCard ? 'on_card_attack' : 'on_strike'
     const fired = triggerUnitPassives(next, trigger, strikingAttacker, {
       targetId: params.targetId,
@@ -667,7 +679,7 @@ function applySingleStrike(
 
   if (wasKill && target.side === 'enemy') {
     const killer = getUnit(next, params.attackerId)
-    if (isAliveUnit(killer) && killer.side === 'player') {
+    if (isAliveUnit(killer) && unitPassives(next, killer.id).length > 0) {
       const killFired = triggerUnitPassives(next, 'on_kill', killer, {
         targetId: params.targetId,
       })
@@ -715,7 +727,7 @@ function tryMove(state: BattleState, action: Extract<BattleAction, { type: 'move
     battleLog: [...state.battleLog, moveLog],
   }
 
-  if (moved.side === 'player') {
+  if (unitPassives(next, moved.id).length > 0) {
     const moveCells = manhattan(unit.x, unit.y, toX, toY)
     const fired = triggerUnitPassives(next, 'on_move', moved, { moveCells })
     next = fired.state
@@ -850,9 +862,9 @@ function tryHeal(state: BattleState, action: Extract<BattleAction, { type: 'heal
   if (d > 2) return state
   if (d > 0 && !hasLineOfSight(healer.x, healer.y, target.x, target.y, walls)) return state
 
-  const healAmount = modifyHealReceived(
-    applyPassiveHealBonus(state, healer, action.amount),
-    target,
+  const healAmount = Math.round(
+    modifyHealReceived(applyPassiveHealBonus(state, healer, action.amount), target) *
+      antiHealMultiplierFromAdjacentEnemies(state, target),
   )
   const updated = withHeal(target, healAmount)
   let next = updateUnit(state, action.targetId, updated)
@@ -872,7 +884,13 @@ function tryHeal(state: BattleState, action: Extract<BattleAction, { type: 'heal
     if (splashAmount > 0) {
       log.push(modProcLog('mod-ally-heal-splash', 'Окружение светом', action.healerId))
       for (const ally of findHealSplashTargets(next, target)) {
-        const splashed = withHeal(ally, modifyHealReceived(splashAmount, ally))
+        const splashed = withHeal(
+          ally,
+          Math.round(
+            modifyHealReceived(splashAmount, ally) *
+              antiHealMultiplierFromAdjacentEnemies(next, ally),
+          ),
+        )
         next = updateUnit(next, ally.id, splashed)
         log.push({
           type: 'heal',
@@ -889,7 +907,7 @@ function tryHeal(state: BattleState, action: Extract<BattleAction, { type: 'heal
   next = applySelfHealOnUse(next, action.healerId, action.modCtx, action.fromCard)
 
   const healerAfter = getUnit(next, action.healerId)
-  if (isAliveUnit(healerAfter) && healerAfter.side === 'player') {
+  if (isAliveUnit(healerAfter) && unitPassives(next, healerAfter.id).length > 0) {
     const fired = triggerUnitPassives(next, 'on_card_heal', healerAfter, {
       targetId: action.targetId,
       healAmount: healAmount,

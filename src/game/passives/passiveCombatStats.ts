@@ -40,7 +40,7 @@ export function applyPassiveAttackBonus(
   attacker: Unit,
   baseDamage: number,
 ): number {
-  if (attacker.side !== 'player' || !attacker.baseStats) return baseDamage
+  if (!attacker.baseStats) return baseDamage
   const bonus = passiveBonusesForUnit(state, attacker)
   return baseDamage + (bonus.attack ?? 0) + (bonus.magicPower ?? 0)
 }
@@ -49,10 +49,13 @@ export function mitigatePassiveDefense(
   state: BattleState,
   target: Unit,
   damage: number,
+  defenseFactor = 1,
 ): number {
-  if (target.side !== 'player' || !target.baseStats) return damage
+  if (!target.baseStats) return damage
   const bonus = passiveBonusesForUnit(state, target)
-  const defense = (bonus.defense ?? 0) + statusCombatModifiers(target).defenseFlat
+  const defense = Math.round(
+    ((bonus.defense ?? 0) + statusCombatModifiers(target).defenseFlat) * defenseFactor,
+  )
   if (defense <= 0) return damage
   return Math.max(1, damage - defense)
 }
@@ -62,7 +65,7 @@ export function applyPassiveHealBonus(
   healer: Unit,
   amount: number,
 ): number {
-  if (healer.side !== 'player' || !healer.baseStats) return amount
+  if (!healer.baseStats) return amount
   const bonus = passiveBonusesForUnit(state, healer)
   return amount + (bonus.healPower ?? 0)
 }
@@ -73,7 +76,7 @@ export function rollPassiveCritDamage(
   damage: number,
   rng: () => number,
 ): number {
-  if (attacker.side !== 'player' || !attacker.baseStats) return damage
+  if (!attacker.baseStats) return damage
   const critStat = effectiveBattleStat(state, attacker, 'critChance')
   if (critStat <= 0) return damage
   const chance = Math.min(100, critStat) / 100
