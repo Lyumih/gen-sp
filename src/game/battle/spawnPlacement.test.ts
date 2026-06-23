@@ -14,7 +14,7 @@ const scenario: BattleScenario = {
   playerSpawns: [],
   playerSpawnZone: { xMin: 0, xMax: 0, yMin: 0, yMax: 2 },
   heroBaseHpStat: 20,
-  enemies: [{ id: 'e1', x: 3, y: 1, baseHpStat: 8, unitLevel: 1, archetypeId: 'grunt' }],
+  enemySpawns: [{ kind: 'fixed', archetypeId: 'grunt', x: 3, y: 1, unitLevel: 1 }],
 }
 
 function member(id: string, spawnIndex: number): PartyMemberBattleSnapshot {

@@ -67,7 +67,7 @@ import {
 import { mergeBattleCardsToParty } from '../battle/playerCards'
 import { applyVictoryModRollsToPartyBattle } from './applyVictoryModRolls'
 import { goldForScenarioVictory } from './scenarioRewards'
-import { getScenarioById, getScenarioIndexById, SCENARIOS, battleStateFromScenario } from './scenarios'
+import { getScenarioById, getScenarioIndexById, SCENARIOS, battleStateFromScenario, resolveScenarioForCampaignSlot } from './scenarios'
 import {
   getCharacter,
   getPrimaryCharacter,
@@ -323,9 +323,11 @@ function startExpeditionBattle(
   const scenarioId = chain.battleScenarioIds[expedition.battleIndex]
   if (!scenarioId) return state
 
-  const scenario = getScenarioById(scenarioId)
+  const base = getScenarioById(scenarioId)
   const scenarioSlotIndex = getScenarioIndexById(scenarioId)
-  if (!scenario || scenarioSlotIndex < 0) return state
+  if (!base || scenarioSlotIndex < 0) return state
+
+  const scenario = resolveScenarioForCampaignSlot(base, scenarioSlotIndex)
 
   const snapshot = buildExpeditionBattleSnapshot(state, expedition, scenarioSlotIndex)
   if (!snapshot) return state
@@ -386,9 +388,10 @@ function finishExpedition(state: CampaignState): CampaignState {
 }
 
 function startBattleFromScenario(state: CampaignState): CampaignState {
-  const scenario = SCENARIOS[state.scenarioIndex]
-  if (!scenario) return state
+  const base = SCENARIOS[state.scenarioIndex]
+  if (!base) return state
 
+  const scenario = resolveScenarioForCampaignSlot(base, state.scenarioIndex)
   const snapshot = buildBattleAttemptSnapshot(state, state.scenarioIndex)
   const battle = battleStateFromScenario(scenario, snapshot)
 
@@ -907,8 +910,9 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       if (state.scenarioIndex < SCENARIOS.length) return state
       const slot = action.scenarioSlotIndex
       if (slot < 0 || slot >= SCENARIOS.length) return state
-      const scenario = SCENARIOS[slot]
-      if (!scenario) return state
+      const base = SCENARIOS[slot]
+      if (!base) return state
+      const scenario = resolveScenarioForCampaignSlot(base, slot)
       const snapshot = buildBattleAttemptSnapshot(state, slot)
       const battle = battleStateFromScenario(scenario, snapshot)
       return {
@@ -1133,9 +1137,10 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
     case 'RETRY_CURRENT_BATTLE': {
       const snap = state.battleAttemptSnapshot
       if (!snap) return state
-      const scenario = SCENARIOS[snap.scenarioSlotIndex]
-      if (!scenario) return state
+      const base = SCENARIOS[snap.scenarioSlotIndex]
+      if (!base) return state
 
+      const scenario = resolveScenarioForCampaignSlot(base, snap.scenarioSlotIndex)
       const snapCopy = copyBattleAttemptSnapshot(snap)
       return restorePartyFromSnapshot(
         {

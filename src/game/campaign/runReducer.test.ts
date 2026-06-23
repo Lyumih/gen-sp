@@ -985,7 +985,7 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
       },
     })
 
-    expect(s.codexDiscovered).toContain(codexEntryId('enemy', 'grunt'))
+    expect(s.codexDiscovered).toContain(codexEntryId('enemy', 'enemy_orc_ravager'))
   })
 
   it('MARK_CODEX_SEEN marks discovered entries as seen', () => {
