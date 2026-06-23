@@ -1,10 +1,22 @@
 import { describe, expect, it } from 'vitest'
+import { initialCampaignState } from '../../game/campaign/runReducer'
 import { LEGACY_HERO_CHARACTER_ID } from '../../game/character/constants'
-import type { BattlePlayerCard, BattleState, Unit } from '../../game/types'
+import { testCreateCharacter } from '../../game/stats/testFixtures'
+import type { BattlePlayerCard, BattleState, CampaignState, Unit } from '../../game/types'
 import { pickPlayerAiAction } from './playerAi'
 
 const HERO_ID = LEGACY_HERO_CHARACTER_ID
 const ALLY_ID = 'char-2'
+
+function testCampaign(): CampaignState {
+  const base = initialCampaignState()
+  const ally = testCreateCharacter({ id: ALLY_ID, name: 'Союзник', classId: 'warrior' })
+  return {
+    ...base,
+    characters: [...base.characters, ally],
+    squad: [HERO_ID, ALLY_ID],
+  }
+}
 
 function unit(partial: Unit): Unit {
   return partial
@@ -43,8 +55,6 @@ function battle(
     worldPower: 0,
     playerCardsByUnitId: playerCardsByUnit ?? (playerCards ? { [HERO_ID]: playerCards } : {}),
     battleLog: [],
-    gearDamageMult: 1,
-    gearStrikeDamageMult: 1,
   }
   return { ...base, ...rest, units: rest.units ?? base.units }
 }
@@ -52,7 +62,7 @@ function battle(
 describe('pickPlayerAiAction', () => {
   it('returns null when not a player unit turn', () => {
     const s = battle({ currentTurnIndex: 1 })
-    expect(pickPlayerAiAction(s)).toBeNull()
+    expect(pickPlayerAiAction(s, testCampaign())).toBeNull()
   })
 
   it('moves toward closest enemy when no attack available', () => {
@@ -62,7 +72,7 @@ describe('pickPlayerAiAction', () => {
         unit({ id: 'e1', side: 'enemy', x: 5, y: 3, hp: 10, maxHp: 10, unitLevel: 1 }),
       ],
     })
-    const d = pickPlayerAiAction(s)
+    const d = pickPlayerAiAction(s, testCampaign())
     expect(d).toEqual({
       kind: 'battle',
       action: { type: 'move', unitId: HERO_ID, toX: 3, toY: 0 },
@@ -77,7 +87,7 @@ describe('pickPlayerAiAction', () => {
         unit({ id: 'e2', side: 'enemy', x: 3, y: 0, hp: 4, maxHp: 4, unitLevel: 1 }),
       ],
     })
-    const d = pickPlayerAiAction(s)
+    const d = pickPlayerAiAction(s, testCampaign())
     expect(d).toEqual({
       kind: 'battle',
       action: {
@@ -99,7 +109,7 @@ describe('pickPlayerAiAction', () => {
       ],
       playerCards: [card({ id: 'c1', global_level: 100 })],
     })
-    const d = pickPlayerAiAction(s)
+    const d = pickPlayerAiAction(s, testCampaign())
     expect(d).toEqual({ kind: 'card', cardId: 'c1', targetId: 'e1' })
   })
 
@@ -111,7 +121,7 @@ describe('pickPlayerAiAction', () => {
       ],
       playerCards: [card({ id: 'c2', templateId: 'fireball' })],
     })
-    const d = pickPlayerAiAction(s)
+    const d = pickPlayerAiAction(s, testCampaign())
     expect(d?.kind === 'card_aoe' && d.cardId === 'c2').toBe(false)
   })
 
@@ -124,7 +134,7 @@ describe('pickPlayerAiAction', () => {
       ],
       playerCards: [card({ id: 'c2', templateId: 'fireball', global_level: 50 })],
     })
-    const d = pickPlayerAiAction(s)
+    const d = pickPlayerAiAction(s, testCampaign())
     expect(d).toEqual({
       kind: 'card_aoe',
       cardId: 'c2',
@@ -142,7 +152,7 @@ describe('pickPlayerAiAction', () => {
       ],
       playerCards: [card({ id: 'c3', templateId: 'heal' })],
     })
-    const d = pickPlayerAiAction(s)
+    const d = pickPlayerAiAction(s, testCampaign())
     expect(d).toEqual({ kind: 'card_heal', cardId: 'c3', targetId: HERO_ID })
   })
 
@@ -160,7 +170,7 @@ describe('pickPlayerAiAction', () => {
         [ALLY_ID]: [card({ id: 'c-ally', global_level: 100 })],
       },
     })
-    const d = pickPlayerAiAction(s)
+    const d = pickPlayerAiAction(s, testCampaign())
     expect(d).toEqual({ kind: 'card', cardId: 'c-ally', targetId: 'e1' })
   })
 })

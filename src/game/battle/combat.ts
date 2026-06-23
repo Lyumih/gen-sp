@@ -1,4 +1,5 @@
 import type { Unit } from '../types'
+import { applyDamageReduction, statusCombatModifiers } from './unitStatus'
 import { manhattan } from './grid'
 import { hasLineOfSight } from './lineOfSight'
 
@@ -29,14 +30,16 @@ export function canRangedAttack(
   maxRange: number,
   walls?: ReadonlySet<string>,
 ): boolean {
+  const penalty = statusCombatModifiers(attacker).rangePenalty
+  const effectiveMax = Math.max(1, maxRange - penalty)
   const d = manhattan(attacker.x, attacker.y, target.x, target.y)
-  if (d < 1 || d > maxRange) return false
+  if (d < 1 || d > effectiveMax) return false
   if (walls === undefined) return true
   return hasLineOfSight(attacker.x, attacker.y, target.x, target.y, walls)
 }
 
 export function withDamage(unit: Unit, damage: number): Unit {
-  const hp = Math.max(0, unit.hp - damage)
+  const hp = Math.max(0, unit.hp - applyDamageReduction(damage, unit))
   return { ...unit, hp }
 }
 

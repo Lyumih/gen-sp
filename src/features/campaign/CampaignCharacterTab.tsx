@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Divider, Modal, Space, Typography } from 'antd'
 import { getActiveCharacter, getCharacter } from '../../game/character/selectors'
-import { aggregateGearDamageMult, aggregateGearStrikeDamageMult } from '../../game/equipment/aggregates'
-import { getItemTemplate } from '../../game/content/itemTemplates'
 import type { CampaignState, EquipmentSlot } from '../../game/types'
 import { CharacterRosterView } from '../character/CharacterRosterView'
 import { SquadSlotRow } from '../character/SquadSlotRow'
@@ -99,16 +97,6 @@ export function CampaignCharacterTab({
     appearanceCharacterId !== null
       ? getCharacter(campaign, appearanceCharacterId)
       : null
-  const gearDamagePreview = aggregateGearDamageMult(
-    selectedCharacter.items,
-    selectedCharacter.equipment,
-    getItemTemplate,
-  )
-  const gearStrikeDamagePreview = aggregateGearStrikeDamageMult(
-    selectedCharacter.items,
-    selectedCharacter.equipment,
-    getItemTemplate,
-  )
 
   return (
     <Space orientation="vertical" size="middle" style={{ width: '100%' }} role="tabpanel">
@@ -197,8 +185,6 @@ export function CampaignCharacterTab({
                 inBattle={inBattle}
                 modsDisabled={modsDisabled}
                 modsDisabledTooltip={modsDisabledTooltip}
-                gearDamageMult={gearDamagePreview}
-                gearStrikeDamageMult={gearStrikeDamagePreview}
                 onReorderCards={(cardIds) => onReorderCards(selectedCharacterId, cardIds)}
                 onSetBattleLoadout={(slotIndex, cardId) =>
                   onSetBattleLoadout(selectedCharacterId, slotIndex, cardId)

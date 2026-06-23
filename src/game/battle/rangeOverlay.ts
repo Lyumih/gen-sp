@@ -166,11 +166,38 @@ export function validHealTargetCells(
   state: BattleState,
   hero: Unit,
   maxRange: number,
+  kind: 'heal' | 'regen' | 'resurrect' = 'heal',
 ): Set<string> {
   const walls = wallSet(state.walls)
   const out = new Set<string>()
   for (const u of state.units) {
+    if (u.side !== 'player') continue
+    if (kind === 'resurrect') {
+      if (u.hp > 0) continue
+      const d = manhattan(hero.x, hero.y, u.x, u.y)
+      if (d > maxRange) continue
+      if (d > 0 && !hasLineOfSight(hero.x, hero.y, u.x, u.y, walls)) continue
+      out.add(cellKey(u.x, u.y))
+      continue
+    }
     if (canHealTarget(hero, u, maxRange, walls)) out.add(cellKey(u.x, u.y))
+  }
+  return out
+}
+
+export function validAllyBuffTargetCells(
+  state: BattleState,
+  hero: Unit,
+  maxRange: number,
+): Set<string> {
+  const walls = wallSet(state.walls)
+  const out = new Set<string>()
+  for (const u of state.units) {
+    if (u.side !== 'player' || u.hp <= 0) continue
+    const d = manhattan(hero.x, hero.y, u.x, u.y)
+    if (d > maxRange) continue
+    if (d > 0 && !hasLineOfSight(hero.x, hero.y, u.x, u.y, walls)) continue
+    out.add(cellKey(u.x, u.y))
   }
   return out
 }

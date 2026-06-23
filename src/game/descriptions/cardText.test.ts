@@ -1,8 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { computeCardAttackDamage } from '../content/cardAttackDamage'
+import { STARTER_HERO_BASE_STATS } from '../config/baseStats'
 import { getCardAttackTemplate } from '../content/cardTemplates'
-import type { CardInstance } from '../types'
+import { getItemTemplate } from '../content/itemTemplates'
+import { aggregateGearStatMult } from '../equipment/aggregates'
+import { resolveSkillForCard } from '../skills/resolveSkillForCard'
+import { resolveCarrierTags } from '../mods/carrierTags'
+import type { CampaignState, CardInstance, Character } from '../types'
 import { describeCardCombatStats, getCardDisplayLabel } from './cardText'
+
+const previewCharacter: Pick<Character, 'baseStats' | 'unitLevel' | 'items' | 'equipment'> = {
+  baseStats: STARTER_HERO_BASE_STATS,
+  unitLevel: 1,
+  items: [],
+  equipment: { weapon: null, armor: null, accessory: null },
+}
 
 describe('getCardDisplayLabel', () => {
   it('returns label for strike', () => {
@@ -15,47 +26,46 @@ describe('getCardDisplayLabel', () => {
 })
 
 describe('describeCardCombatStats', () => {
-  it('strike fists damage uses weapon level 0 and gear strike mult', () => {
+  it('strike damage uses card level and attack stat gear', () => {
     const card: CardInstance = {
       id: 'c1',
       templateId: 'strike',
-      global_level: 10,
+      global_level: 50,
       uses_count: 0,
       modSlots: [],
     }
-    const gearStrikeDamageMult = 1.03
+    const character = {
+      ...previewCharacter,
+      items: [
+        {
+          id: 'w1',
+          templateId: 'wooden_sword',
+          itemLevel: 10,
+          modSlots: [],
+        },
+      ],
+      equipment: { weapon: 'w1', armor: null, accessory: null },
+    }
     const tmpl = getCardAttackTemplate('strike')!
-    const base = computeCardAttackDamage(tmpl, 0)
-    const afterGear = Math.round(base * gearStrikeDamageMult)
+    const modCtx = {
+      carrierTags: resolveCarrierTags('card', card.templateId),
+      modSlots: card.modSlots,
+      rng: () => 50,
+    }
+    const campaign = { worldPower: 0 } as CampaignState
+    const expected = resolveSkillForCard(
+      campaign,
+      character as unknown as Character,
+      card,
+      tmpl,
+      modCtx,
+    )!.amount
 
-    const d = describeCardCombatStats(card, 1, gearStrikeDamageMult)
-    expect(d.expectedDamage).toBe(afterGear)
+    const d = describeCardCombatStats(card, character, { worldPower: 0 })
+    expect(d.expectedDamage).toBe(expected)
     expect(d.displayLabel).toBe('Сильный удар')
-    expect(d.lines.some((l) => l.includes('кулаки'))).toBe(true)
-    expect(d.lines.some((l) => l.includes('Экипировка: ×1.03'))).toBe(true)
-    expect(d.lines.some((l) => l.includes(`💥 база (⭐0): ${base}`))).toBe(true)
-  })
-
-  it('strike with equipped weapon uses weapon itemLevel and mods', () => {
-    const card: CardInstance = {
-      id: 'c1',
-      templateId: 'strike',
-      global_level: 1,
-      uses_count: 0,
-      modSlots: [],
-    }
-    const weapon = {
-      id: 'w1',
-      templateId: 'wooden_sword',
-      itemLevel: 50,
-      modSlots: [{ status: 'filled' as const, templateId: 'mod-weapon-damage', lm: 0 }],
-    }
-    const tmpl = getCardAttackTemplate('strike')!
-    const base = computeCardAttackDamage(tmpl, 50)
-    const afterGear = Math.round(base * 1)
-    const d = describeCardCombatStats(card, 1, 1, weapon)
-    expect(d.expectedDamage).toBe(Math.round(afterGear * 1.4))
-    expect(d.lines.some((l) => l.includes('Моды: ×1.4'))).toBe(true)
+    expect(d.lines.some((l) => l.includes('с экипировкой'))).toBe(true)
+    expect(d.lines.some((l) => l.includes('40%%'))).toBe(true)
   })
 
   it('missing template: no damage', () => {
@@ -66,7 +76,7 @@ describe('describeCardCombatStats', () => {
       uses_count: 0,
       modSlots: [],
     }
-    const d = describeCardCombatStats(card, 1, 1)
+    const d = describeCardCombatStats(card, previewCharacter, { worldPower: 0 })
     expect(d.expectedDamage).toBeNull()
     expect(d.lines[0]).toContain('не найден')
   })
@@ -79,13 +89,30 @@ describe('describeCardCombatStats', () => {
       uses_count: 0,
       modSlots: [{ status: 'filled', templateId: 'mod-damage-up', lm: 0 }],
     }
+    const character = {
+      ...previewCharacter,
+      baseStats: { ...STARTER_HERO_BASE_STATS, magicPower: 5 },
+    }
     const tmpl = getCardAttackTemplate('fireball')!
-    const base = computeCardAttackDamage(tmpl, 10)
-    const afterGear = Math.round(base * 1.05)
-    const d = describeCardCombatStats(card, 1.05, 1)
-    expect(d.expectedDamage).toBe(Math.round(afterGear * 1.5))
-    expect(d.lines.some((l) => l.includes('Экипировка: ×1.05'))).toBe(true)
-    expect(d.lines.some((l) => l.includes('Моды: ×1.5'))).toBe(true)
+    const modCtx = {
+      carrierTags: resolveCarrierTags('card', card.templateId),
+      modSlots: card.modSlots,
+      rng: () => 50,
+    }
+    const campaign = { worldPower: 0 } as CampaignState
+    const expected = resolveSkillForCard(
+      campaign,
+      character as unknown as Character,
+      card,
+      tmpl,
+      modCtx,
+    )!.amount
+
+    const d = describeCardCombatStats(card, character, { worldPower: 0 })
+    expect(d.expectedDamage).toBe(expected)
     expect(d.lines.some((l) => l.includes('Итого:'))).toBe(true)
+    expect(
+      aggregateGearStatMult('magicPower', character.items, character.equipment, getItemTemplate),
+    ).toBe(1)
   })
 })

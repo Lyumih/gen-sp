@@ -1,4 +1,5 @@
-import type { BattleState, Unit } from '../types'
+import type { BattleLogEntry, BattleState, Unit } from '../types'
+import { tickUnitStatusesAtTurnStart } from './unitStatus'
 
 export type InitiativeContext = {
   gearBonusByUnitId?: Readonly<Record<string, number>>
@@ -78,5 +79,42 @@ function advanceFromPointer(state: BattleState, fromPtr: number): BattleState {
 /** Advances to the next living actor; wraps to a new initiative round when the queue cycles. */
 export function advanceTurn(state: BattleState): BattleState {
   const fromPtr = resolveActorPointer(state)
-  return advanceFromPointer(state, fromPtr)
+  const advanced = advanceFromPointer(state, fromPtr)
+  const actorId = advanced.turnOrder[advanced.currentTurnIndex]
+  if (!actorId) return advanced
+  return processTurnStartStatuses(advanced, actorId)
+}
+
+function processTurnStartStatuses(state: BattleState, unitId: string): BattleState {
+  const unit = state.units.find((u) => u.id === unitId)
+  if (!unit || unit.hp <= 0) return state
+
+  const { unit: ticked, dotDamage, regenHeal } = tickUnitStatusesAtTurnStart(unit)
+  let units = state.units.map((u) => (u.id === unitId ? ticked : u))
+  const logs: BattleLogEntry[] = []
+
+  if (dotDamage > 0 || regenHeal > 0) {
+    logs.push({
+      type: 'status_tick',
+      unitId,
+      ...(dotDamage > 0 ? { dotDamage } : {}),
+      ...(regenHeal > 0 ? { regenHeal } : {}),
+    })
+  }
+
+  if (dotDamage > 0) {
+    units = units.map((u) =>
+      u.id === unitId ? { ...u, hp: Math.max(0, u.hp - dotDamage) } : u,
+    )
+  }
+  if (regenHeal > 0) {
+    units = units.map((u) =>
+      u.id === unitId ? { ...u, hp: Math.min(u.maxHp, u.hp + regenHeal) } : u,
+    )
+  }
+
+  if (logs.length === 0) {
+    return units === state.units ? state : { ...state, units }
+  }
+  return { ...state, units, battleLog: [...state.battleLog, ...logs] }
 }

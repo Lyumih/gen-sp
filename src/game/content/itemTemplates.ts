@@ -1,4 +1,4 @@
-import type { ClassId } from '../config/baseStats'
+import type { ClassId, StatId } from '../config/baseStats'
 import type { EquipmentSlot } from '../types'
 import type { SpecModId } from './modTemplates'
 
@@ -8,7 +8,9 @@ export type ItemTemplate = {
   slot: EquipmentSlot
   shopPrice: number
   hpPctPerLevel: number
+  /** @deprecated migrate to statPctPerLevel.attack */
   damagePctPerLevel: number
+  statPctPerLevel?: Partial<Record<StatId, number>>
   label: string
   tags: readonly string[]
   semanticEmojiId: string

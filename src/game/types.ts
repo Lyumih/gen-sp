@@ -1,5 +1,6 @@
 import type { TavernCandidate } from './tavern/generateCandidates'
 import type { BaseStats } from './config/baseStats'
+import type { UnitStatusEffect } from './battle/unitStatus'
 
 export type { BaseStats, StatId } from './config/baseStats'
 
@@ -48,6 +49,8 @@ export type Unit = {
   displayName?: string
   iconEmoji?: string
   iconAccent?: IconAccentId
+  iconSkinTone?: IconSkinToneId
+  statusEffects?: readonly UnitStatusEffect[]
 }
 
 
@@ -161,6 +164,25 @@ export type BattleLogEntry =
       label: string
       unitId: string
     }
+  | {
+      type: 'status_applied'
+      unitId: string
+      statusKind: string
+      sourceTemplateId?: string
+    }
+  | {
+      type: 'status_tick'
+      unitId: string
+      dotDamage?: number
+      regenHeal?: number
+    }
+  | {
+      type: 'resurrect'
+      healerId: string
+      targetId: string
+      hp: number
+      fromCard?: { cardId: string; templateId: string }
+    }
 
 /**
  * Тактический бой: сетка, стены как ключи "x,y", очередь ходов по id.
@@ -189,9 +211,10 @@ export type BattleState = {
   skipHeroCooldownTick?: boolean
   /** События текущего боя; не влияют на геймплей, только отображение. */
   battleLog: readonly BattleLogEntry[]
-  /** Множители урона/heal от экипировки на старт боя (снимок). */
-  gearDamageMult: number
-  gearStrikeDamageMult: number
+  /** @deprecated removed in save v9 — gear affects stats only */
+  gearDamageMult?: number
+  /** @deprecated removed in save v9 */
+  gearStrikeDamageMult?: number
   /** Герои без клетки спавна — не участвуют в этом бою. */
   excludedCharacterIds?: readonly string[]
 }

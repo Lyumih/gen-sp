@@ -11,7 +11,7 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons'
 import { Alert, App, Badge, Button, Card, Collapse, Radio, Space, Switch, Tooltip, Typography } from 'antd'
-import { getCardAttackTemplate } from '../../game/content/cardTemplates'
+import { getCardAttackTemplate, isHealKind, usesCardBuffDispatch } from '../../game/content/cardTemplates'
 import {
   HERO_BASIC_MELEE_DAMAGE,
   HERO_BASIC_RANGED_DAMAGE,
@@ -25,7 +25,7 @@ import { computeEffectiveStats } from '../../game/stats/effectiveStats'
 import { BattleUnitTooltip } from './BattleUnitTooltip'
 import { UnitToken } from './UnitToken'
 import { HeroProfileModal } from '../profile/HeroProfileModal'
-import type { BattlePlayerCard, CampaignState, ItemInstance, Unit } from '../../game/types'
+import type { BattlePlayerCard, CampaignState, Character, Unit } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
 import { getUnitDisplay } from '../../game/character/display'
 import { turnBadgeLabel } from '../../game/battle/turnBadge'
@@ -44,6 +44,7 @@ import {
   reachableMoveCells,
   validHealTargetCells,
   validSingleTargetCells,
+  validAllyBuffTargetCells,
 } from '../../game/battle/rangeOverlay'
 import { occupiedEquipmentSlotsInOrder } from '../../game/equipment/equipmentOrder'
 import { getCharacter, getPrimaryCharacter } from '../../game/campaign/selectors'
@@ -61,16 +62,11 @@ const HERO_AI_DELAY_MS = 2000
 
 function cardDetailLines(
   card: BattlePlayerCard,
-  gearDamageMult: number,
-  gearStrikeDamageMult: number,
-  equippedWeapon: ItemInstance | null,
+  character: Character,
+  campaign: CampaignState,
+  actor?: Unit,
 ): string[] {
-  const desc = describeCardCombatStats(
-    card,
-    gearDamageMult,
-    gearStrikeDamageMult,
-    equippedWeapon,
-  )
+  const desc = describeCardCombatStats(card, character, campaign, actor)
   const modSummary = describeCardModSummary(card.modSlots)
   if (!modSummary) return desc.lines
   return [...desc.lines, `Моды: ${modSummary}`]
@@ -78,11 +74,11 @@ function cardDetailLines(
 
 function cardTooltipTitle(
   card: BattlePlayerCard,
-  gearDamageMult: number,
-  gearStrikeDamageMult: number,
-  equippedWeapon: ItemInstance | null,
+  character: Character,
+  campaign: CampaignState,
+  actor?: Unit,
 ): string {
-  return cardDetailLines(card, gearDamageMult, gearStrikeDamageMult, equippedWeapon).join('\n')
+  return cardDetailLines(card, character, campaign, actor).join('\n')
 }
 
 function BattleUnitCell({
@@ -232,13 +228,20 @@ export function BattleScreen() {
       const store = useGameStore.getState()
       const b = store.campaign.battle
       if (!b || b.phase !== 'ongoing' || !store.autoBattleEnabled) return
-      const decision = pickPlayerAiAction(b)
+      const decision = pickPlayerAiAction(b, store.campaign)
       if (!decision) return
       if (decision.kind === 'battle') {
         store.dispatchBattle(decision.action)
       } else if (decision.kind === 'card_heal') {
         store.dispatchRun({
           type: 'USE_CARD_HEAL',
+          cardId: decision.cardId,
+          targetId: decision.targetId,
+          randomInt1to100: randomInt1to100(),
+        })
+      } else if (decision.kind === 'card_buff') {
+        store.dispatchRun({
+          type: 'USE_CARD_BUFF',
           cardId: decision.cardId,
           targetId: decision.targetId,
           randomInt1to100: randomInt1to100(),
@@ -336,13 +339,25 @@ export function BattleScreen() {
         'ranged',
         HERO_BASIC_RANGED_MAX_RANGE,
       )
-    } else if (mode === 'card' && selectedCardTemplate) {
-      if (selectedCardTemplate.kind === 'aoe') {
+      } else if (mode === 'card' && selectedCardTemplate) {
+      if (selectedCardTemplate.kind === 'aoe' || (selectedCardTemplate.kind === 'utility' && selectedCardTemplate.aoeSize !== undefined)) {
         actionRangeCells = castRangeCells(battle, actor.x, actor.y, selectedCardTemplate.maxRange)
-      } else if (selectedCardTemplate.kind === 'heal') {
+      } else if (isHealKind(selectedCardTemplate.kind)) {
         actionRangeCells = castRangeCells(battle, actor.x, actor.y, selectedCardTemplate.maxRange)
-        validTargetCells = validHealTargetCells(battle, actor, selectedCardTemplate.maxRange)
-      } else if (selectedCardTemplate.kind === 'melee') {
+        validTargetCells = validHealTargetCells(
+          battle,
+          actor,
+          selectedCardTemplate.maxRange,
+          selectedCardTemplate.kind === 'regen'
+            ? 'regen'
+            : selectedCardTemplate.kind === 'resurrect'
+              ? 'resurrect'
+              : 'heal',
+        )
+      } else if (usesCardBuffDispatch(selectedCardTemplate.kind)) {
+        actionRangeCells = castRangeCells(battle, actor.x, actor.y, selectedCardTemplate.maxRange)
+        validTargetCells = validAllyBuffTargetCells(battle, actor, selectedCardTemplate.maxRange)
+      } else if (selectedCardTemplate.kind === 'melee' || selectedCardTemplate.kind === 'dot') {
         actionRangeCells = cellsInManhattanRange(
           actor.x,
           actor.y,
@@ -425,11 +440,8 @@ export function BattleScreen() {
   if (!battle) return null
 
   const hero = getPrimaryCharacter(campaign)
-  const equippedWeaponId = hero.equipment.weapon
-  const equippedWeapon =
-    equippedWeaponId !== null
-      ? (hero.items.find((i) => i.id === equippedWeaponId) ?? null)
-      : null
+  const actorCharacter =
+    actor !== undefined ? (getCharacter(campaign, actor.id) ?? hero) : hero
 
   const walls = new Set(battle.walls)
   const unitAt = (x: number, y: number) =>
@@ -510,7 +522,7 @@ export function BattleScreen() {
       }
       const tmpl = getCardAttackTemplate(card.templateId)
       if (!tmpl) return
-      if (tmpl.kind === 'aoe') {
+      if (tmpl.kind === 'aoe' || (tmpl.kind === 'utility' && tmpl.aoeSize !== undefined)) {
         const walls = wallSet(battle.walls)
         if (!canCastAoEAt(actor, x, y, tmpl.maxRange, walls)) {
           message.warning('Вне дальности или нет прямой видимости')
@@ -532,13 +544,13 @@ export function BattleScreen() {
         message.info('Нажмите ещё раз для подтверждения')
         return
       }
-      if (tmpl.kind === 'heal') {
+      if (isHealKind(tmpl.kind)) {
         if (!target || target.side !== 'player') {
           message.warning('Выберите союзника')
           return
         }
         if (!overlaySets.validTargetCells.has(cellKey(x, y))) {
-          message.warning('Цель недоступна для лечения')
+          message.warning('Цель недоступна')
           return
         }
         if (card.cooldownRemaining > 0) {
@@ -547,6 +559,27 @@ export function BattleScreen() {
         }
         dispatchRun({
           type: 'USE_CARD_HEAL',
+          cardId: card.id,
+          targetId: target.id,
+          randomInt1to100: randomInt1to100(),
+        })
+        return
+      }
+      if (usesCardBuffDispatch(tmpl.kind)) {
+        if (!target || target.side !== 'player' || target.hp <= 0) {
+          message.warning('Выберите союзника')
+          return
+        }
+        if (!overlaySets.validTargetCells.has(cellKey(x, y))) {
+          message.warning('Цель недоступна')
+          return
+        }
+        if (card.cooldownRemaining > 0) {
+          message.warning('Умение на перезарядке')
+          return
+        }
+        dispatchRun({
+          type: 'USE_CARD_BUFF',
           cardId: card.id,
           targetId: target.id,
           randomInt1to100: randomInt1to100(),
@@ -933,9 +966,9 @@ export function BattleScreen() {
                     const tmpl = getCardAttackTemplate(c.templateId)
                     const cardStats = describeCardCombatStats(
                       c,
-                      battle.gearDamageMult,
-                      battle.gearStrikeDamageMult,
-                      equippedWeapon,
+                      actorCharacter,
+                      campaign,
+                      actor,
                     )
                     const effect = cardStats.expectedDamage
                     const effectUi = tmpl?.kind === 'heal' ? UI_HEART : UI_DAMAGE
@@ -948,12 +981,7 @@ export function BattleScreen() {
                     return (
                       <Tooltip
                         key={c.id}
-                        title={cardTooltipTitle(
-                          c,
-                          battle.gearDamageMult,
-                          battle.gearStrikeDamageMult,
-                          equippedWeapon,
-                        )}
+                        title={cardTooltipTitle(c, actorCharacter, campaign, actor)}
                         mouseEnterDelay={0.3}
                       >
                         <Radio.Button
@@ -971,12 +999,7 @@ export function BattleScreen() {
                   })}
                 </Radio.Group>
                 {actorCards.map((c) => {
-                  const cardStats = describeCardCombatStats(
-                    c,
-                    battle.gearDamageMult,
-                    battle.gearStrikeDamageMult,
-                    equippedWeapon,
-                  )
+                  const cardStats = describeCardCombatStats(c, actorCharacter, campaign, actor)
                   const dmg = cardStats.expectedDamage
                   return (
                     <Typography.Text key={c.id} type="secondary" style={{ fontSize: 12 }}>
@@ -1004,18 +1027,8 @@ export function BattleScreen() {
             <Collapse
               size="small"
               items={actorCards.map((c) => {
-                const lines = cardDetailLines(
-                  c,
-                  battle.gearDamageMult,
-                  battle.gearStrikeDamageMult,
-                  equippedWeapon,
-                )
-                const cardStats = describeCardCombatStats(
-                  c,
-                  battle.gearDamageMult,
-                  battle.gearStrikeDamageMult,
-                  equippedWeapon,
-                )
+                const lines = cardDetailLines(c, actorCharacter, campaign, actor)
+                const cardStats = describeCardCombatStats(c, actorCharacter, campaign, actor)
                 const dmg = cardStats.expectedDamage
                 return {
                   key: c.id,

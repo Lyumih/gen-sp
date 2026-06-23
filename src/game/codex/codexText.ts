@@ -1,3 +1,4 @@
+import { STARTER_HERO_BASE_STATS } from '../config/baseStats'
 import {
   describeCardCombatStats,
 } from '../descriptions/cardText'
@@ -13,8 +14,18 @@ import { getCardAttackTemplate } from '../content/cardTemplates'
 import { getItemTemplate } from '../content/itemTemplates'
 import { getModTemplate } from '../content/modTemplates'
 import { tagLabelRu } from '../content/tagTaxonomy'
-import type { CardInstance } from '../types'
+import type { CardInstance, Character } from '../types'
 import type { CodexEntry } from './registry'
+
+const CODEX_PREVIEW_CHARACTER: Pick<
+  Character,
+  'baseStats' | 'unitLevel' | 'items' | 'equipment'
+> = {
+  baseStats: STARTER_HERO_BASE_STATS,
+  unitLevel: 1,
+  items: [],
+  equipment: { weapon: null, armor: null, accessory: null },
+}
 
 function formatTagSummaryLine(tags: readonly string[]): string {
   if (tags.length === 0) return ''
@@ -23,8 +34,7 @@ function formatTagSummaryLine(tags: readonly string[]): string {
 
 export function describeCodexEntry(
   entry: CodexEntry,
-  gearDamageMult = 1,
-  gearStrikeDamageMult = 1,
+  worldPower = 0,
 ): { label: string; summaryLines: string[]; detailLines: string[] } {
   switch (entry.category) {
     case 'class': {
@@ -64,7 +74,7 @@ export function describeCodexEntry(
         modSlots: [],
       }
       const tmpl = getCardAttackTemplate(entry.templateId)
-      const d = describeCardCombatStats(card, gearDamageMult, gearStrikeDamageMult)
+      const d = describeCardCombatStats(card, CODEX_PREVIEW_CHARACTER, { worldPower })
       const tagLine = tmpl ? formatTagSummaryLine(tmpl.tags) : ''
       return {
         label: d.displayLabel,

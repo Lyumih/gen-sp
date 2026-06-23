@@ -1,12 +1,13 @@
 import { applyAction, getCurrentActorId } from '../battle/reducer'
 import { syncDownedAfterBattle } from '../battle/outcomes'
 import { heroTurnAdvanced, tickHeroCardCooldowns } from '../battle/cardCooldown'
-import { canMeleeAttack, canRangedAttack } from '../battle/combat'
-import { cellKey, inBounds, wallSet } from '../battle/grid'
-import { canCastAoEAt, canHealTarget } from '../battle/rangeOverlay'
-import { computeCardAttackDamage } from '../content/cardAttackDamage'
-import { computeCardHealAmount } from '../content/cardHealAmount'
-import { CARD_ATTACK_TEMPLATES, getCardAttackTemplate } from '../content/cardTemplates'
+import { CARD_ATTACK_TEMPLATES, getCardAttackTemplate, usesCardBuffDispatch, usesCardAoEDispatch, isHealKind, usesCardAttackDispatch } from '../content/cardTemplates'
+import {
+  dispatchCardAoEUse,
+  dispatchCardAttackUse,
+  dispatchCardBuffUse,
+  dispatchCardHealUse,
+} from './cardCombat'
 import {
   codexEntryId,
   discoverCodexEntry,
@@ -24,24 +25,11 @@ import {
   isItemEquipped,
   sellPriceForItem,
 } from '../equipment/stashOrder'
-import {
-  resolveStrikeWeaponChannel,
-  type StrikeWeaponChannel,
-} from '../equipment/virtualFists'
-import { applyCardUse } from '../memento/cardProgress'
 import { afterCarrierLevelChange, modOfferSeed, occupiedModTemplateIds } from '../memento/carrierLevelChange'
 import { applyItemUseRoll } from '../memento/itemProgress'
 import { generateOffer } from '../memento/modOffers'
 import { rollbackCarrierLevel } from '../memento/modSlots'
 import { resolveCarrierTags } from '../mods/carrierTags'
-import {
-  applyAoeSizeMods,
-  applyCooldownMods,
-  applyDamageMods,
-  applyHealMods,
-  applyRangeMods,
-  type ModCombatContext,
-} from '../mods/modPipeline'
 import { MOD_OFFER_POOL, getModTemplate } from '../content/modTemplates'
 import { rollMementoLevelUp } from '../memento/rollMementoLevelUp'
 import { sellPriceForSkill } from '../config/skillAcquisition'
@@ -49,7 +37,6 @@ import type {
   BattleAction,
   BattleAttemptSnapshot,
   BattleLoadout,
-  BattlePlayerCard,
   BattleState,
   CampaignState,
   CardInstance,
@@ -66,7 +53,7 @@ import {
   copyBattleAttemptSnapshot,
   getExpeditionBattleCharacterId,
 } from './battleSnapshot'
-import { mergeBattleCardsToParty, updateActorPlayerCards } from '../battle/playerCards'
+import { mergeBattleCardsToParty } from '../battle/playerCards'
 import { applyVictoryModRollsToPartyBattle } from './applyVictoryModRolls'
 import { goldForScenarioVictory } from './scenarioRewards'
 import { getScenarioById, getScenarioIndexById, SCENARIOS, battleStateFromScenario } from './scenarios'
@@ -120,6 +107,12 @@ export type RunAction =
     }
   | {
       type: 'USE_CARD_HEAL'
+      cardId: string
+      targetId: string
+      randomInt1to100: number
+    }
+  | {
+      type: 'USE_CARD_BUFF'
       cardId: string
       targetId: string
       randomInt1to100: number
@@ -520,24 +513,6 @@ function applyGearHitItemRolls(
   return next
 }
 
-function applyWeaponStrikeItemProgress(
-  state: CampaignState,
-  characterId: string,
-  randomInt1to100: number,
-): CampaignState {
-  const char = getCharacter(state, characterId)
-  if (!char) return state
-  const weaponId = char.equipment.weapon
-  if (weaponId === null) return state
-
-  const item = char.items.find((i) => i.id === weaponId)
-  if (!item) return state
-
-  const rolled = applyItemUseRoll(item, randomInt1to100)
-  const { leveledUp: _leveledUp, ...nextItem } = rolled
-  return updateCharacterItem(state, characterId, weaponId, nextItem)
-}
-
 function applyPlayerHitItemProgressFromBattleLog(
   state: CampaignState,
   prevBattle: BattleState,
@@ -609,99 +584,6 @@ function applyBattleOutcome(
   return { ...syncedState, battle, phase: 'battle' }
 }
 
-function appendCardLevelUpLog(
-  battle: BattleState,
-  card: BattlePlayerCard,
-  used: CardInstance,
-  roll: number,
-): BattleState {
-  return {
-    ...battle,
-    battleLog: [
-      ...battle.battleLog,
-      {
-        type: 'card_level_up',
-        cardId: card.id,
-        templateId: card.templateId,
-        fromLevel: card.global_level,
-        toLevel: used.global_level,
-        roll,
-      },
-    ],
-  }
-}
-
-function withCardCooldownSkip(battle: BattleState, cooldownTurns: number): BattleState {
-  if (cooldownTurns <= 0) return battle
-  return { ...battle, skipHeroCooldownTick: true }
-}
-
-function cardModCombatContext(
-  state: CampaignState,
-  actorId: string,
-  card: BattlePlayerCard,
-  cardLevelRoll: number,
-): ModCombatContext {
-  let procIndex = 0
-  return {
-    carrierTags: resolveCarrierTags('card', card.templateId),
-    modSlots: card.modSlots,
-    rng: () => {
-      procIndex += 1
-      return (
-        (modOfferSeed(
-          `${state.battleAttemptId}:${actorId}:${card.id}:${cardLevelRoll}:proc${procIndex}`,
-          0,
-          0,
-        ) %
-          100) +
-        1
-      )
-    },
-  }
-}
-
-function battleModContext(ctx: ModCombatContext): { modSlots: typeof ctx.modSlots; rng: typeof ctx.rng } {
-  return { modSlots: ctx.modSlots, rng: ctx.rng }
-}
-
-function weaponStrikeModCombatContext(
-  state: CampaignState,
-  actorId: string,
-  card: BattlePlayerCard,
-  weaponChannel: StrikeWeaponChannel,
-  cardLevelRoll: number,
-): ModCombatContext {
-  let procIndex = 0
-  return {
-    carrierTags: resolveCarrierTags('item', weaponChannel.templateId),
-    modSlots: weaponChannel.modSlots,
-    rng: () => {
-      procIndex += 1
-      return (
-        (modOfferSeed(
-          `${state.battleAttemptId}:${actorId}:${card.id}:${weaponChannel.itemId ?? 'fists'}:${cardLevelRoll}:proc${procIndex}`,
-          0,
-          0,
-        ) %
-          100) +
-        1
-      )
-    },
-  }
-}
-
-function applyStrikeChannelUse(
-  card: BattlePlayerCard,
-): BattlePlayerCard & { leveledUp: false } {
-  return {
-    ...card,
-    uses_count: card.uses_count + 1,
-    modSlots: [],
-    leveledUp: false,
-  }
-}
-
 function tryUseCardAttack(
   state: CampaignState,
   action: Extract<RunAction, { type: 'USE_CARD_ATTACK' }>,
@@ -712,100 +594,31 @@ function tryUseCardAttack(
   if (!isLivingPlayerActor(b, actorId)) return state
 
   const actor = b.units.find((u) => u.id === actorId && u.side === 'player' && u.hp > 0)
-  const target = b.units.find(
-    (u) => u.id === action.targetId && u.side === 'enemy' && u.hp > 0,
-  )
+  const target = b.units.find((u) => u.id === action.targetId && u.hp > 0)
   if (!actor || !target) return state
+  if (target.side === 'player' && actor.id !== target.id) return state
 
   const actorCards = b.playerCardsByUnitId[actorId!] ?? []
   const card = actorCards.find((c) => c.id === action.cardId)
-  if (!card) return state
-  if ((card.cooldownRemaining ?? 0) > 0) return state
+  if (!card || (card.cooldownRemaining ?? 0) > 0) return state
 
   const tmpl = getCardAttackTemplate(card.templateId)
   if (!tmpl) return state
+  const utilitySingle = tmpl.kind === 'utility' && tmpl.aoeSize === undefined
+  if (!usesCardAttackDispatch(tmpl.kind) && !utilitySingle) return state
+  if (utilitySingle && target.side !== 'enemy') return state
 
-  if (tmpl.kind === 'melee' && !canMeleeAttack(actor, target)) return state
-  const walls = wallSet(b.walls)
-  const isStrike = card.templateId === 'strike'
-  const actorChar = getCharacter(state, actorId!)
-  const weaponChannel =
-    isStrike && actorChar
-      ? resolveStrikeWeaponChannel(actorChar.equipment.weapon, actorChar.items)
-      : null
-  const modCtx =
-    isStrike && weaponChannel
-      ? weaponStrikeModCombatContext(
-          state,
-          actorId!,
-          card,
-          weaponChannel,
-          action.randomInt1to100,
-        )
-      : cardModCombatContext(state, actorId!, card, action.randomInt1to100)
-  const effectiveRange = applyRangeMods(tmpl.maxRange, modCtx)
-  if (tmpl.kind === 'ranged' && !canRangedAttack(actor, target, effectiveRange, walls)) {
-    return state
-  }
-  if (tmpl.kind === 'aoe' || tmpl.kind === 'heal') return state
-
-  const used = isStrike
-    ? applyStrikeChannelUse(card)
-    : applyCardUse(card, action.randomInt1to100)
-  const cd = applyCooldownMods(tmpl.cooldownTurns ?? 0, modCtx)
-  const nextCard: BattlePlayerCard = {
-    id: used.id,
-    templateId: used.templateId,
-    global_level: used.global_level,
-    uses_count: used.uses_count,
-    modSlots: used.modSlots,
-    cooldownRemaining: cd,
-  }
-  const levelForDamage =
-    isStrike && weaponChannel ? weaponChannel.itemLevel : card.global_level
-  const gearMult =
-    isStrike && weaponChannel ? b.gearStrikeDamageMult : b.gearDamageMult
-  const baseDamage = computeCardAttackDamage(tmpl, levelForDamage)
-  const damage = applyDamageMods(Math.round(baseDamage * gearMult), modCtx)
-  const bWithCards = updateActorPlayerCards(
-    b,
-    actorId!,
-    actorCards.map((c) => (c.id === card.id ? nextCard : c)),
-  )
-
-  const fromCard = { cardId: card.id, templateId: card.templateId }
-  const battleAction: BattleAction =
-    tmpl.kind === 'melee'
-      ? {
-          type: 'attack',
-          attackerId: actorId!,
-          targetId: target.id,
-          damage,
-          kind: 'melee',
-          fromCard,
-          modCtx: battleModContext(modCtx),
-        }
-      : {
-          type: 'attack',
-          attackerId: actorId!,
-          targetId: target.id,
-          damage,
-          kind: 'ranged',
-          maxRange: effectiveRange,
-          fromCard,
-          modCtx: battleModContext(modCtx),
-        }
-
-  let nextBattle = applyAction(bWithCards, battleAction)
-  if (used.leveledUp) {
-    nextBattle = appendCardLevelUpLog(nextBattle, card, used, action.randomInt1to100)
-  }
-  nextBattle = withCardCooldownSkip(nextBattle, cd)
-  let nextState = state
-  if (card.templateId === 'strike') {
-    nextState = applyWeaponStrikeItemProgress(state, actorId!, action.randomInt1to100)
-  }
-  return applyBattleOutcome(nextState, b, nextBattle)
+  const result = dispatchCardAttackUse({
+    state,
+    battle: b,
+    actorId: actorId!,
+    actor,
+    card,
+    target,
+    roll: action.randomInt1to100,
+  })
+  if (!result?.battle) return state
+  return applyBattleOutcome(result, b, result.battle)
 }
 
 function tryUseCardAoE(
@@ -822,58 +635,23 @@ function tryUseCardAoE(
 
   const actorCards = b.playerCardsByUnitId[actorId!] ?? []
   const card = actorCards.find((c) => c.id === action.cardId)
-  if (!card) return state
-  if ((card.cooldownRemaining ?? 0) > 0) return state
+  if (!card || (card.cooldownRemaining ?? 0) > 0) return state
 
   const tmpl = getCardAttackTemplate(card.templateId)
-  if (!tmpl || tmpl.kind !== 'aoe' || tmpl.aoeSize === undefined) return state
+  if (!tmpl || !usesCardAoEDispatch(tmpl)) return state
 
-  const { targetX, targetY } = action
-  if (!inBounds(targetX, targetY, b.width, b.height)) return state
-  const walls = wallSet(b.walls)
-  if (walls.has(cellKey(targetX, targetY))) return state
-  const modCtx = cardModCombatContext(state, actorId!, card, action.randomInt1to100)
-  const effectiveRange = applyRangeMods(tmpl.maxRange, modCtx)
-  if (!canCastAoEAt(actor, targetX, targetY, effectiveRange, walls)) return state
-
-  const used = applyCardUse(card, action.randomInt1to100)
-  const cd = applyCooldownMods(tmpl.cooldownTurns ?? 0, modCtx)
-  const nextCard: BattlePlayerCard = {
-    id: used.id,
-    templateId: used.templateId,
-    global_level: used.global_level,
-    uses_count: used.uses_count,
-    modSlots: used.modSlots,
-    cooldownRemaining: cd,
-  }
-  const baseDamage = computeCardAttackDamage(tmpl, card.global_level)
-  const damage = applyDamageMods(
-    Math.round(baseDamage * b.gearDamageMult),
-    modCtx,
-  )
-  const aoeSize = applyAoeSizeMods(tmpl.aoeSize, modCtx)
-  const bWithCards = updateActorPlayerCards(
-    b,
-    actorId!,
-    actorCards.map((c) => (c.id === card.id ? nextCard : c)),
-  )
-
-  const fromCard = { cardId: card.id, templateId: card.templateId }
-  let nextBattle = applyAction(bWithCards, {
-    type: 'aoe_strike',
-    attackerId: actorId!,
-    centerX: targetX,
-    centerY: targetY,
-    damage,
-    aoeSize,
-    fromCard,
-    modCtx: battleModContext(modCtx),
+  const result = dispatchCardAoEUse({
+    state,
+    battle: b,
+    actorId: actorId!,
+    actor,
+    card,
+    targetX: action.targetX,
+    targetY: action.targetY,
+    roll: action.randomInt1to100,
   })
-  if (used.leveledUp) {
-    nextBattle = appendCardLevelUpLog(nextBattle, card, used, action.randomInt1to100)
-  }
-  nextBattle = withCardCooldownSkip(nextBattle, cd)
-  return applyBattleOutcome(state, b, nextBattle)
+  if (!result?.battle) return state
+  return applyBattleOutcome(result, b, result.battle)
 }
 
 function tryUseCardHeal(
@@ -886,56 +664,60 @@ function tryUseCardHeal(
   if (!isLivingPlayerActor(b, actorId)) return state
 
   const actor = b.units.find((u) => u.id === actorId && u.side === 'player' && u.hp > 0)
-  const target = b.units.find(
-    (u) => u.id === action.targetId && u.side === 'player' && u.hp > 0,
-  )
+  const target = b.units.find((u) => u.id === action.targetId && u.side === 'player')
   if (!actor || !target) return state
 
   const actorCards = b.playerCardsByUnitId[actorId!] ?? []
   const card = actorCards.find((c) => c.id === action.cardId)
-  if (!card) return state
-  if ((card.cooldownRemaining ?? 0) > 0) return state
+  if (!card || (card.cooldownRemaining ?? 0) > 0) return state
 
   const tmpl = getCardAttackTemplate(card.templateId)
-  if (!tmpl || tmpl.kind !== 'heal') return state
+  if (!tmpl || !isHealKind(tmpl.kind)) return state
 
-  const walls = wallSet(b.walls)
-  const modCtx = cardModCombatContext(state, actorId!, card, action.randomInt1to100)
-  const effectiveRange = applyRangeMods(tmpl.maxRange, modCtx)
-  if (!canHealTarget(actor, target, effectiveRange, walls)) return state
-
-  const used = applyCardUse(card, action.randomInt1to100)
-  const cd = applyCooldownMods(tmpl.cooldownTurns ?? 0, modCtx)
-  const nextCard: BattlePlayerCard = {
-    id: used.id,
-    templateId: used.templateId,
-    global_level: used.global_level,
-    uses_count: used.uses_count,
-    modSlots: used.modSlots,
-    cooldownRemaining: cd,
-  }
-  const baseHeal = computeCardHealAmount(tmpl, card.global_level)
-  const amount = applyHealMods(Math.round(baseHeal * b.gearDamageMult), modCtx)
-  const bWithCards = updateActorPlayerCards(
-    b,
-    actorId!,
-    actorCards.map((c) => (c.id === card.id ? nextCard : c)),
-  )
-  const fromCard = { cardId: card.id, templateId: card.templateId }
-
-  let nextBattle = applyAction(bWithCards, {
-    type: 'heal',
-    healerId: actorId!,
-    targetId: target.id,
-    amount,
-    fromCard,
-    modCtx: battleModContext(modCtx),
+  const result = dispatchCardHealUse({
+    state,
+    battle: b,
+    actorId: actorId!,
+    actor,
+    card,
+    target,
+    roll: action.randomInt1to100,
   })
-  if (used.leveledUp) {
-    nextBattle = appendCardLevelUpLog(nextBattle, card, used, action.randomInt1to100)
-  }
-  nextBattle = withCardCooldownSkip(nextBattle, cd)
-  return applyBattleOutcome(state, b, nextBattle)
+  if (!result?.battle) return state
+  return applyBattleOutcome(result, b, result.battle)
+}
+
+function tryUseCardBuff(
+  state: CampaignState,
+  action: Extract<RunAction, { type: 'USE_CARD_BUFF' }>,
+): CampaignState {
+  if (!state.battle || state.battle.phase !== 'ongoing') return state
+  const b = state.battle
+  const actorId = getCurrentActorId(b)
+  if (!isLivingPlayerActor(b, actorId)) return state
+
+  const actor = b.units.find((u) => u.id === actorId && u.side === 'player' && u.hp > 0)
+  const target = b.units.find((u) => u.id === action.targetId && u.side === 'player' && u.hp > 0)
+  if (!actor || !target) return state
+
+  const actorCards = b.playerCardsByUnitId[actorId!] ?? []
+  const card = actorCards.find((c) => c.id === action.cardId)
+  if (!card || (card.cooldownRemaining ?? 0) > 0) return state
+
+  const tmpl = getCardAttackTemplate(card.templateId)
+  if (!tmpl || !usesCardBuffDispatch(tmpl.kind)) return state
+
+  const result = dispatchCardBuffUse({
+    state,
+    battle: b,
+    actorId: actorId!,
+    actor,
+    card,
+    target,
+    roll: action.randomInt1to100,
+  })
+  if (!result?.battle) return state
+  return applyBattleOutcome(result, b, result.battle)
 }
 
 function normalizeCharacterName(raw: string, fallback: string): string {
@@ -1091,6 +873,8 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       return tryUseCardAoE(state, action)
     case 'USE_CARD_HEAL':
       return tryUseCardHeal(state, action)
+    case 'USE_CARD_BUFF':
+      return tryUseCardBuff(state, action)
     case 'SET_BATTLE_LOADOUT': {
       if (!inHub(state)) return state
       if (!assertHubActionAllowed(state, 'equip')) return state

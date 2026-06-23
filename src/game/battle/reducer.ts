@@ -1,4 +1,5 @@
 import type { BattleAction, BattleLogEntry, BattleModContext, BattleState, ModSlotState, Unit } from '../types'
+import { isUnitRooted } from './unitStatus'
 import { canMeleeAttack, canRangedAttack, withDamage, withHeal } from './combat'
 import { cellKey, manhattan, orthoNeighbors, wallSet } from './grid'
 import { advanceTurn } from './initiative'
@@ -313,6 +314,7 @@ function tryMove(state: BattleState, action: Extract<BattleAction, { type: 'move
 
   const unit = getUnit(state, action.unitId)
   if (!isAliveUnit(unit)) return state
+  if (isUnitRooted(unit)) return state
 
   const { toX, toY } = action
   const walls = wallSet(state.walls)

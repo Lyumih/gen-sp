@@ -1,8 +1,28 @@
-import type { EquipmentSlot, ItemInstance } from '../types'
+import type { StatId } from '../config/baseStats'
 import type { ItemTemplate } from '../content/itemTemplates'
+import type { EquipmentSlot, ItemInstance } from '../types'
 import { EQUIPMENT_ROLL_ORDER } from './equipmentOrder'
 
-const STRIKE_DAMAGE_SLOTS: readonly EquipmentSlot[] = ['armor', 'accessory']
+function legacyStatPct(t: ItemTemplate, statId: StatId): number {
+  const explicit = t.statPctPerLevel?.[statId]
+  if (explicit !== undefined) return explicit
+  const legacy = t.damagePctPerLevel ?? 0
+  if (legacy <= 0) return 0
+  if (statId === 'attack') {
+    if (t.recommendedClassId === 'mage' || t.recommendedClassId === 'warlock') return 0
+    if (t.recommendedClassId === 'healer' && t.tags.includes('heal')) return 0
+    return legacy
+  }
+  if (statId === 'magicPower') {
+    if (t.recommendedClassId === 'mage' || t.recommendedClassId === 'warlock') return legacy
+    return 0
+  }
+  if (statId === 'healPower') {
+    if (t.recommendedClassId === 'healer') return legacy
+    return 0
+  }
+  return 0
+}
 
 function sumPctMult(
   items: readonly ItemInstance[],
@@ -32,18 +52,37 @@ export function aggregateGearHpMult(
   return sumPctMult(items, equipment, getTemplate, EQUIPMENT_ROLL_ORDER, (t) => t.hpPctPerLevel)
 }
 
+export function aggregateGearStatMult(
+  statId: StatId,
+  items: readonly ItemInstance[],
+  equipment: Record<EquipmentSlot, string | null>,
+  getTemplate: (templateId: string) => ItemTemplate | undefined,
+): number {
+  return sumPctMult(
+    items,
+    equipment,
+    getTemplate,
+    EQUIPMENT_ROLL_ORDER,
+    (t) => legacyStatPct(t, statId),
+  )
+}
+
+/** @deprecated use aggregateGearStatMult */
 export function aggregateGearDamageMult(
   items: readonly ItemInstance[],
   equipment: Record<EquipmentSlot, string | null>,
   getTemplate: (templateId: string) => ItemTemplate | undefined,
 ): number {
-  return sumPctMult(items, equipment, getTemplate, EQUIPMENT_ROLL_ORDER, (t) => t.damagePctPerLevel)
+  return sumPctMult(items, equipment, getTemplate, EQUIPMENT_ROLL_ORDER, (t) =>
+    legacyStatPct(t, 'attack'),
+  )
 }
 
+/** @deprecated removed — strike uses attack stat gear mult */
 export function aggregateGearStrikeDamageMult(
   items: readonly ItemInstance[],
   equipment: Record<EquipmentSlot, string | null>,
   getTemplate: (templateId: string) => ItemTemplate | undefined,
 ): number {
-  return sumPctMult(items, equipment, getTemplate, STRIKE_DAMAGE_SLOTS, (t) => t.damagePctPerLevel)
+  return aggregateGearStatMult('attack', items, equipment, getTemplate)
 }

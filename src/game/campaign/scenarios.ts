@@ -5,15 +5,11 @@ import { buildRoundTurnOrder } from '../battle/initiative'
 import { computeCharacterMaxHpForScenario } from './heroMaxHp'
 import { playerCardsByUnitFromParty } from '../battle/playerCards'
 import { playerGearModSlotsByUnitFromParty } from './playerGearFromParty'
-import {
-  aggregateGearDamageMult,
-  aggregateGearStrikeDamageMult,
-} from '../equipment/aggregates'
 import { getItemTemplate } from '../content/itemTemplates'
 import { computeUnitStat } from '../balance'
 import { assignPlayerSpawnPositions, buildSpawnSeed } from '../battle/spawnPlacement'
 import { resolveEnemyUnitDisplay } from '../content/enemyDisplay'
-import type { BattleAttemptSnapshot, BattleState, IconAccentId, PartyMemberBattleSnapshot, Unit } from '../types'
+import type { BattleAttemptSnapshot, BattleState, IconAccentId, Unit } from '../types'
 import { cellKey } from '../battle/grid'
 
 export type BattleScenarioEnemy = {
@@ -190,12 +186,6 @@ function makeEnemies(
   })
 }
 
-function primaryActiveMember(
-  snapshot: BattleAttemptSnapshot,
-): PartyMemberBattleSnapshot | undefined {
-  return snapshot.party.find((member) => member.metaStatus === 'active') ?? snapshot.party[0]
-}
-
 /**
  * Собирает начальное состояние боя из сценария и снимка попытки.
  */
@@ -211,7 +201,6 @@ export function battleStateFromScenario(
   )
   const enemies = makeEnemies(scenario, snapshot)
   const units = [...players, ...enemies]
-  const primary = primaryActiveMember(snapshot)
   const phase = players.length === 0 ? 'defeat' : 'ongoing'
   return {
     width: scenario.width,
@@ -226,12 +215,6 @@ export function battleStateFromScenario(
     playerCardsByUnitId: playerCardsByUnitFromParty(snapshot.party),
     playerGearModSlotsByUnitId: playerGearModSlotsByUnitFromParty(snapshot.party),
     battleLog: [],
-    gearDamageMult: primary
-      ? aggregateGearDamageMult(primary.items, primary.equipment, getItemTemplate)
-      : 1,
-    gearStrikeDamageMult: primary
-      ? aggregateGearStrikeDamageMult(primary.items, primary.equipment, getItemTemplate)
-      : 1,
     excludedCharacterIds:
       excludedCharacterIds.length > 0 ? excludedCharacterIds : undefined,
   }

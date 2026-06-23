@@ -43,7 +43,7 @@ describe('gear mult aggregators', () => {
     expect(aggregateGearDamageMult(items, equipment, get)).toBe(1 + (5 * 2) / 100)
   })
 
-  it('strike damage mult excludes weapon slot', () => {
+  it('attack stat mult includes all equipped slots', () => {
     const items: ItemInstance[] = [
       { id: 'i1', templateId: 't_w', itemLevel: 10, modSlots: [] },
       { id: 'i2', templateId: 't_r', itemLevel: 10, modSlots: [] },
@@ -55,6 +55,6 @@ describe('gear mult aggregators', () => {
     }
     const get = (id: string) => catalog[id]
     expect(aggregateGearDamageMult(items, equipment, get)).toBe(1 + (10 * 10 + 2 * 10) / 100)
-    expect(aggregateGearStrikeDamageMult(items, equipment, get)).toBe(1 + (2 * 10) / 100)
+    expect(aggregateGearStrikeDamageMult(items, equipment, get)).toBe(1 + (10 * 10 + 2 * 10) / 100)
   })
 })

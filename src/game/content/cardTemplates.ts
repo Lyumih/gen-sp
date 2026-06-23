@@ -1,3 +1,5 @@
+import type { StatId } from '../config/baseStats'
+
 export type CardKind =
   | 'melee'
   | 'ranged'
@@ -12,34 +14,28 @@ export type CardKind =
   | 'utility'
 
 export type CardAttackTemplate = {
-  /** Отображаемое имя умения для UI. */
   label: string
   kind: CardKind
-  /** Для дальнего боя / лечения — лимит манхэттена; для ближнего в бою не используется. */
   maxRange: number
-  /** Только для kind === 'aoe': размер квадрата области (3 → 3×3). */
   aoeSize?: number
-  damageToken?: string
-  fallbackDamage?: number
-  healToken?: string
-  fallbackHeal?: number
+  statSource: StatId
+  skillFlat: number
+  scaleToken: string
   cooldownTurns?: number
   tags: readonly string[]
   semanticEmojiId: string
-  /** When false, skill stays in catalog but is excluded from combat (phase 2). */
   enabled?: boolean
-  /** @deprecated use semanticEmojiId */
   emoji?: string
 }
 
 export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>> = {
-  /** Action channel only: no card L/modSlots; damage from equipped weapon (or virtual fists). */
   strike: {
     label: 'Сильный удар',
     kind: 'melee',
     maxRange: 1,
-    damageToken: '40%%',
-    fallbackDamage: 5,
+    statSource: 'attack',
+    skillFlat: 2,
+    scaleToken: '40%%',
     tags: ['skill', 'attack', 'melee'],
     semanticEmojiId: 'sword-red',
     emoji: '🃏',
@@ -48,8 +44,9 @@ export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>>
     label: 'Удар щитом',
     kind: 'melee',
     maxRange: 1,
-    damageToken: '45%%',
-    fallbackDamage: 6,
+    statSource: 'attack',
+    skillFlat: 3,
+    scaleToken: '45%%',
     cooldownTurns: 3,
     tags: ['skill', 'attack', 'melee'],
     semanticEmojiId: 'shield-gray',
@@ -59,8 +56,9 @@ export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>>
     kind: 'aoe',
     maxRange: 1,
     aoeSize: 3,
-    damageToken: '50%%',
-    fallbackDamage: 8,
+    statSource: 'attack',
+    skillFlat: 4,
+    scaleToken: '50%%',
     cooldownTurns: 3,
     tags: ['skill', 'attack', 'ranged', 'aoe'],
     semanticEmojiId: 'sword-red',
@@ -68,19 +66,22 @@ export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>>
   battle_cry: {
     label: 'Боевой клич',
     kind: 'buff',
-    maxRange: 2,
+    maxRange: 1,
+    statSource: 'attack',
+    skillFlat: 0,
+    scaleToken: '30%%',
     cooldownTurns: 4,
-    tags: ['skill'],
+    tags: ['skill', 'buff'],
     semanticEmojiId: 'horn-gold',
-    enabled: false,
   },
   fireball: {
     label: 'Огненный шар',
     kind: 'aoe',
     maxRange: 3,
     aoeSize: 3,
-    damageToken: '50%%',
-    fallbackDamage: 8,
+    statSource: 'magicPower',
+    skillFlat: 4,
+    scaleToken: '50%%',
     cooldownTurns: 3,
     tags: ['skill', 'attack', 'ranged', 'aoe'],
     semanticEmojiId: 'fire-red',
@@ -91,19 +92,20 @@ export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>>
     kind: 'aoe',
     maxRange: 3,
     aoeSize: 3,
-    damageToken: '45%%',
-    fallbackDamage: 7,
+    statSource: 'magicPower',
+    skillFlat: 3,
+    scaleToken: '45%%',
     cooldownTurns: 4,
     tags: ['skill', 'attack', 'ranged', 'aoe'],
     semanticEmojiId: 'frost-blue',
-    enabled: false,
   },
   arcane_bolt: {
     label: 'Чародейский луч',
     kind: 'ranged',
     maxRange: 4,
-    damageToken: '55%%',
-    fallbackDamage: 9,
+    statSource: 'magicPower',
+    skillFlat: 4,
+    scaleToken: '55%%',
     cooldownTurns: 2,
     tags: ['skill', 'attack', 'ranged'],
     semanticEmojiId: 'spark-purple',
@@ -112,8 +114,9 @@ export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>>
     label: 'Силовой выстрел',
     kind: 'ranged',
     maxRange: 5,
-    damageToken: '60%%',
-    fallbackDamage: 10,
+    statSource: 'attack',
+    skillFlat: 5,
+    scaleToken: '60%%',
     cooldownTurns: 3,
     tags: ['skill', 'attack', 'ranged'],
     semanticEmojiId: 'bow-default',
@@ -123,8 +126,9 @@ export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>>
     kind: 'aoe',
     maxRange: 4,
     aoeSize: 3,
-    damageToken: '45%%',
-    fallbackDamage: 7,
+    statSource: 'attack',
+    skillFlat: 3,
+    scaleToken: '45%%',
     cooldownTurns: 3,
     tags: ['skill', 'attack', 'ranged', 'aoe'],
     semanticEmojiId: 'bow-teal',
@@ -133,17 +137,20 @@ export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>>
     label: 'Капкан',
     kind: 'utility',
     maxRange: 4,
+    statSource: 'attack',
+    skillFlat: 1,
+    scaleToken: '20%%',
     cooldownTurns: 4,
-    tags: ['skill'],
+    tags: ['skill', 'debuff'],
     semanticEmojiId: 'trap-gray',
-    enabled: false,
   },
   heal: {
     label: 'Исцеление',
     kind: 'heal',
     maxRange: 2,
-    healToken: '25%%',
-    fallbackHeal: 6,
+    statSource: 'healPower',
+    skillFlat: 3,
+    scaleToken: '25%%',
     cooldownTurns: 4,
     tags: ['skill', 'heal'],
     semanticEmojiId: 'heart-heal',
@@ -153,28 +160,31 @@ export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>>
     label: 'Регенерация',
     kind: 'regen',
     maxRange: 2,
-    healToken: '20%%',
-    fallbackHeal: 5,
+    statSource: 'healPower',
+    skillFlat: 2,
+    scaleToken: '20%%',
     cooldownTurns: 4,
     tags: ['skill', 'heal'],
     semanticEmojiId: 'heart-blue',
-    enabled: false,
   },
   resurrection: {
     label: 'Воскрешение',
     kind: 'resurrect',
     maxRange: 2,
+    statSource: 'healPower',
+    skillFlat: 0,
+    scaleToken: '30%%',
     cooldownTurns: 8,
     tags: ['skill', 'heal'],
     semanticEmojiId: 'spark-gold',
-    enabled: false,
   },
   backstab: {
     label: 'Удар в спину',
     kind: 'melee',
     maxRange: 1,
-    damageToken: '55%%',
-    fallbackDamage: 9,
+    statSource: 'attack',
+    skillFlat: 4,
+    scaleToken: '55%%',
     cooldownTurns: 2,
     tags: ['skill', 'attack', 'melee'],
     semanticEmojiId: 'dagger-purple',
@@ -183,29 +193,32 @@ export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>>
     label: 'Отравленный клинок',
     kind: 'dot',
     maxRange: 1,
-    damageToken: '40%%',
-    fallbackDamage: 6,
+    statSource: 'attack',
+    skillFlat: 2,
+    scaleToken: '40%%',
     cooldownTurns: 3,
-    tags: ['skill', 'attack', 'ranged'],
+    tags: ['skill', 'attack', 'melee', 'dot'],
     semanticEmojiId: 'drop-green',
-    enabled: false,
   },
   smoke_bomb: {
     label: 'Дымовая шашка',
     kind: 'utility',
     maxRange: 3,
     aoeSize: 3,
+    statSource: 'magicPower',
+    skillFlat: 0,
+    scaleToken: '25%%',
     cooldownTurns: 4,
-    tags: ['skill'],
+    tags: ['skill', 'debuff', 'aoe'],
     semanticEmojiId: 'smoke-gray',
-    enabled: false,
   },
   holy_strike: {
     label: 'Святой удар',
     kind: 'melee',
     maxRange: 1,
-    damageToken: '50%%',
-    fallbackDamage: 8,
+    statSource: 'attack',
+    skillFlat: 4,
+    scaleToken: '50%%',
     cooldownTurns: 3,
     tags: ['skill', 'attack', 'melee'],
     semanticEmojiId: 'spark-gold',
@@ -214,8 +227,9 @@ export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>>
     label: 'Возложение рук',
     kind: 'heal',
     maxRange: 2,
-    healToken: '40%%',
-    fallbackHeal: 10,
+    statSource: 'healPower',
+    skillFlat: 5,
+    scaleToken: '40%%',
     cooldownTurns: 5,
     tags: ['skill', 'heal'],
     semanticEmojiId: 'heart-gold',
@@ -224,17 +238,20 @@ export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>>
     label: 'Божественный щит',
     kind: 'buff',
     maxRange: 1,
+    statSource: 'healPower',
+    skillFlat: 1,
+    scaleToken: '25%%',
     cooldownTurns: 5,
-    tags: ['skill'],
+    tags: ['skill', 'buff'],
     semanticEmojiId: 'shield-gold',
-    enabled: false,
   },
   shadow_bolt: {
     label: 'Теневой болт',
     kind: 'ranged',
     maxRange: 4,
-    damageToken: '55%%',
-    fallbackDamage: 9,
+    statSource: 'magicPower',
+    skillFlat: 4,
+    scaleToken: '55%%',
     cooldownTurns: 2,
     tags: ['skill', 'attack', 'ranged'],
     semanticEmojiId: 'orb-purple',
@@ -243,49 +260,54 @@ export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>>
     label: 'Порча',
     kind: 'dot',
     maxRange: 4,
-    damageToken: '40%%',
-    fallbackDamage: 6,
+    statSource: 'magicPower',
+    skillFlat: 2,
+    scaleToken: '40%%',
     cooldownTurns: 3,
-    tags: ['skill', 'attack', 'ranged'],
+    tags: ['skill', 'attack', 'ranged', 'dot'],
     semanticEmojiId: 'skull-green',
-    enabled: false,
   },
   life_drain: {
     label: 'Высасывание жизни',
     kind: 'lifesteal_spell',
     maxRange: 4,
-    damageToken: '50%%',
-    fallbackDamage: 8,
+    statSource: 'magicPower',
+    skillFlat: 4,
+    scaleToken: '50%%',
     cooldownTurns: 3,
-    tags: ['skill', 'attack', 'ranged'],
+    tags: ['skill', 'attack', 'ranged', 'lifesteal'],
     semanticEmojiId: 'vampire-purple',
-    enabled: false,
   },
   frenzy: {
     label: 'Бешенство',
     kind: 'buff',
     maxRange: 1,
+    statSource: 'attack',
+    skillFlat: 0,
+    scaleToken: '35%%',
     cooldownTurns: 4,
-    tags: ['skill'],
+    tags: ['skill', 'buff'],
     semanticEmojiId: 'axe-red',
-    enabled: false,
   },
   blood_rage: {
     label: 'Кровавая ярость',
     kind: 'buff',
     maxRange: 1,
+    statSource: 'attack',
+    skillFlat: 0,
+    scaleToken: '40%%',
     cooldownTurns: 4,
-    tags: ['skill'],
+    tags: ['skill', 'buff'],
     semanticEmojiId: 'blood-red',
-    enabled: false,
   },
   whirlwind: {
     label: 'Вихрь',
     kind: 'aoe',
     maxRange: 1,
     aoeSize: 3,
-    damageToken: '50%%',
-    fallbackDamage: 8,
+    statSource: 'attack',
+    skillFlat: 4,
+    scaleToken: '50%%',
     cooldownTurns: 4,
     tags: ['skill', 'attack', 'ranged', 'aoe'],
     semanticEmojiId: 'axe-red',
@@ -298,4 +320,34 @@ export function getCardAttackTemplate(templateId: string): CardAttackTemplate | 
 
 export function getTemplateCooldownTurns(templateId: string): number {
   return getCardAttackTemplate(templateId)?.cooldownTurns ?? 0
+}
+
+export function isCardTemplateEnabled(templateId: string): boolean {
+  const t = getCardAttackTemplate(templateId)
+  if (!t) return false
+  return t.enabled !== false
+}
+
+export function isHealKind(kind: CardKind): boolean {
+  return kind === 'heal' || kind === 'regen' || kind === 'resurrect'
+}
+
+export function usesCardAttackDispatch(kind: CardKind): boolean {
+  return kind === 'melee' || kind === 'ranged' || kind === 'dot' || kind === 'lifesteal_spell'
+}
+
+export function usesCardAoEDispatch(tmpl: CardAttackTemplate): boolean {
+  return tmpl.kind === 'aoe' || (tmpl.kind === 'utility' && tmpl.aoeSize !== undefined)
+}
+
+export function usesCardHealDispatch(kind: CardKind): boolean {
+  return isHealKind(kind)
+}
+
+export function usesCardBuffDispatch(kind: CardKind): boolean {
+  return kind === 'buff'
+}
+
+export function usesCardUtilitySingleDispatch(tmpl: CardAttackTemplate): boolean {
+  return tmpl.kind === 'utility' && tmpl.aoeSize === undefined
 }

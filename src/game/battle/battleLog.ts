@@ -39,6 +39,20 @@ export function formatBattleLogEntry(
       return `Карта «${getCardDisplayLabel(entry.templateId)}»: уровень ${entry.fromLevel} → ${entry.toLevel}; выпало ${entry.roll} из 100`
     case 'mod_proc':
       return `✨ ${entry.label}!`
+    case 'status_applied':
+      return `${formatUnitRef(entry.unitId, lookup)}: статус «${entry.statusKind}»`
+    case 'status_tick': {
+      const parts: string[] = []
+      if (entry.dotDamage !== undefined) parts.push(`${entry.dotDamage} ${UI_DAMAGE} DoT`)
+      if (entry.regenHeal !== undefined) parts.push(`+${entry.regenHeal} ${UI_HEART}`)
+      return `${formatUnitRef(entry.unitId, lookup)}: ${parts.join(', ') || 'тик статуса'}`
+    }
+    case 'resurrect': {
+      const src = entry.fromCard
+        ? ` (${getCardDisplayLabel(entry.fromCard.templateId)})`
+        : ''
+      return `✨ ${formatUnitRef(entry.healerId, lookup)} воскрешает ${formatUnitRef(entry.targetId, lookup)} с ${entry.hp} ${UI_HEART}${src}`
+    }
     default: {
       const _exhaustive: never = entry
       return String(_exhaustive)
