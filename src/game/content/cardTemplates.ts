@@ -1,4 +1,5 @@
 import type { StatId } from '../config/baseStats'
+import { MONSTER_SKILL_TEMPLATES } from './monsterSkillTemplates'
 
 export type CardKind =
   | 'melee'
@@ -315,7 +316,7 @@ export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>>
 }
 
 export function getCardAttackTemplate(templateId: string): CardAttackTemplate | undefined {
-  return CARD_ATTACK_TEMPLATES[templateId]
+  return CARD_ATTACK_TEMPLATES[templateId] ?? MONSTER_SKILL_TEMPLATES[templateId]
 }
 
 export function getTemplateCooldownTurns(templateId: string): number {
