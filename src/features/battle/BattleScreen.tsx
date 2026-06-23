@@ -18,6 +18,7 @@ import {
   HERO_BASIC_RANGED_MAX_RANGE,
   HERO_MOVE_RANGE,
 } from '../../game/battle/combat'
+import { getHeroRangedCooldown } from '../../game/battle/heroRangedCooldown'
 import { describeCardCombatStats, getCardDisplayLabel } from '../../game/descriptions/cardText'
 import { describeCardModSummary } from '../../game/descriptions/modText'
 import { UI_CELL, UI_DAMAGE, UI_HEART, UI_LEVEL } from '../../game/ui/labels'
@@ -222,6 +223,8 @@ export function BattleScreen() {
     return computePassiveRangedRangeBonus(passives, actor, battle)
   }, [battle, actor])
   const effectiveRangedRange = HERO_BASIC_RANGED_MAX_RANGE + passiveRangedRangeBonus
+  const heroRangedCooldown = battle && actor ? getHeroRangedCooldown(battle, actor.id) : 0
+  const heroRangedOnCd = heroRangedCooldown > 0
   const actorCards = battle && currentId ? getActorPlayerCards(battle, currentId) : []
 
   useEffect(() => {
@@ -231,17 +234,39 @@ export function BattleScreen() {
   }, [currentId, current?.side])
 
   useEffect(() => {
-    if (!battle || battle.phase !== 'ongoing') return
-    const actor = battle.units.find((u) => u.id === getCurrentActorId(battle))
-    if (!actor || actor.side !== 'enemy') return
-    const t = window.setTimeout(() => {
-      const b = useGameStore.getState().campaign.battle
+    if (!battle || battle.phase !== 'ongoing' || !currentId) return
+    const actor = battle.units.find((u) => u.id === currentId)
+    if (!actor || actor.side !== 'enemy' || actor.hp <= 0) return
+
+    let cancelled = false
+    const runEnemyAi = (attempt = 0) => {
+      if (cancelled || attempt > 3) return
+      const store = useGameStore.getState()
+      const b = store.campaign.battle
       if (!b || b.phase !== 'ongoing') return
+      const liveActorId = getCurrentActorId(b)
+      const liveActor = liveActorId ? b.units.find((u) => u.id === liveActorId) : undefined
+      if (!liveActor || liveActor.side !== 'enemy' || liveActor.hp <= 0) return
+
+      const sigBefore = `${liveActorId}:${b.currentTurnIndex}:${b.roundNumber}:${b.battleLog.length}`
       const act = pickEnemyAiAction(b)
-      if (act) useGameStore.getState().dispatchBattle(act)
-    }, 350)
-    return () => window.clearTimeout(t)
-  }, [battle])
+      if (!act) return
+      store.dispatchBattle(act)
+      if (cancelled) return
+      const after = useGameStore.getState().campaign.battle
+      if (!after || after.phase !== 'ongoing') return
+      const sigAfter = `${getCurrentActorId(after)}:${after.currentTurnIndex}:${after.roundNumber}:${after.battleLog.length}`
+      if (sigAfter === sigBefore) {
+        window.setTimeout(() => runEnemyAi(attempt + 1), 120)
+      }
+    }
+
+    const t = window.setTimeout(() => runEnemyAi(), 350)
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
+    }
+  }, [battle, currentId, battle?.currentTurnIndex, battle?.roundNumber, battle?.battleLog.length])
 
   useEffect(() => {
     if (!autoBattleEnabled || !battle || battle.phase !== 'ongoing') return
@@ -353,7 +378,7 @@ export function BattleScreen() {
         battle.height,
       )
       validTargetCells = validSingleTargetCells(battle, actor.x, actor.y, 'melee', 1)
-    } else if (mode === 'ranged') {
+    } else if (mode === 'ranged' && !heroRangedOnCd) {
       actionRangeCells = attackRangeCells(battle, actor.x, actor.y, effectiveRangedRange)
       validTargetCells = validSingleTargetCells(
         battle,
@@ -447,6 +472,8 @@ export function BattleScreen() {
     hoverCell,
     selectedCardTemplate,
     pendingAoeCell,
+    heroRangedOnCd,
+    effectiveRangedRange,
   ])
 
   const gridCells = useMemo(() => {
@@ -645,6 +672,10 @@ export function BattleScreen() {
     }
     if (!overlaySets.validTargetCells.has(cellKey(x, y))) {
       message.warning('Вне дальности')
+      return
+    }
+    if (heroRangedOnCd) {
+      message.warning('Выстрел на перезарядке')
       return
     }
     dispatchBattle({
@@ -963,10 +994,17 @@ export function BattleScreen() {
                       {`Удар (1${UI_CELL}) — ${HERO_BASIC_MELEE_DAMAGE}${UI_DAMAGE}`}
                     </span>
                   </Radio.Button>
-                  <Radio.Button value="ranged">
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Radio.Button value="ranged" disabled={actionsDisabled || heroRangedOnCd}>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        ...(heroRangedOnCd ? { opacity: 0.5 } : undefined),
+                      }}
+                    >
                       <AimOutlined aria-hidden />
-                      {`Выстрел (≤${effectiveRangedRange}${UI_CELL}) — ${HERO_BASIC_RANGED_DAMAGE}${UI_DAMAGE}`}
+                      {`Выстрел (≤${effectiveRangedRange}${UI_CELL}) — ${HERO_BASIC_RANGED_DAMAGE}${UI_DAMAGE}${heroRangedOnCd ? ` · CD ${heroRangedCooldown}` : ''}`}
                     </span>
                   </Radio.Button>
                 </Space>

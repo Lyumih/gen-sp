@@ -5,6 +5,7 @@ import { createPassiveInstance } from '../passives/passiveFactory'
 import { cellKey, manhattan, orthoNeighbors } from './grid'
 import { TEST_BASE_STATS } from '../stats/testFixtures'
 import { appendUnitStatus, statusForSkill } from './unitStatus'
+import { tickHeroCardCooldowns } from './cardCooldown'
 import { applyAction, advanceBattleTurn } from './reducer'
 
 const HERO_ID = LEGACY_HERO_CHARACTER_ID
@@ -239,6 +240,68 @@ describe('applyAction attack', () => {
       maxRange: 2,
     })
     expect(ok.units.find((u) => u.id === 'e1')?.hp).toBe(4)
+    expect(ok.heroRangedCooldownByUnitId?.[HERO_ID]).toBe(1)
+  })
+
+  it('basic ranged sets 1-turn cooldown and blocks repeat until ticked', () => {
+    const s = battle({
+      units: [
+        unit({
+          id: HERO_ID,
+          side: 'player',
+          x: 0,
+          y: 0,
+          hp: 10,
+          maxHp: 10,
+          unitLevel: 1,
+        }),
+        unit({
+          id: 'e1',
+          side: 'enemy',
+          x: 2,
+          y: 0,
+          hp: 20,
+          maxHp: 20,
+          unitLevel: 1,
+        }),
+      ],
+    })
+    const afterShot = applyAction(s, {
+      type: 'attack',
+      attackerId: HERO_ID,
+      targetId: 'e1',
+      damage: 1,
+      kind: 'ranged',
+      maxRange: 2,
+    })
+    expect(afterShot.heroRangedCooldownByUnitId?.[HERO_ID]).toBe(1)
+
+    const blocked = applyAction(afterShot, {
+      type: 'attack',
+      attackerId: HERO_ID,
+      targetId: 'e1',
+      damage: 1,
+      kind: 'ranged',
+      maxRange: 2,
+    })
+    expect(blocked).toBe(afterShot)
+
+    const afterEndOfShotTurn = tickHeroCardCooldowns(afterShot, HERO_ID)
+    expect(afterEndOfShotTurn.heroRangedCooldownByUnitId?.[HERO_ID]).toBe(1)
+
+    const afterNextHeroTurn = tickHeroCardCooldowns(afterEndOfShotTurn, HERO_ID)
+    expect(afterNextHeroTurn.heroRangedCooldownByUnitId?.[HERO_ID]).toBeUndefined()
+
+    const heroTurn = { ...afterNextHeroTurn, currentTurnIndex: 0 }
+    const secondShot = applyAction(heroTurn, {
+      type: 'attack',
+      attackerId: HERO_ID,
+      targetId: 'e1',
+      damage: 1,
+      kind: 'ranged',
+      maxRange: 2,
+    })
+    expect(secondShot.units.find((u) => u.id === 'e1')?.hp).toBe(18)
   })
 })
 

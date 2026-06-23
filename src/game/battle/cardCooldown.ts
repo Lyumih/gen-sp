@@ -1,4 +1,5 @@
 import type { BattlePlayerCard, BattleState } from '../types'
+import { tickHeroRangedCooldown } from './heroRangedCooldown'
 import { getCurrentActorId } from './reducer'
 import { updateActorEnemyCards } from './enemyCards'
 import { updateActorPlayerCards } from './playerCards'
@@ -15,13 +16,16 @@ export function tickHeroCardCooldowns(
   const id = actorId ?? getCurrentActorId(state)
   if (!id) return state
   const cards = state.playerCardsByUnitId[id]
-  if (!cards) return state
+  if (!cards) {
+    return tickHeroRangedCooldown(state, id)
+  }
   const nextCards = cards.map((c) =>
     c.cooldownRemaining > 0
       ? { ...c, cooldownRemaining: c.cooldownRemaining - 1 }
       : c,
   ) satisfies readonly BattlePlayerCard[]
-  return updateActorPlayerCards(state, id, nextCards)
+  const withCards = updateActorPlayerCards(state, id, nextCards)
+  return tickHeroRangedCooldown(withCards, id)
 }
 
 export function heroTurnAdvanced(prev: BattleState, next: BattleState): boolean {

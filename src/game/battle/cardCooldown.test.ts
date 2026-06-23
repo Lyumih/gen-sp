@@ -52,6 +52,15 @@ describe('tickHeroCardCooldowns', () => {
     expect(next.playerCardsByUnitId[HERO_ID]![0]!.cooldownRemaining).toBe(3)
     expect(next.skipHeroCooldownTick).toBeUndefined()
   })
+
+  it('decrements hero ranged cooldown for the given actor', () => {
+    const state = {
+      ...baseState(HERO_ID, []),
+      heroRangedCooldownByUnitId: { [HERO_ID]: 1 },
+    }
+    const next = tickHeroCardCooldowns(state, HERO_ID)
+    expect(next.heroRangedCooldownByUnitId?.[HERO_ID]).toBeUndefined()
+  })
 })
 
 describe('tickEnemyCardCooldowns', () => {

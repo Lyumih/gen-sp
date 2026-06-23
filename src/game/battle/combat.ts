@@ -12,6 +12,9 @@ export const HERO_BASIC_RANGED_DAMAGE = 4
 /** Макс. дистанция дальней атаки героя (манхэттен). */
 export const HERO_BASIC_RANGED_MAX_RANGE = 6
 
+/** Перезарядка базового выстрела (ходов героя). */
+export const HERO_BASIC_RANGED_COOLDOWN_TURNS = 1
+
 /** Ортогональных шагов за одно действие «ход» (BFS по свободным клеткам). */
 export const HERO_MOVE_RANGE = 3
 

@@ -6,6 +6,7 @@ import {
   canMeleeAttack,
   canRangedAttack,
 } from '../../game/battle/combat'
+import { isHeroRangedReady } from '../../game/battle/heroRangedCooldown'
 import { getCurrentActorId } from '../../game/battle/reducer'
 import { getActorPlayerCards } from '../../game/battle/playerCards'
 import { getCharacter } from '../../game/character/selectors'
@@ -115,7 +116,10 @@ function maxAvailableDamage(
     best = Math.max(best, cardEffectAmount(c, actor, campaign))
   }
   if (canMeleeAttack(actor, enemy)) best = Math.max(best, HERO_BASIC_MELEE_DAMAGE)
-  if (canRangedAttack(actor, enemy, HERO_BASIC_RANGED_MAX_RANGE, wallsOf(state))) {
+  if (
+    isHeroRangedReady(state, actor.id) &&
+    canRangedAttack(actor, enemy, HERO_BASIC_RANGED_MAX_RANGE, wallsOf(state))
+  ) {
     best = Math.max(best, HERO_BASIC_RANGED_DAMAGE)
   }
   return best
@@ -250,7 +254,8 @@ export function pickPlayerAiAction(
     const cardDmg = cardEffectAmount(card, actor, campaign)
     const basicDmg = canMeleeAttack(actor, target)
       ? HERO_BASIC_MELEE_DAMAGE
-      : canRangedAttack(actor, target, HERO_BASIC_RANGED_MAX_RANGE, wallsOf(state))
+      : isHeroRangedReady(state, actor.id) &&
+          canRangedAttack(actor, target, HERO_BASIC_RANGED_MAX_RANGE, wallsOf(state))
         ? HERO_BASIC_RANGED_DAMAGE
         : 0
     if (cardDmg > basicDmg) {
@@ -273,7 +278,10 @@ export function pickPlayerAiAction(
       },
     }
   }
-  if (canRangedAttack(actor, target, HERO_BASIC_RANGED_MAX_RANGE, wallsOf(state))) {
+  if (
+    isHeroRangedReady(state, actor.id) &&
+    canRangedAttack(actor, target, HERO_BASIC_RANGED_MAX_RANGE, wallsOf(state))
+  ) {
     return {
       kind: 'battle',
       action: {

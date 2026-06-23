@@ -589,6 +589,9 @@ function applyBattleOutcome(
   if (heroTurnAdvanced(prevBattle, nextBattle)) {
     const prevActorId = prevBattle.turnOrder[prevBattle.currentTurnIndex]
     battle = tickHeroCardCooldowns(battle, prevActorId)
+  } else if (battle.skipHeroCooldownTick) {
+    const { skipHeroCooldownTick: _, ...rest } = battle
+    battle = rest
   }
   if (enemyTurnAdvanced(prevBattle, nextBattle)) {
     const prevActorId = prevBattle.turnOrder[prevBattle.currentTurnIndex]

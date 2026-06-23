@@ -239,6 +239,8 @@ export type BattleState = {
   playerGearModSlotsByUnitId?: Readonly<Record<string, readonly ModSlotState[]>>
   /** Текущий актор владеет UI карт (опционально). */
   activePlayerCardUnitId?: string
+  /** Перезарядка базового выстрела по id героя (не сохраняется в кампании). */
+  heroRangedCooldownByUnitId?: Readonly<Record<string, number>>
   /** Пропустить тик CD в конце текущего хода героя (ход применения карты с CD). */
   skipHeroCooldownTick?: boolean
   /** Пропустить тик CD в конце текущего хода врага (ход применения карты с CD). */

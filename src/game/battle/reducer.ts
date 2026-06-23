@@ -2,6 +2,7 @@ import type { BattleAction, BattleLogEntry, BattleModContext, BattlePlayerCard, 
 import { isUnitRooted } from './unitStatus'
 import { appendUnitStatus, statusForSkill } from './unitStatus'
 import { canMeleeAttack, canRangedAttack, withDamage, withHeal } from './combat'
+import { isHeroRangedReady, setHeroRangedCooldown } from './heroRangedCooldown'
 import { cellKey, manhattan, orthoNeighbors, wallSet } from './grid'
 import { advanceTurn } from './initiative'
 import { hasLineOfSight } from './lineOfSight'
@@ -753,6 +754,15 @@ function tryAttack(state: BattleState, action: Extract<BattleAction, { type: 'at
     action.kind === 'ranged'
       ? computePassiveRangedRangeBonus(unitPassives(state, attacker.id), attacker, state)
       : 0
+  if (
+    action.kind === 'ranged' &&
+    !action.fromCard &&
+    attacker.side === 'player' &&
+    !isHeroRangedReady(state, action.attackerId)
+  ) {
+    return state
+  }
+
   const ok =
     action.kind === 'melee'
       ? canMeleeAttack(attacker, target)
@@ -770,6 +780,9 @@ function tryAttack(state: BattleState, action: Extract<BattleAction, { type: 'at
 
   const { state: afterStrike, killed } = applySingleStrike(state, strikeParams)
   let next = afterStrike
+  if (action.kind === 'ranged' && !action.fromCard && attacker.side === 'player') {
+    next = setHeroRangedCooldown(next, action.attackerId)
+  }
   next = applySelfHealOnUse(next, action.attackerId, action.modCtx, action.fromCard)
   next = afterHpChange(next, killed)
   if (next.phase !== 'ongoing') return next
