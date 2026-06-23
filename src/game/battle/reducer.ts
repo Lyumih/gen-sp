@@ -306,6 +306,7 @@ function triggerUnitPassives(
     battle: state,
     rng: passiveChanceRng(state),
     randomInt1to100: passiveLevelRng(state),
+    luckyPassiveProgress: state.luckyPassiveProgressByUnitId?.[actor.id],
     ...ctx,
   })
 

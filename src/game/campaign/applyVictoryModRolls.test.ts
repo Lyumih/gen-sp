@@ -37,4 +37,24 @@ describe('applyVictoryModRollsToCarrier', () => {
     expect(result.modSlots[0]).toEqual({ status: 'empty', offer: null })
     expect(result.modSlots[1]).toEqual({ status: 'filled', templateId: 'mod-a', lm: 1 })
   })
+
+  it('applyVictoryModRollsToCarrier with luckyLm retries failed roll', () => {
+    let n = 0
+    const roll = () => (n++ === 0 ? 1 : 100)
+    const carrier = {
+      modSlots: [{ status: 'filled' as const, templateId: 'mod-a', lm: 50 }],
+    }
+    const result = applyVictoryModRollsToCarrier(carrier, roll, { luckyLm: true })
+    expect(result.modSlots[0]).toEqual({ status: 'filled', templateId: 'mod-a', lm: 51 })
+  })
+
+  it('applyVictoryModRollsToCarrier with extraLmRolls reruns carrier roll', () => {
+    let n = 0
+    const roll = () => (n++ === 0 ? 1 : 100)
+    const carrier = {
+      modSlots: [{ status: 'filled' as const, templateId: 'mod-a', lm: 50 }],
+    }
+    const result = applyVictoryModRollsToCarrier(carrier, roll, { extraLmRolls: 1 })
+    expect(result.modSlots[0]).toEqual({ status: 'filled', templateId: 'mod-a', lm: 51 })
+  })
 })

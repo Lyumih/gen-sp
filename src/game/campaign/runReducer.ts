@@ -32,7 +32,7 @@ import { milestoneThreshold, rollbackCarrierLevel } from '../memento/modSlots'
 import { resolveCarrierTags } from '../mods/carrierTags'
 import { MOD_OFFER_POOL, getModTemplate } from '../content/modTemplates'
 import { getPassiveModTemplate, PASSIVE_MOD_OFFER_POOL } from '../content/passiveModTemplates'
-import { characterHasEffect, softRollbackCarrierLevel } from '../specialization/resolve'
+import { characterHasEffect, rollWithLuckyRetry, softRollbackCarrierLevel } from '../specialization/resolve'
 import { rollMementoLevelUp } from '../memento/rollMementoLevelUp'
 import {
   pickRandomPassiveTemplateId,
@@ -333,7 +333,10 @@ function startExpeditionBattle(
   const snapshot = buildExpeditionBattleSnapshot(state, expedition, scenarioSlotIndex)
   if (!snapshot) return state
 
-  const battle = battleStateFromScenario(scenario, snapshot)
+  const battle = withBattleSpecializationFlags(
+    battleStateFromScenario(scenario, snapshot),
+    { ...state, expedition },
+  )
 
   return {
     ...state,
@@ -388,13 +391,44 @@ function finishExpedition(state: CampaignState): CampaignState {
   }
 }
 
+function withBattleSpecializationFlags(
+  battle: BattleState,
+  campaign: CampaignState,
+): BattleState {
+  const luckyPassiveProgressByUnitId: Record<string, boolean> = {}
+  for (const unit of battle.units) {
+    if (unit.side !== 'player') continue
+    if (characterHasEffect(campaign, unit.id, 'lucky_passive_l')) {
+      luckyPassiveProgressByUnitId[unit.id] = true
+    }
+  }
+  if (Object.keys(luckyPassiveProgressByUnitId).length === 0) return battle
+  return { ...battle, luckyPassiveProgressByUnitId }
+}
+
+function unitLevelRollRng(
+  state: CampaignState,
+  heroId: string,
+  primaryRoll: number,
+): () => number {
+  let calls = 0
+  return () => {
+    calls += 1
+    if (calls === 1) return primaryRoll
+    return (modOfferSeed(`${state.battleAttemptId}:${heroId}:unitLevel:lucky`, 0, 0) % 100) + 1
+  }
+}
+
 function startBattleFromScenario(state: CampaignState): CampaignState {
   const base = SCENARIOS[state.scenarioIndex]
   if (!base) return state
 
   const scenario = resolveScenarioForCampaignSlot(base, state.scenarioIndex)
   const snapshot = buildBattleAttemptSnapshot(state, state.scenarioIndex)
-  const battle = battleStateFromScenario(scenario, snapshot)
+  const battle = withBattleSpecializationFlags(
+    battleStateFromScenario(scenario, snapshot),
+    state,
+  )
 
   return {
     ...state,
@@ -440,7 +474,11 @@ function finalizeVictory(
   }
 
   let unitLevel = hero.unitLevel
-  if (rollMementoLevelUp(unitLevel, playerUnitLevelRoll)) {
+  const luckyUnit = characterHasEffect(state, hero.id, 'lucky_unit')
+  const unitLeveledUp = luckyUnit
+    ? rollWithLuckyRetry(unitLevel, unitLevelRollRng(state, hero.id, playerUnitLevelRoll), true)
+    : rollMementoLevelUp(unitLevel, playerUnitLevelRoll)
+  if (unitLeveledUp) {
     unitLevel += 1
   }
 
@@ -606,6 +644,7 @@ function applyBattleOutcome(
       rollState.characters,
       battle,
       rollState.battleAttemptId,
+      rollState,
     )
     rollState = { ...rollState, characters: rolled.characters }
     battle = rolled.battle
@@ -927,7 +966,10 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       if (!base) return state
       const scenario = resolveScenarioForCampaignSlot(base, slot)
       const snapshot = buildBattleAttemptSnapshot(state, slot)
-      const battle = battleStateFromScenario(scenario, snapshot)
+      const battle = withBattleSpecializationFlags(
+        battleStateFromScenario(scenario, snapshot),
+        state,
+      )
       return {
         ...state,
         phase: 'battle',
@@ -1155,15 +1197,21 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
 
       const scenario = resolveScenarioForCampaignSlot(base, snap.scenarioSlotIndex)
       const snapCopy = copyBattleAttemptSnapshot(snap)
+      const retryState = {
+        ...state,
+        worldPower: snap.worldPower,
+        gold: snap.gold,
+        phase: 'battle' as const,
+        battleAttemptId: state.battleAttemptId + 1,
+        battleAttemptSnapshot: snapCopy,
+      }
       return restorePartyFromSnapshot(
         {
-          ...state,
-          worldPower: snap.worldPower,
-          gold: snap.gold,
-          phase: 'battle',
-          battle: battleStateFromScenario(scenario, snapCopy),
-          battleAttemptId: state.battleAttemptId + 1,
-          battleAttemptSnapshot: snapCopy,
+          ...retryState,
+          battle: withBattleSpecializationFlags(
+            battleStateFromScenario(scenario, snapCopy),
+            retryState,
+          ),
         },
         snapCopy,
       )

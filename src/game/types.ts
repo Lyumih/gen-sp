@@ -264,6 +264,8 @@ export type BattleState = {
   gearStrikeDamageMult?: number
   /** Герои без клетки спавна — не участвуют в этом бою. */
   excludedCharacterIds?: readonly string[]
+  /** Lucky passive L retry per player unit id (set at battle start). */
+  luckyPassiveProgressByUnitId?: Readonly<Record<string, boolean>>
 }
 
 export type BattleAction =

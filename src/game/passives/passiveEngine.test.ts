@@ -55,6 +55,17 @@ describe('applyPassiveProgress', () => {
     expect(next.global_level).toBe(2)
     expect(next.effectTriggered).toBe(true)
   })
+
+  it('applyPassiveProgress with lucky retries failed roll', () => {
+    let n = 0
+    const rng = () => (n++ === 0 ? 1 : 100)
+    const passive = createPassiveInstance('warrior_fortitude')
+    const next = applyPassiveProgress({ ...passive, global_level: 50, uses_count: 0 }, rng, {
+      lucky: true,
+    })
+    expect(next.leveledUp).toBe(true)
+    expect(next.global_level).toBe(51)
+  })
 })
 
 describe('firePassives', () => {

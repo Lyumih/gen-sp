@@ -34,6 +34,8 @@ import { MOD_OFFER_POOL } from '../content/modTemplates'
 import { resolveCarrierTags } from '../mods/carrierTags'
 import { milestoneThreshold, rollbackCarrierLevel } from '../memento/modSlots'
 import { softRollbackCarrierLevel } from '../specialization/resolve'
+import { modOfferSeed } from '../memento/carrierLevelChange'
+import { victoryModRollRng } from './applyVictoryModRolls'
 import { MOD_SLOT_MILESTONES } from '../config/modSlotMilestones'
 import { SKILL_ACQUISITION } from '../config/skillAcquisition'
 import { createPassiveInstance } from '../passives/passiveFactory'
@@ -931,6 +933,41 @@ describe('shop and FINALIZE_VICTORY rolls', () => {
       itemLevelRolls: [],
       playerUnitLevelRoll: 50,
     })
+    expect(hero(up).unitLevel).toBe(51)
+  })
+
+  it('FINALIZE_VICTORY lucky_unit retries failed unitLevel roll', () => {
+    const init = initialCampaignState()
+    const h = hero(init)
+    const b = makeBattle({ phase: 'victory' })
+    const base = withHero(
+      {
+        ...init,
+        phase: 'victory',
+        battle: b,
+        battleAttemptSnapshot: battleSnapshotFromHero(init, {
+          party: [partyMemberFromHero(h, { unitLevel: 50 })],
+        }),
+      },
+      { unitLevel: 50, specializationId: 'lucky_unit' },
+    )
+
+    let battleAttemptId = 0
+    while (battleAttemptId < 5000) {
+      const retry =
+        (modOfferSeed(`${battleAttemptId}:${HERO_ID}:unitLevel:lucky`, 0, 0) % 100) + 1
+      if (retry === 100 || retry >= 50) break
+      battleAttemptId += 1
+    }
+
+    const up = applyRunAction(
+      { ...base, battleAttemptId },
+      {
+        type: 'FINALIZE_VICTORY',
+        itemLevelRolls: [],
+        playerUnitLevelRoll: 1,
+      },
+    )
     expect(hero(up).unitLevel).toBe(51)
   })
 
@@ -2050,6 +2087,56 @@ describe('victory mod Lm rolls', () => {
       status: 'filled',
       templateId: 'mod-hp-bonus-armor',
       lm: 1,
+    })
+  })
+
+  it('mod_extra_lm_roll reruns lm roll on victory when first roll fails', () => {
+    const modSlots: ModSlotState[] = [
+      { status: 'filled', templateId: 'mod-damage-up', lm: 50 },
+    ]
+
+    let seed = 1
+    while (seed < 5000) {
+      const rng = victoryModRollRng(seed)
+      const r1 = rng()
+      const r2 = rng()
+      const firstFails = !(r1 === 100 || r1 >= 50)
+      const secondSucceeds = r2 === 100 || r2 >= 50
+      if (firstFails && secondSucceeds) break
+      seed += 1
+    }
+
+    const b = makeBattle({
+      phase: 'ongoing',
+      playerCards: [
+        {
+          id: 'c1',
+          templateId: 'strike',
+          global_level: 50,
+          uses_count: 0,
+          modSlots,
+          cooldownRemaining: 0,
+        },
+      ],
+    })
+    let s = withHero(campaignWithBattle(b), { specializationId: 'mod_extra_lm_roll' })
+    s = { ...s, battleAttemptId: seed }
+    s = applyRunAction(s, {
+      type: 'BATTLE_DISPATCH',
+      battleAction: {
+        type: 'attack',
+        attackerId: HERO_ID,
+        targetId: 'e1',
+        damage: 999,
+        kind: 'ranged',
+        maxRange: 10,
+      },
+    })
+    const battleCard = heroBattleCards(s.battle!)[0]!
+    expect(battleCard.modSlots[0]).toEqual({
+      status: 'filled',
+      templateId: 'mod-damage-up',
+      lm: 51,
     })
   })
 

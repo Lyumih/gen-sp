@@ -109,6 +109,7 @@ export type PassiveFireInput = {
   regenHeal?: number
   targetX?: number
   targetY?: number
+  luckyPassiveProgress?: boolean
 }
 
 function passiveModProcBonus(passive: PassiveInstance): number {
@@ -524,7 +525,9 @@ export function firePassives(input: PassiveFireInput): PassiveFireResult {
     const { patches, triggered } = resolveTemplatePassive(passive, input)
     if (!triggered) continue
 
-    const progressed = applyPassiveProgress(passive, input.randomInt1to100())
+    const progressed = applyPassiveProgress(passive, input.randomInt1to100, {
+      lucky: input.luckyPassiveProgress,
+    })
     passivesById.set(passive.id, progressed)
 
     if (template.effectKind === 'proc' || template.effectKind === 'conditional') {

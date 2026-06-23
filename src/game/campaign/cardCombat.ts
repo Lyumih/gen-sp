@@ -20,6 +20,7 @@ import { getCharacter } from '../character/selectors'
 import { applyCardUse } from '../memento/cardProgress'
 import { modOfferSeed } from '../memento/carrierLevelChange'
 import { applyItemUseRoll } from '../memento/itemProgress'
+import { characterHasEffect } from '../specialization/resolve'
 import { resolveCarrierTags } from '../mods/carrierTags'
 import {
   applyAoeSizeMods,
@@ -38,6 +39,41 @@ import type {
 
 export type CardUseRoll = number
 
+function cardLevelRollRng(
+  state: CampaignState,
+  actorId: string,
+  card: BattlePlayerCard,
+  primaryRoll: number,
+): () => number {
+  let calls = 0
+  return () => {
+    calls += 1
+    if (calls === 1) return primaryRoll
+    return (
+      (modOfferSeed(
+        `${state.battleAttemptId}:${actorId}:${card.id}:${card.uses_count}:lucky`,
+        0,
+        0,
+      ) %
+        100) +
+      1
+    )
+  }
+}
+
+function applyCardUseWithOwnerLuck(
+  state: CampaignState,
+  actorId: string,
+  card: BattlePlayerCard,
+  roll: number,
+) {
+  const lucky = characterHasEffect(state, actorId, 'lucky_card_l')
+  return applyCardUse(
+    card,
+    lucky ? cardLevelRollRng(state, actorId, card, roll) : roll,
+    lucky ? { lucky: true } : undefined,
+  )
+}
 function cardModCombatContext(
   state: CampaignState,
   actorId: string,
@@ -188,7 +224,7 @@ export function dispatchCardAttackUse(input: CardAttackUseInput): CampaignState 
   const resolved = resolveAmount(state, actorId, actor, card, tmpl, modCtx)
   if (!resolved) return null
 
-  const used = applyCardUse(card, roll)
+  const used = applyCardUseWithOwnerLuck(state, actorId, card, roll)
   const cd = applyCooldownMods(tmpl.cooldownTurns ?? 0, modCtx)
   const nextCard: BattlePlayerCard = { ...used, cooldownRemaining: cd }
   const fromCard = { cardId: card.id, templateId: card.templateId }
@@ -281,7 +317,7 @@ export function dispatchCardAoEUse(input: CardAoEUseInput): CampaignState | null
   const resolved = resolveAmount(state, actorId, actor, card, tmpl, modCtx)
   if (!resolved) return null
 
-  const used = applyCardUse(card, roll)
+  const used = applyCardUseWithOwnerLuck(state, actorId, card, roll)
   const cd = applyCooldownMods(tmpl.cooldownTurns ?? 0, modCtx)
   const nextCard: BattlePlayerCard = { ...used, cooldownRemaining: cd }
   const aoeSize = applyAoeSizeMods(tmpl.aoeSize, modCtx)
@@ -364,7 +400,7 @@ export function dispatchCardHealUse(input: CardHealUseInput): CampaignState | nu
   const resolved = resolveAmount(state, actorId, actor, card, tmpl, modCtx)
   if (!resolved) return null
 
-  const used = applyCardUse(card, roll)
+  const used = applyCardUseWithOwnerLuck(state, actorId, card, roll)
   const cd = applyCooldownMods(tmpl.cooldownTurns ?? 0, modCtx)
   const nextCard: BattlePlayerCard = { ...used, cooldownRemaining: cd }
   const fromCard = { cardId: card.id, templateId: card.templateId }
@@ -439,7 +475,7 @@ export function dispatchCardBuffUse(input: CardBuffUseInput): CampaignState | nu
   const resolved = resolveAmount(state, actorId, actor, card, tmpl, modCtx)
   if (!resolved) return null
 
-  const used = applyCardUse(card, roll)
+  const used = applyCardUseWithOwnerLuck(state, actorId, card, roll)
   const cd = applyCooldownMods(tmpl.cooldownTurns ?? 0, modCtx)
   const nextCard: BattlePlayerCard = { ...used, cooldownRemaining: cd }
 
