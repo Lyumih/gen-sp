@@ -1,5 +1,9 @@
 import type { BaseStats } from '../config/baseStats'
-import { getEnemyTemplate } from '../content/enemyTemplates'
+import { getEnemyArchetype, getEnemyTemplate } from '../content/enemyTemplates'
+import {
+  enemyCardsByUnitFromScenario,
+  enemyPassivesByUnitFromScenario,
+} from '../battle/enemyCards'
 import { computeEffectiveStat, computeGearStatBonuses } from '../stats/effectiveStats'
 import { buildRoundTurnOrder } from '../battle/initiative'
 import { computeCharacterMaxHpForScenario } from './heroMaxHp'
@@ -177,6 +181,7 @@ function makeEnemies(
       e.unitLevel,
       snapshot.worldPower,
     )
+    const archetype = getEnemyArchetype(e.archetypeId)
     const display = resolveEnemyUnitDisplay(e)
     return {
       id: e.id,
@@ -187,6 +192,7 @@ function makeEnemies(
       maxHp,
       unitLevel: e.unitLevel,
       archetypeId: e.archetypeId,
+      raceId: archetype?.raceId,
       initiativeBase,
       baseStats,
       displayName: display.name,
@@ -212,6 +218,13 @@ export function battleStateFromScenario(
   const enemies = makeEnemies(scenario, snapshot)
   const units = [...players, ...enemies]
   const phase = players.length === 0 ? 'defeat' : 'ongoing'
+  const playerPassives = passivesByUnitFromParty(snapshot.party)
+  const enemyPassives = enemyPassivesByUnitFromScenario(scenario.enemies, getEnemyArchetype)
+  const enemyCards = enemyCardsByUnitFromScenario(scenario.enemies, getEnemyArchetype)
+  const passivesByUnitId =
+    Object.keys({ ...playerPassives, ...enemyPassives }).length > 0
+      ? { ...playerPassives, ...enemyPassives }
+      : undefined
   return {
     width: scenario.width,
     height: scenario.height,
@@ -223,7 +236,8 @@ export function battleStateFromScenario(
     phase,
     worldPower: snapshot.worldPower,
     playerCardsByUnitId: playerCardsByUnitFromParty(snapshot.party),
-    passivesByUnitId: passivesByUnitFromParty(snapshot.party),
+    ...(Object.keys(enemyCards).length > 0 ? { enemyCardsByUnitId: enemyCards } : {}),
+    passivesByUnitId,
     playerGearModSlotsByUnitId: playerGearModSlotsByUnitFromParty(snapshot.party),
     battleLog: [],
     excludedCharacterIds:

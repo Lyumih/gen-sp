@@ -179,4 +179,32 @@ describe('battleStateFromScenario', () => {
     expect(battle.phase).toBe('defeat')
     expect(battle.units.filter((u) => u.side === 'player')).toHaveLength(0)
   })
+
+  it('wires enemy skills, passives, and raceId from archetype', () => {
+    const ravagerScenario: BattleScenario = {
+      ...duoScenario,
+      enemies: [
+        {
+          id: 'ravager',
+          x: 5,
+          y: 2,
+          baseHpStat: 14,
+          unitLevel: 1,
+          archetypeId: 'enemy_orc_ravager',
+        },
+      ],
+    }
+    const snap = snapshotWithParty([member({ characterId: HERO_ID })])
+    const battle = battleStateFromScenario(ravagerScenario, snap)
+
+    const enemy = battle.units.find((u) => u.id === 'ravager')
+    expect(enemy?.raceId).toBe('orc')
+    expect(battle.enemyCardsByUnitId?.ravager).toHaveLength(3)
+    expect(battle.enemyCardsByUnitId?.ravager?.map((c) => c.templateId)).toEqual([
+      'frenzy',
+      'whirlwind',
+      'monster_roar',
+    ])
+    expect(battle.enemyCardsByUnitId?.ravager?.every((c) => c.cooldownRemaining === 0)).toBe(true)
+  })
 })

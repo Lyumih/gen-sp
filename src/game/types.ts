@@ -229,6 +229,8 @@ export type BattleState = {
   worldPower: number
   /** Карты игрока по id юнита (characterId) на поле боя. */
   playerCardsByUnitId: Readonly<Record<string, readonly BattlePlayerCard[]>>
+  /** Карты врага по id юнита (preset skills from archetype). */
+  enemyCardsByUnitId?: Readonly<Record<string, readonly BattlePlayerCard[]>>
   /** Equipped passives per player unit id (battle copy with L progress). */
   passivesByUnitId?: Readonly<Record<string, readonly PassiveInstance[]>>
   /** Optional override for passive proc rolls (tests). Returns 0–1. */
