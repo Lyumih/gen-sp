@@ -63,6 +63,7 @@ export function computeEffectiveStats(
   unitLevel: number,
   worldPower: number,
   gearBonuses: Partial<Record<StatId, number>> = {},
+  passiveBonuses: Partial<Record<StatId, number>> = {},
 ): BaseStats {
   const out = { ...baseStats }
   for (const id of Object.keys(out) as StatId[]) {
@@ -71,7 +72,7 @@ export function computeEffectiveStats(
       id,
       unitLevel,
       worldPower,
-      gearBonuses[id] ?? 0,
+      (gearBonuses[id] ?? 0) + (passiveBonuses[id] ?? 0),
     )
   }
   return out

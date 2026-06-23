@@ -16,6 +16,7 @@ import {
 } from '../../game/equipment/aggregates'
 import { EQUIPMENT_ROLL_ORDER } from '../../game/equipment/equipmentOrder'
 import { computeEffectiveStats, computeGearStatBonuses } from '../../game/stats/effectiveStats'
+import { aggregatePassiveSkillStatBonuses } from '../../game/passives/passiveStatBonuses'
 import type { BattleState, CampaignState } from '../../game/types'
 import { UI_HEART, UI_LEVEL } from '../../game/ui/labels'
 import { StatStrip } from '../stats/StatStrip'
@@ -86,11 +87,18 @@ export function HeroProfileContent({
         )
       : null
 
+  const passiveBonusesHub = aggregatePassiveSkillStatBonuses(
+    hero.passives,
+    hero.passiveEquip,
+    hero.baseStats,
+  )
+
   const effectiveHub = computeEffectiveStats(
     hero.baseStats,
     hero.unitLevel,
     campaign.worldPower,
     gearBonusesHub,
+    passiveBonusesHub,
   )
 
   return (

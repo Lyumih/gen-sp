@@ -21,7 +21,9 @@ import {
 import { describeCardCombatStats, getCardDisplayLabel } from '../../game/descriptions/cardText'
 import { describeCardModSummary } from '../../game/descriptions/modText'
 import { UI_CELL, UI_DAMAGE, UI_HEART, UI_LEVEL } from '../../game/ui/labels'
-import { computeEffectiveStats } from '../../game/stats/effectiveStats'
+import { computeEffectiveStats, computeGearStatBonuses } from '../../game/stats/effectiveStats'
+import { aggregatePassiveSkillStatBonuses } from '../../game/passives/passiveStatBonuses'
+import { getItemTemplate } from '../../game/content/itemTemplates'
 import { BattleUnitTooltip } from './BattleUnitTooltip'
 import { UnitToken } from './UnitToken'
 import { HeroProfileModal } from '../profile/HeroProfileModal'
@@ -143,7 +145,20 @@ function BattleUnitCell({
 
   if (!unit.baseStats) return button
 
-  const effective = computeEffectiveStats(unit.baseStats, unit.unitLevel, worldPower)
+  const character = campaign.characters.find((c) => c.id === unit.id)
+  const gearBonuses = character
+    ? computeGearStatBonuses(character.items, character.equipment, getItemTemplate)
+    : {}
+  const passiveBonuses = character
+    ? aggregatePassiveSkillStatBonuses(character.passives, character.passiveEquip, unit.baseStats)
+    : {}
+  const effective = computeEffectiveStats(
+    unit.baseStats,
+    unit.unitLevel,
+    worldPower,
+    gearBonuses,
+    passiveBonuses,
+  )
   effective.health = unit.maxHp
   effective.initiative = unit.initiativeBase ?? effective.initiative
 
