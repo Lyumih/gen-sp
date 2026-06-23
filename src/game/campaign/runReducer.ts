@@ -70,7 +70,7 @@ import {
 import { mergeBattleCardsToParty } from '../battle/playerCards'
 import { applyVictoryModRollsToPartyBattle } from './applyVictoryModRolls'
 import { goldForScenarioVictory } from './scenarioRewards'
-import { getScenarioById, getScenarioIndexById, SCENARIOS, battleStateFromScenario, resolveScenarioForCampaignSlot } from './scenarios'
+import { getScenarioById, getScenarioIndexById, SCENARIOS, battleStateFromScenario, resolveScenarioForCampaignSlot, type BattleScenario } from './scenarios'
 import {
   getCharacter,
   getPrimaryCharacter,
@@ -89,7 +89,13 @@ import {
 } from '../character/iconCatalog'
 import { assertHubActionAllowed } from '../expedition/freeze'
 import { buildExpeditionSnapshot } from '../expedition/snapshot'
-import { getExpeditionChainById, resolvePartySize } from '../expedition/config'
+import {
+  getExpeditionChainById,
+  resolvePartySize,
+} from '../expedition/config'
+import { countOccupiedSquadSlots } from '../expedition/resolveExpeditionParty'
+import { generateScenario } from '../expedition/generators'
+import { hashSeed } from '../stats/rollBaseStats'
 import {
   generateTavernCandidates,
   seededRng,
@@ -331,16 +337,29 @@ function startExpeditionBattle(
   expedition: Expedition,
 ): CampaignState {
   const chain = getExpeditionChainById(expedition.scenarioChainId)
-  if (!chain || chain.kind !== 'static') return state
+  if (!chain) return state
 
-  const scenarioId = chain.battleScenarioIds[expedition.battleIndex]
-  if (!scenarioId) return state
+  let scenario: BattleScenario
+  let scenarioSlotIndex: number
 
-  const base = getScenarioById(scenarioId)
-  const scenarioSlotIndex = getScenarioIndexById(scenarioId)
-  if (!base || scenarioSlotIndex < 0) return state
+  if (chain.kind === 'static') {
+    const scenarioId = chain.battleScenarioIds[expedition.battleIndex]
+    if (!scenarioId) return state
 
-  const scenario = resolveScenarioForCampaignSlot(base, scenarioSlotIndex)
+    const base = getScenarioById(scenarioId)
+    scenarioSlotIndex = getScenarioIndexById(scenarioId)
+    if (!base || scenarioSlotIndex < 0) return state
+
+    scenario = resolveScenarioForCampaignSlot(base, scenarioSlotIndex)
+  } else {
+    const seed = hashSeed(`${expedition.generationSeed}:${expedition.battleIndex}`)
+    scenario = generateScenario(chain.generatorId, {
+      seed,
+      battleIndex: expedition.battleIndex,
+      expeditionPartySize: expedition.partySize,
+    })
+    scenarioSlotIndex = -1
+  }
 
   const snapshot = buildExpeditionBattleSnapshot(state, expedition, scenarioSlotIndex)
   if (!snapshot) return state
@@ -1296,19 +1315,25 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       const chain = getExpeditionChainById(action.chainId)
       if (!chain) return state
 
-      const rng = expeditionRng()
-      const partySize = resolvePartySize(chain.partySize, rng)
-      if (action.selectedCharacterIds.length !== partySize) return state
+      if (countOccupiedSquadSlots(state.squad) < chain.partyMin) return state
 
-      for (const id of action.selectedCharacterIds) {
+      const rng = expeditionRng()
+      const rolledParty = resolvePartySize(chain.partySize, rng)
+      const partySize = Math.min(rolledParty, action.selectedCharacterIds.length)
+      if (partySize < 1) return state
+
+      const selectedCharacterIds = action.selectedCharacterIds.slice(0, partySize)
+
+      for (const id of selectedCharacterIds) {
         if (!getCharacter(state, id)) return state
       }
 
       const expedition = buildExpeditionSnapshot(
         state,
         chain,
-        action.selectedCharacterIds,
+        selectedCharacterIds,
         rng,
+        partySize,
       )
 
       return startExpeditionBattle({ ...state, expedition }, expedition)

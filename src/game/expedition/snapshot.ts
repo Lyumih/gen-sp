@@ -22,8 +22,9 @@ export function buildExpeditionSnapshot(
   chain: ExpeditionChainConfig,
   selectedCharacterIds: readonly string[],
   rng: () => number,
+  resolvedPartySize?: number,
 ): Expedition {
-  const partySize = resolvePartySize(chain.partySize, rng)
+  const partySize = resolvedPartySize ?? resolvePartySize(chain.partySize, rng)
   const battleCount = resolveBattleCount(chain.battleCount, rng)
   const squadSnapshot: (CharacterBattleSnapshot | null)[] = []
 

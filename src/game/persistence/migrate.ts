@@ -29,7 +29,7 @@ import { defaultIconEmojiForClass, isValidIconAccent, isValidIconEmoji } from '.
 import { DEFAULT_SQUAD_SLOTS, LEGACY_HERO_CHARACTER_ID } from '../character/constants'
 import { STARTER_HERO_BASE_STATS } from '../config/baseStats'
 import { computeBaseStatRating } from '../stats/computeRating'
-import { rollBaseStatsDeterministic } from '../stats/rollBaseStats'
+import { hashSeed, rollBaseStatsDeterministic } from '../stats/rollBaseStats'
 import {
   EMPTY_EQUIPMENT,
   EQUIPMENT_ROLL_ORDER,
@@ -673,7 +673,15 @@ function withDefaultSquad(c: CampaignState): CampaignState {
 
 function withDefaultExpedition(c: CampaignState): CampaignState {
   if (c.expedition === undefined) return { ...c, expedition: null }
-  return c
+  if (c.expedition === null) return c
+  if (c.expedition.generationSeed !== undefined) return c
+  return {
+    ...c,
+    expedition: {
+      ...c.expedition,
+      generationSeed: hashSeed(c.expedition.scenarioChainId),
+    },
+  }
 }
 
 function withDefaultTavernCandidates(c: CampaignState): CampaignState {

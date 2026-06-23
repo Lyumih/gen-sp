@@ -1442,6 +1442,20 @@ describe('expedition state machine', () => {
     })
   }
 
+  it('START_EXPEDITION procedural stores generationSeed and starts battle', () => {
+    const next = applyRunAction(hubState(), {
+      type: 'START_EXPEDITION',
+      chainId: 'small-skirmish',
+      selectedCharacterIds: [HERO_ID],
+    })
+
+    expect(next.expedition).not.toBeNull()
+    expect(next.expedition!.generationSeed).toBeGreaterThan(0)
+    expect(next.expedition!.scenarioChainId).toBe('small-skirmish')
+    expect(next.battle).not.toBeNull()
+    expect(next.phase).toBe('battle')
+  })
+
   it('START_EXPEDITION freezes squad and starts first battle', () => {
     const state = hubState()
     const next = applyRunAction(state, {
