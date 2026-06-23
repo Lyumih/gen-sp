@@ -10,6 +10,7 @@ import { getCharacterClass } from '../../game/content/characterClasses'
 import { getCharacterDisplay } from '../../game/character/display'
 import type { CampaignState, Character } from '../../game/types'
 import { UI_LEVEL } from '../../game/ui/labels'
+import { SpecializationLine } from '../specialization/SpecializationLine'
 import { StatStrip } from '../stats/StatStrip'
 import { parseDragId, rosterCharacterDragId, rosterCharacterDropId } from '../inventory/inventoryDnD'
 
@@ -198,6 +199,7 @@ function RosterRow({
               {cls?.label ?? character.classId} · {UI_LEVEL}
               {character.unitLevel} · предметов: {stashCount}
             </Typography.Text>
+            <SpecializationLine campaign={campaign} character={character} />
             <StatStrip
               baseStats={character.baseStats}
               baseStatRating={character.baseStatRating}

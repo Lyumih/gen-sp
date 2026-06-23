@@ -19,6 +19,7 @@ import { computeEffectiveStats, computeGearStatBonuses } from '../../game/stats/
 import { aggregatePassiveSkillStatBonuses } from '../../game/passives/passiveStatBonuses'
 import type { BattleState, CampaignState } from '../../game/types'
 import { UI_HEART, UI_LEVEL } from '../../game/ui/labels'
+import { SpecializationLine } from '../specialization/SpecializationLine'
 import { StatStrip } from '../stats/StatStrip'
 import { HeroAppearanceEditor } from './HeroAppearanceEditor'
 
@@ -109,6 +110,8 @@ export function HeroProfileContent({
         baseStatRating={hero.baseStatRating}
         showRating
       />
+
+      <SpecializationLine campaign={campaign} character={hero} />
 
       {mode === 'hub' && includeAppearance ? (
         <HeroAppearanceEditor hero={hero} expeditionLocked={campaign.expedition !== null} />

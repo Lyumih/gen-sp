@@ -5,6 +5,7 @@ import { SCENARIOS } from '../../game/campaign/scenarios'
 import { unreadCodexEntryIds } from '../../game/codex/discovery'
 import { getCardDisplayLabel } from '../../game/descriptions/cardText'
 import { getPassiveTemplate } from '../../game/content/passiveTemplates'
+import { getSpecializationTemplate } from '../../game/specialization/specializationTemplates'
 import { findFirstEmptySquadSlotIndex, findSquadSlotIndex } from '../../game/character/selectors'
 import type { EquipmentSlot } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
@@ -44,6 +45,9 @@ export function CampaignHub() {
       const passiveLabel =
         getPassiveTemplate(notice.passiveTemplateId)?.label ?? notice.passiveTemplateId
       message.success(`В сундук попали: умение ${skillLabel} и навык ${passiveLabel}`)
+    } else if (notice.kind === 'specialization_reveal') {
+      const tmpl = getSpecializationTemplate(notice.specializationId)
+      message.success(`Открыта склонность: ${tmpl?.emoji} ${tmpl?.label}`)
     }
     dispatchRun({ type: 'MARK_HUB_NOTICE_SEEN' })
   }, [campaign.pendingHubNotice, dispatchRun, message])
