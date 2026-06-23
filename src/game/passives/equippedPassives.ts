@@ -1,8 +1,6 @@
 import { getPassiveTemplate } from '../content/passiveTemplates'
 import type { PassiveEquipLoadout, PassiveInstance } from '../types'
 
-export const MAX_PASSIVES_PER_CHARACTER = 4
-
 export function getEquippedPassives(
   passives: readonly PassiveInstance[],
   passiveEquip: PassiveEquipLoadout,
@@ -17,7 +15,7 @@ export function canEquipPassive(
   passives: readonly PassiveInstance[],
   passiveEquip: PassiveEquipLoadout,
   passiveId: string,
-  slotIndex: 0 | 1 | 2 | 3,
+  slotIndex: 0 | 1 | 2 | 3 | 4,
 ): { ok: true } | { ok: false; reason: string } {
   const passive = passives.find((p) => p.id === passiveId)
   if (!passive) return { ok: false, reason: 'not_owned' }

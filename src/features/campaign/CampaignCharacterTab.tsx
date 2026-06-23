@@ -19,10 +19,10 @@ type CampaignCharacterTabProps = {
   onUnequip: (characterId: string, slot: EquipmentSlot) => void
   onReorderStash: (characterId: string, itemIds: string[]) => void
   onReorderCards: (characterId: string, cardIds: string[]) => void
-  onSetBattleLoadout: (characterId: string, slotIndex: 0 | 1 | 2, cardId: string | null) => void
+  onSetBattleLoadout: (characterId: string, slotIndex: 0 | 1 | 2 | 3, cardId: string | null) => void
   onSetPassiveEquip: (
     characterId: string,
-    slotIndex: 0 | 1 | 2 | 3,
+    slotIndex: 0 | 1 | 2 | 3 | 4,
     passiveId: string | null,
   ) => void
   onTransferItem: (itemId: string, fromCharacterId: string, toCharacterId: string) => void

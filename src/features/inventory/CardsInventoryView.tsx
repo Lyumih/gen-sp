@@ -27,6 +27,10 @@ import { describePassiveStats } from '../../game/descriptions/passiveText'
 import { itemPriceLine } from '../../game/descriptions/itemText'
 import { sellPriceForSkill } from '../../game/config/skillAcquisition'
 import { canEquipPassive } from '../../game/passives/equippedPassives'
+import {
+  maxPassiveEquipSlots,
+  maxSkillLoadoutSlots,
+} from '../../game/specialization/loadoutCaps'
 import type { CampaignState, CardInstance, ModOffer, PassiveInstance } from '../../game/types'
 import { UI_DAMAGE, UI_HEART, UI_LEVEL } from '../../game/ui/labels'
 import { InventoryCell } from './InventoryCell'
@@ -60,8 +64,8 @@ type CardsInventoryViewProps = {
   modsDisabled?: boolean
   modsDisabledTooltip?: string
   onReorderCards: (cardIds: string[]) => void
-  onSetBattleLoadout: (slotIndex: 0 | 1 | 2, cardId: string | null) => void
-  onSetPassiveEquip: (slotIndex: 0 | 1 | 2 | 3, passiveId: string | null) => void
+  onSetBattleLoadout: (slotIndex: 0 | 1 | 2 | 3, cardId: string | null) => void
+  onSetPassiveEquip: (slotIndex: 0 | 1 | 2 | 3 | 4, passiveId: string | null) => void
   onPickModOffer: (
     carrierKind: ModCarrierKind,
     carrierId: string,
@@ -200,7 +204,7 @@ function LoadoutSlotCell({
   onConfirmRemove,
   modsDisabledTooltip,
 }: {
-  slotIndex: 0 | 1 | 2
+  slotIndex: 0 | 1 | 2 | 3
   card: CardInstance | null
   character: NonNullable<ReturnType<typeof getCharacter>>
   campaign: CampaignState
@@ -327,7 +331,7 @@ function PassiveEquipSlotCell({
   modsDisabledTooltip,
   dragReject,
 }: {
-  slotIndex: 0 | 1 | 2 | 3
+  slotIndex: 0 | 1 | 2 | 3 | 4
   passive: PassiveInstance | null
   character: NonNullable<ReturnType<typeof getCharacter>>
   campaign: CampaignState
@@ -454,7 +458,7 @@ export function CardsInventoryView({
     if (parsed?.kind === 'passive') setActivePassiveId(parsed.value)
   }
 
-  function tryEquipPassive(slotIndex: 0 | 1 | 2 | 3, passiveId: string) {
+  function tryEquipPassive(slotIndex: 0 | 1 | 2 | 3 | 4, passiveId: string) {
     if (!hero) return
     const check = canEquipPassive(hero.passives, hero.passiveEquip, passiveId, slotIndex)
     if (!check.ok) {
@@ -479,14 +483,14 @@ export function CardsInventoryView({
     if (active.kind === 'passive') {
       if (over?.kind === 'passive-equip') {
         const slotIndex = Number(over.value)
-        if (slotIndex === 0 || slotIndex === 1 || slotIndex === 2 || slotIndex === 3) {
-          tryEquipPassive(slotIndex, active.value)
+        if (slotIndex >= 0 && slotIndex < maxPassiveEquipSlots(hero!)) {
+          tryEquipPassive(slotIndex as 0 | 1 | 2 | 3 | 4, active.value)
         }
         return
       }
       const fromEquipSlot = passiveEquip.indexOf(active.value)
       if (fromEquipSlot >= 0 && over?.kind !== 'passive-equip') {
-        onSetPassiveEquip(fromEquipSlot as 0 | 1 | 2 | 3, null)
+        onSetPassiveEquip(fromEquipSlot as 0 | 1 | 2 | 3 | 4, null)
       }
       return
     }
@@ -498,15 +502,15 @@ export function CardsInventoryView({
       const tmpl = card ? getCardAttackTemplate(card.templateId) : undefined
       if (tmpl?.enabled === false) return
       const slotIndex = Number(over.value)
-      if (slotIndex === 0 || slotIndex === 1 || slotIndex === 2) {
-        onSetBattleLoadout(slotIndex, active.value)
+      if (slotIndex >= 0 && slotIndex < maxSkillLoadoutSlots(hero!)) {
+        onSetBattleLoadout(slotIndex as 0 | 1 | 2 | 3, active.value)
       }
       return
     }
 
     const fromLoadoutSlot = loadout.indexOf(active.value)
     if (fromLoadoutSlot >= 0 && over?.kind !== 'loadout') {
-      onSetBattleLoadout(fromLoadoutSlot as 0 | 1 | 2, null)
+      onSetBattleLoadout(fromLoadoutSlot as 0 | 1 | 2 | 3, null)
       return
     }
 
@@ -529,7 +533,7 @@ export function CardsInventoryView({
     }
   }
 
-  function renderLoadoutSlot(slotIndex: 0 | 1 | 2) {
+  function renderLoadoutSlot(slotIndex: 0 | 1 | 2 | 3) {
     const cardId = loadout[slotIndex]
     const card = cardId !== null ? resolveCard(cardId) : null
     return (
@@ -548,15 +552,26 @@ export function CardsInventoryView({
     )
   }
 
+  if (!hero) return null
+
+  const skillSlotCount = maxSkillLoadoutSlots(hero)
+  const passiveEquipSlotCount = maxPassiveEquipSlots(hero)
+  const skillSlotIndices = Array.from(
+    { length: skillSlotCount },
+    (_, i) => i as 0 | 1 | 2 | 3,
+  )
+  const passiveEquipSlotIndices = Array.from(
+    { length: passiveEquipSlotCount },
+    (_, i) => i as 0 | 1 | 2 | 3 | 4,
+  )
+
   const content = (
     <Space orientation="vertical" size="small" style={{ width: '100%' }}>
       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        В бой (3 слота) — перетащите карту из коллекции
+        В бой ({skillSlotCount} {skillSlotCount === 1 ? 'слот' : skillSlotCount < 5 ? 'слота' : 'слотов'}) — перетащите карту из коллекции
       </Typography.Text>
       <div className="inventory-loadout-row" style={{ display: 'flex', gap: 4 }}>
-        {renderLoadoutSlot(0)}
-        {renderLoadoutSlot(1)}
-        {renderLoadoutSlot(2)}
+        {skillSlotIndices.map(renderLoadoutSlot)}
       </div>
       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
         Коллекция
@@ -588,10 +603,12 @@ export function CardsInventoryView({
       </SortableContext>
       <Divider style={{ margin: '8px 0 4px' }} />
       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        Навыки в бою (4 слота) — перетащите из коллекции
+        Навыки в бою ({passiveEquipSlotCount}{' '}
+        {passiveEquipSlotCount === 1 ? 'слот' : passiveEquipSlotCount < 5 ? 'слота' : 'слотов'}) —
+        перетащите из коллекции
       </Typography.Text>
       <div className="inventory-passive-equip-row" style={{ display: 'flex', gap: 4 }}>
-        {([0, 1, 2, 3] as const).map((slotIndex) => {
+        {passiveEquipSlotIndices.map((slotIndex) => {
           const passiveId = passiveEquip[slotIndex]
           const passive = passiveId !== null ? resolvePassive(passiveId) : null
           return (
@@ -648,8 +665,6 @@ export function CardsInventoryView({
       />
     </Space>
   )
-
-  if (!hero) return null
 
   const lockTooltip = inBattle
     ? 'Доступно после боя'

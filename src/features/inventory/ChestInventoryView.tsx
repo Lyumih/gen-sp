@@ -16,6 +16,7 @@ import {
   itemSellPrice,
 } from '../../game/descriptions/itemText'
 import { getCharacter } from '../../game/character/selectors'
+import { maxPassivesOwned } from '../../game/specialization/loadoutCaps'
 import { getItemTemplate } from '../../game/content/itemTemplates'
 import type { CampaignState, Character, ItemInstance, PassiveInstance } from '../../game/types'
 import { UI_LEVEL } from '../../game/ui/labels'
@@ -170,7 +171,7 @@ export function ChestInventoryView({
   const bindHero =
     bindCharacterId !== undefined ? getCharacter(campaign, bindCharacterId) : undefined
   const canBindPassive =
-    bindHero !== undefined && bindHero.passives.length < 4
+    bindHero !== undefined && bindHero.passives.length < maxPassivesOwned(bindHero)
   const previewCharacter = bindHero ?? {
     baseStats: STARTER_HERO_BASE_STATS,
     unitLevel: 1,
@@ -270,6 +271,7 @@ export function ChestInventoryView({
             locked={locked}
             sellPrice={sellPriceForPassive()}
             canBind={canBindPassive}
+            maxPassivesLimit={bindHero !== undefined ? maxPassivesOwned(bindHero) : undefined}
             bindCharacterName={bindCharacterName}
             onBindPassive={onBindPassive}
             onSellChestPassive={onSellChestPassive}
@@ -302,6 +304,7 @@ function ChestPassiveCell({
   locked,
   sellPrice,
   canBind,
+  maxPassivesLimit,
   bindCharacterName,
   onBindPassive,
   onSellChestPassive,
@@ -311,6 +314,7 @@ function ChestPassiveCell({
   locked: boolean
   sellPrice: number
   canBind: boolean
+  maxPassivesLimit?: number
   bindCharacterName?: string
   onBindPassive?: (passiveId: string) => void
   onSellChestPassive?: (passiveId: string) => void
@@ -337,7 +341,10 @@ function ChestPassiveCell({
             ))}
           </ul>
           <Typography.Text style={{ fontSize: 12 }}>
-            Привязка к персонажу необратима (макс. 4 навыка).
+            Привязка к персонажу необратима
+            {maxPassivesLimit !== undefined
+              ? ` (макс. ${maxPassivesLimit} навыков).`
+              : '.'}
           </Typography.Text>
           {canSell && sellPrice > 0 ? (
             <Typography.Text style={{ fontSize: 12 }}>{itemPriceLine(sellPrice)}</Typography.Text>

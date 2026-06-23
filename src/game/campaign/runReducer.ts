@@ -95,10 +95,14 @@ import { computeBaseStatRating } from '../stats/computeRating'
 import { generateShopOffers } from '../shop/generateShopOffers'
 import { createCardInstance, createStrikeCardForHero } from './cardFactory'
 import { createPassiveInstance } from '../passives/passiveFactory'
+import { canEquipPassive } from '../passives/equippedPassives'
 import {
-  canEquipPassive,
-  MAX_PASSIVES_PER_CHARACTER,
-} from '../passives/equippedPassives'
+  isPassiveEquipSlotIndexValid,
+  isSkillLoadoutSlotIndexValid,
+  maxPassivesOwned,
+  maxPassiveEquipSlots,
+  maxSkillLoadoutSlots,
+} from '../specialization/loadoutCaps'
 import { EMPTY_CHEST } from './chestDefaults'
 import type { Expedition } from '../types'
 
@@ -131,7 +135,7 @@ export type RunAction =
       targetId: string
       randomInt1to100: number
     }
-  | { type: 'SET_BATTLE_LOADOUT'; characterId: string; slotIndex: 0 | 1 | 2; cardId: string | null }
+  | { type: 'SET_BATTLE_LOADOUT'; characterId: string; slotIndex: 0 | 1 | 2 | 3; cardId: string | null }
   | { type: 'RETRY_CURRENT_BATTLE' }
   | { type: 'ABANDON_BATTLE' }
   | { type: 'FINALIZE_VICTORY'; itemLevelRolls: number[]; playerUnitLevelRoll: number }
@@ -191,7 +195,7 @@ export type RunAction =
   | { type: 'MOVE_CHARACTER_ITEM_TO_CHEST'; itemId: string; characterId: string }
   | { type: 'BIND_CHEST_CARD'; cardId: string; characterId: string }
   | { type: 'BIND_PASSIVE_TO_CHARACTER'; passiveId: string; characterId: string }
-  | { type: 'SET_PASSIVE_EQUIP'; characterId: string; slotIndex: 0 | 1 | 2 | 3; passiveId: string | null }
+  | { type: 'SET_PASSIVE_EQUIP'; characterId: string; slotIndex: 0 | 1 | 2 | 3 | 4; passiveId: string | null }
   | { type: 'SELL_UNBOUND_PASSIVE'; passiveId: string }
   | { type: 'SELL_CHEST_ITEM'; itemId: string }
   | { type: 'SELL_CHEST_CARD'; cardId: string }
@@ -1012,9 +1016,9 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       if (!inHub(state)) return state
       if (!assertHubActionAllowed(state, 'equip')) return state
       const { characterId, slotIndex, cardId } = action
-      if (slotIndex !== 0 && slotIndex !== 1 && slotIndex !== 2) return state
       const hero = getCharacter(state, characterId)
       if (!hero) return state
+      if (!isSkillLoadoutSlotIndexValid(hero, slotIndex)) return state
       return updateCharacter(state, characterId, (c) => {
         if (cardId !== null) {
           const card = c.cards.find((x) => x.id === cardId)
@@ -1024,7 +1028,8 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         }
         const next: BattleLoadout = [...c.battleLoadout]
         if (cardId !== null) {
-          for (let i = 0; i < 3; i++) {
+          const maxSlots = maxSkillLoadoutSlots(c)
+          for (let i = 0; i < maxSlots; i++) {
             if (i !== slotIndex && next[i] === cardId) next[i] = null
           }
         }
@@ -1525,7 +1530,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       if (!assertHubActionAllowed(state, 'equip')) return state
       const hero = getCharacter(state, action.characterId)
       if (!hero) return state
-      if (hero.passives.length >= MAX_PASSIVES_PER_CHARACTER) return state
+      if (hero.passives.length >= maxPassivesOwned(hero)) return state
       const passive = state.chest.unboundPassives.find((p) => p.id === action.passiveId)
       if (!passive) return state
       return withCodexDiscoveries(
@@ -1550,11 +1555,9 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       if (!inHub(state)) return state
       if (!assertHubActionAllowed(state, 'equip')) return state
       const { characterId, slotIndex, passiveId } = action
-      if (slotIndex !== 0 && slotIndex !== 1 && slotIndex !== 2 && slotIndex !== 3) {
-        return state
-      }
       const hero = getCharacter(state, characterId)
       if (!hero) return state
+      if (!isPassiveEquipSlotIndexValid(hero, slotIndex)) return state
       if (passiveId !== null) {
         const check = canEquipPassive(hero.passives, hero.passiveEquip, passiveId, slotIndex)
         if (!check.ok) return state
@@ -1562,7 +1565,8 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       return updateCharacter(state, characterId, (c) => {
         const next: typeof c.passiveEquip = [...c.passiveEquip]
         if (passiveId !== null) {
-          for (let i = 0; i < 4; i++) {
+          const maxSlots = maxPassiveEquipSlots(c)
+          for (let i = 0; i < maxSlots; i++) {
             if (i !== slotIndex && next[i] === passiveId) next[i] = null
           }
         }

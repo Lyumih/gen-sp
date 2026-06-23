@@ -2348,6 +2348,70 @@ function findBattleAttemptIdWithDualDrops(): number {
   throw new Error('no dual drop seed found')
 }
 
+describe('loadout caps', () => {
+  it('SET_BATTLE_LOADOUT slot 3 rejected without slot_skill_plus', () => {
+    const s = withClassicTestCards(initialCampaignState())
+    const next = applyRunAction(s, {
+      type: 'SET_BATTLE_LOADOUT',
+      characterId: HERO_ID,
+      slotIndex: 3,
+      cardId: 'c1',
+    })
+    expect(next).toBe(s)
+    expect(hero(next).battleLoadout[3]).toBeNull()
+  })
+
+  it('SET_BATTLE_LOADOUT slot 3 accepted with slot_skill_plus', () => {
+    let s = withClassicTestCards(initialCampaignState())
+    s = withHero(s, { specializationId: 'slot_skill_plus' })
+    s = applyRunAction(s, {
+      type: 'SET_BATTLE_LOADOUT',
+      characterId: HERO_ID,
+      slotIndex: 3,
+      cardId: 'c3',
+    })
+    expect(hero(s).battleLoadout[3]).toBe('c3')
+  })
+
+  it('SET_PASSIVE_EQUIP slot 4 rejected without slot_passive_plus', () => {
+    const fortitude = createPassiveInstance('warrior_fortitude', 'p-fort')
+    const s = withHero(initialCampaignState(), {
+      passives: [fortitude],
+      passiveEquip: [null, null, null, null, null],
+    })
+    const next = applyRunAction(s, {
+      type: 'SET_PASSIVE_EQUIP',
+      characterId: HERO_ID,
+      slotIndex: 4,
+      passiveId: 'p-fort',
+    })
+    expect(next).toBe(s)
+    expect(hero(next).passiveEquip[4]).toBeNull()
+  })
+
+  it('BIND_PASSIVE_TO_CHARACTER uses maxPassivesOwned with slot_passive_plus', () => {
+    const passives = Array.from({ length: 4 }, (_, i) =>
+      createPassiveInstance('warrior_vigor', `bound-p${i}`),
+    )
+    const unbound = createPassiveInstance('warrior_fortitude', 'unbound-p5')
+    let s = withHero(initialCampaignState(), {
+      passives,
+      specializationId: 'slot_passive_plus',
+    })
+    s = {
+      ...s,
+      chest: { items: [], unboundCards: [], unboundPassives: [unbound] },
+    }
+    s = applyRunAction(s, {
+      type: 'BIND_PASSIVE_TO_CHARACTER',
+      passiveId: 'unbound-p5',
+      characterId: HERO_ID,
+    })
+    expect(hero(s).passives).toHaveLength(5)
+    expect(s.chest.unboundPassives).toHaveLength(0)
+  })
+})
+
 describe('passive hub actions', () => {
   it('BIND_PASSIVE_TO_CHARACTER moves passive from chest to character', () => {
     const passive = createPassiveInstance('warrior_fortitude', 'unbound-p1')
