@@ -12,6 +12,8 @@ import { CharacterBuildPanel } from './CharacterBuildPanel'
 import type { StashTabKey } from './types'
 import { loadoutFocusReducer } from './loadoutFocusReducer'
 import { resolveItemClickEquip } from './clickEquip'
+import { useNarrowViewport } from '../../layout/useNarrowViewport'
+import { stashTabAriaLabel, stashTabLabel } from '../../layout/tabLabels'
 import '../../inventory/inventory.css'
 
 export type CharacterHubLayoutProps = {
@@ -133,6 +135,14 @@ export function CharacterHubLayout({
   const cardCount = selectedCharacter.cards.length
   const passiveCount = selectedCharacter.passives.length
 
+  const narrow = useNarrowViewport()
+
+  const stashTabLabelNode = (tab: 'items' | 'cards' | 'passives' | 'chest', count: number) => (
+    <span aria-label={stashTabAriaLabel(tab, count)}>
+      {stashTabLabel(tab, count, narrow)}
+    </span>
+  )
+
   const cardHandlers = {
     onSetBattleLoadout: (slotIndex: 0 | 1 | 2 | 3, cardId: string | null) =>
       onSetBattleLoadout(activeCharacterId, slotIndex, cardId),
@@ -143,14 +153,16 @@ export function CharacterHubLayout({
 
   const renderStashTabs = (itemsPanel: ReactNode) => (
     <Tabs
+      className="game-tabs--scroll"
       size="small"
+      tabBarGutter={8}
       activeKey={stashTab}
       onChange={(key) => setStashTab(key as StashTabKey)}
       items={[
-        { key: 'items', label: `Предметы (${itemCount})`, children: itemsPanel },
+        { key: 'items', label: stashTabLabelNode('items', itemCount), children: itemsPanel },
         {
           key: 'cards',
-          label: `Умения (${cardCount})`,
+          label: stashTabLabelNode('cards', cardCount),
           children: (
             <CardsInventoryView
               campaign={campaign}
@@ -182,7 +194,7 @@ export function CharacterHubLayout({
         },
         {
           key: 'passives',
-          label: `Навыки (${passiveCount})`,
+          label: stashTabLabelNode('passives', passiveCount),
           children: (
             <CardsInventoryView
               campaign={campaign}
@@ -213,7 +225,7 @@ export function CharacterHubLayout({
         },
         {
           key: 'chest',
-          label: `Сундук (${chestCount})`,
+          label: stashTabLabelNode('chest', chestCount),
           children: (
             <ChestInventoryView
               campaign={campaign}
