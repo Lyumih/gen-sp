@@ -34,11 +34,26 @@ export function squadSlotDragId(slotIndex: number): string {
   return `squad-slot:${slotIndex}`
 }
 
+export function chestItemDragId(itemId: string): string {
+  return `chest-item:${itemId}`
+}
+
+export function chestCardDragId(cardId: string): string {
+  return `chest-card:${cardId}`
+}
+
+export function chestDropDragId(): string {
+  return 'chest-drop:main'
+}
+
 const COMPOUND_PREFIXES = [
   'roster-drag:',
   'roster-drop:',
   'squad-slot:',
   'stash-empty:',
+  'chest-item:',
+  'chest-card:',
+  'chest-drop:',
 ] as const
 
 export function parseDragId(id: string): { kind: string; value: string } | null {

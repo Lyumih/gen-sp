@@ -81,10 +81,11 @@ function SortableCardCell({
   onConfirmRemove: (card: CardInstance, slotIndex: number) => void
 }) {
   const tmpl = getCardAttackTemplate(card.templateId)
+  const loadoutBlocked = tmpl?.enabled === false
   const stats = describeCardCombatStats(card, gearCardLevelBonus)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: cardDragId(card.id),
-    disabled: inBattle,
+    disabled: inBattle || loadoutBlocked,
   })
 
   const effectUi = tmpl?.kind === 'heal' ? UI_HEART : UI_DAMAGE
@@ -133,9 +134,18 @@ function SortableCardCell({
       }
       showModPendingBadge={showModBadge}
       slotDots={card.modSlots.length > 0 ? <ModSlotDots modSlots={card.modSlots} /> : undefined}
-      state={inBattle ? 'disabled' : 'filled'}
+      state={inBattle || loadoutBlocked ? 'disabled' : 'filled'}
       popoverTitle={stats.displayLabel}
-      popoverContent={popover}
+      popoverContent={
+        <Space orientation="vertical" size="small" style={{ maxWidth: 320 }}>
+          {loadoutBlocked ? (
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              Умение отключено — нельзя взять в бой.
+            </Typography.Text>
+          ) : null}
+          {popover}
+        </Space>
+      }
       ariaLabel={`${stats.displayLabel}, ${UI_LEVEL}${card.global_level}`}
     />
   )
@@ -250,6 +260,9 @@ export function CardsInventoryView({
     if (!active || active.kind !== 'card') return
 
     if (over?.kind === 'loadout') {
+      const card = resolveCard(active.value)
+      const tmpl = card ? getCardAttackTemplate(card.templateId) : undefined
+      if (tmpl?.enabled === false) return
       const slotIndex = Number(over.value)
       if (slotIndex === 0 || slotIndex === 1) {
         onSetBattleLoadout(slotIndex, active.value)

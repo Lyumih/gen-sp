@@ -73,6 +73,8 @@ type EquipmentInventoryViewProps = {
   onReorderStash: (itemIds: string[]) => void
   onInvalidSlot: () => void
   onTransferItem?: (itemId: string, toCharacterId: string) => void
+  onMoveChestItemToCharacter?: (itemId: string, characterId: string) => void
+  onMoveCharacterItemToChest?: (itemId: string) => void
   onSetSquadSlot?: (slotIndex: number, characterId: string | null) => void
   onSwapSquadSlots?: (from: number, to: number) => void
   onPickModOffer: (
@@ -84,6 +86,7 @@ type EquipmentInventoryViewProps = {
   onRemoveMod: (carrierKind: 'item', carrierId: string, slotIndex: number) => void
   squadLocked?: boolean
   dndBeforeContent?: (activeDragId: string | null) => ReactNode
+  dndAfterContent?: (activeDragId: string | null) => ReactNode
 }
 
 function itemModPopoverSection(
@@ -117,6 +120,7 @@ function characterStashPopover(
   onEquip: () => void,
   onOpenPicker: (slotIndex: number, offer: ModOffer) => void,
   onConfirmRemove: (slotIndex: number) => void,
+  onMoveToChest?: () => void,
 ) {
   const tmpl = getItemTemplate(item.templateId)
   const lines = itemInstanceDescriptionLinesFromInstance(item, getItemTemplate)
@@ -136,7 +140,12 @@ function characterStashPopover(
       ) : null}
       <ItemPopoverActions
         inBattle={inBattle}
-        actions={[{ key: 'equip', label: 'Надеть', type: 'primary', onClick: onEquip }]}
+        actions={[
+          { key: 'equip', label: 'Надеть', type: 'primary', onClick: onEquip },
+          ...(onMoveToChest
+            ? [{ key: 'chest', label: 'В сундук', onClick: onMoveToChest }]
+            : []),
+        ]}
       />
       {itemModPopoverSection(
         item,
@@ -199,6 +208,7 @@ function SortableStashCell({
   onOpenPicker,
   onConfirmRemove,
   modsDisabledTooltip,
+  onMoveToChest,
 }: {
   item: ItemInstance
   inBattle: boolean
@@ -209,6 +219,7 @@ function SortableStashCell({
   onEquip: () => void
   onOpenPicker: (slotIndex: number, offer: ModOffer) => void
   onConfirmRemove: (slotIndex: number) => void
+  onMoveToChest?: () => void
 }) {
   const tmpl = getItemTemplate(item.templateId)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -243,6 +254,7 @@ function SortableStashCell({
         onEquip,
         onOpenPicker,
         onConfirmRemove,
+        onMoveToChest,
       )}
       ariaLabel={tmpl ? itemSelectShortLabel(tmpl, item.itemLevel) : item.id}
       onDoubleClick={onDoubleClick}
@@ -361,12 +373,15 @@ export function EquipmentInventoryView({
   onReorderStash,
   onInvalidSlot,
   onTransferItem,
+  onMoveChestItemToCharacter,
+  onMoveCharacterItemToChest,
   onSetSquadSlot,
   onSwapSquadSlots,
   onPickModOffer,
   onRemoveMod,
   squadLocked = false,
   dndBeforeContent,
+  dndAfterContent,
 }: EquipmentInventoryViewProps) {
   const { modal } = App.useApp()
   const hero = getCharacter(campaign, characterId)
@@ -409,9 +424,15 @@ export function EquipmentInventoryView({
     activeParsed?.kind === 'stash'
       ? stash.find((i) => i.id === activeParsed.value)
       : undefined
+  const activeChestItem =
+    activeParsed?.kind === 'chest-item'
+      ? campaign.chest.items.find((i) => i.id === activeParsed.value)
+      : undefined
   const activeTmpl = activeStashItem
     ? getItemTemplate(activeStashItem.templateId)
-    : undefined
+    : activeChestItem
+      ? getItemTemplate(activeChestItem.templateId)
+      : undefined
 
   function compareForSlot(slot: EquipmentSlot): string | undefined {
     if (!activeStashItem || !activeTmpl) return undefined
@@ -469,6 +490,20 @@ export function EquipmentInventoryView({
     if (active.kind === 'stash' && over.kind === 'roster-drop') {
       if (onTransferItem && !squadLocked) {
         onTransferItem(active.value, over.value)
+      }
+      return
+    }
+
+    if (active.kind === 'chest-item' && over.kind === 'roster-drop') {
+      if (onMoveChestItemToCharacter && !squadLocked) {
+        onMoveChestItemToCharacter(active.value, over.value)
+      }
+      return
+    }
+
+    if (active.kind === 'stash' && over.kind === 'chest-drop') {
+      if (onMoveCharacterItemToChest && !squadLocked) {
+        onMoveCharacterItemToChest(active.value)
       }
       return
     }
@@ -583,6 +618,11 @@ export function EquipmentInventoryView({
                     onEquip(item.id, tmpl.slot)
                   }}
                   {...modHandlers}
+                  onMoveToChest={
+                    onMoveCharacterItemToChest && !squadLocked
+                      ? () => onMoveCharacterItemToChest(item.id)
+                      : undefined
+                  }
                 />
               )
             }}
@@ -611,11 +651,12 @@ export function EquipmentInventoryView({
     >
       {dndBeforeContent?.(activeDragId)}
       {inBattle ? <Tooltip title="Доступно после боя">{content}</Tooltip> : content}
+      {dndAfterContent?.(activeDragId)}
       <DragOverlay>
-        {activeStashItem ? (
+        {activeStashItem || activeChestItem ? (
           <InventoryCell
             emoji={resolveItemEmoji(activeTmpl, activeTmpl?.slot ?? 'weapon')}
-            levelBadge={`${UI_LEVEL}${activeStashItem.itemLevel}`}
+            levelBadge={`${UI_LEVEL}${(activeStashItem ?? activeChestItem)!.itemLevel}`}
             state="filled"
             ariaLabel="Перетаскивание"
           />

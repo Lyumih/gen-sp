@@ -1,7 +1,7 @@
 import type { CampaignState } from '../types'
 
 /** Версия схемы сохранения; при изменении структуры — миграция в migrate.ts */
-export const SAVE_VERSION = 6
+export const SAVE_VERSION = 7
 
 /** Ключ в localStorage */
 export const STORAGE_KEY = 'gen-sp-save-v1'

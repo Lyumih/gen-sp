@@ -12,7 +12,6 @@ import type {
   ModSlotState,
   PartyMemberBattleSnapshot,
 } from '../types'
-import { cloneCards } from '../campaign/battleSnapshot'
 import { cloneModSlots } from '../memento/modSlotsClone'
 import { MOD_SLOT_MILESTONES } from '../config/modSlotMilestones'
 import { playerCardsByUnitFromParty } from '../battle/playerCards'
@@ -20,7 +19,10 @@ import { playerCardsFromLoadout } from '../campaign/playerCardsFromLoadout'
 import { getPrimaryCharacter } from '../campaign/selectors'
 import { discoverCodexEntry } from '../codex/discovery'
 import { codexEntryId } from '../codex/registry'
-import { STARTER_CARDS } from '../campaign/runReducer'
+import { withDefaultChestFields } from '../campaign/chestDefaults'
+import { createCardInstance, createStrikeCardForHero } from '../campaign/cardFactory'
+import { pickRandomSkillTemplateId } from '../config/skillAcquisition'
+import { seededRng } from '../tavern/generateCandidates'
 import { SCENARIOS } from '../campaign/scenarios'
 import { createCharacter } from '../character/createCharacter'
 import { defaultIconEmojiForClass, isValidIconAccent, isValidIconEmoji } from '../character/iconCatalog'
@@ -341,11 +343,43 @@ function withDefaultScenarioSlotIndex(c: CampaignState): CampaignState {
   }
 }
 
-function mergeMissingStarterCards(cards: readonly CardInstance[]): CardInstance[] {
-  const existingIds = new Set(cards.map((c) => c.id))
-  const missing = STARTER_CARDS.filter((sc) => !existingIds.has(sc.id))
-  if (missing.length === 0) return [...cards]
-  return [...cards, ...cloneCards(missing)]
+function rebuildBattleLoadoutFromCards(cards: readonly CardInstance[]): BattleLoadout {
+  return [cards[0]?.id ?? null, cards[1]?.id ?? null]
+}
+
+export function migrateV6CampaignToV7(c: CampaignState): CampaignState {
+  let unbound: CardInstance[] = [...(c.chest?.unboundCards ?? [])]
+
+  const characters = c.characters.map((char) => {
+    if (char.id === LEGACY_HERO_CHARACTER_ID) {
+      const strikeExisting = char.cards.find((card) => card.templateId === 'strike')
+      const extras = char.cards.filter((card) => card.templateId !== 'strike')
+      unbound = [...unbound, ...extras]
+      const strike = strikeExisting ?? createStrikeCardForHero(char.id)
+      return {
+        ...char,
+        cards: [strike],
+        battleLoadout: rebuildBattleLoadoutFromCards([strike]),
+      }
+    }
+    unbound = [...unbound, ...char.cards]
+    const templateId = pickRandomSkillTemplateId(seededRng(char.id.length * 17 + 3))
+    const skill = createCardInstance(templateId)
+    return {
+      ...char,
+      cards: [skill],
+      battleLoadout: rebuildBattleLoadoutFromCards([skill]),
+    }
+  })
+
+  return {
+    ...c,
+    characters,
+    chest: { items: c.chest?.items ?? [], unboundCards: unbound },
+    shopOffers: c.shopOffers ?? null,
+    shopRefreshSeed: typeof c.shopRefreshSeed === 'number' ? c.shopRefreshSeed : 0,
+    pendingHubNotice: null,
+  }
 }
 
 function withDefaultBattleLoadout(c: CampaignState): CampaignState {
@@ -481,32 +515,6 @@ function withSnapshotBattleLoadout(c: CampaignState): CampaignState {
   }
 }
 
-function withMissingStarterCards(c: CampaignState): CampaignState {
-  let changed = false
-  const characters = c.characters.map((char) => {
-    const cards = mergeMissingStarterCards(char.cards)
-    if (cards.length === char.cards.length) return char
-    changed = true
-    return { ...char, cards }
-  })
-
-  let battleAttemptSnapshot = c.battleAttemptSnapshot
-  if (c.battleAttemptSnapshot) {
-    const party = c.battleAttemptSnapshot.party.map((member) => {
-      const snapCards = mergeMissingStarterCards(member.cards)
-      if (snapCards.length === member.cards.length) return member
-      changed = true
-      return { ...member, cards: snapCards }
-    })
-    if (changed) {
-      battleAttemptSnapshot = { ...c.battleAttemptSnapshot, party }
-    }
-  }
-
-  if (!changed) return c
-  return { ...c, characters, battleAttemptSnapshot }
-}
-
 function normalizeCardModSlots(card: CardInstance): CardInstance {
   const raw = card as CardInstance & { modifications?: unknown[] }
   if (Array.isArray(raw.modifications) && raw.modSlots === undefined) {
@@ -626,7 +634,7 @@ export function normalizeLoadedCampaign(c: CampaignState): CampaignState {
   out = withDefaultBattleLoadout(out)
   out = withSnapshotBattleLoadout(out)
   out = normalizeCampaignEconomy(out)
-  out = withMissingStarterCards(out)
+  out = withDefaultChestFields(out)
   out = normalizeBattleFromLoadout(out)
   out = normalizeBattlePlayerCards(out)
   out = withLegacyCodexFields(out)
@@ -794,6 +802,10 @@ export function migrateV5CampaignToV6(c: CampaignState): CampaignState {
   )
 }
 
+export function migrateV7CampaignFromV6(c: CampaignState): CampaignState {
+  return migrateV6CampaignToV7(c)
+}
+
 function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null && !Array.isArray(x)
 }
@@ -831,9 +843,9 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
     return null
   }
   const version = raw.version
-  if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6) {
+  if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7) {
     console.warn(
-      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, 4, 5, or 6`,
+      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, 4, 5, 6, or 7`,
     )
     return null
   }
@@ -849,7 +861,11 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
   if (version <= 4) {
     campaign = migrateV4CampaignToV5(campaign)
   }
-  return migrateV5CampaignToV6(campaign)
+  campaign = migrateV5CampaignToV6(campaign)
+  if (version <= 6) {
+    campaign = migrateV6CampaignToV7(campaign)
+  }
+  return campaign
 }
 
 export function assertEnvelopeV1(e: SaveEnvelopeV1): CampaignState {

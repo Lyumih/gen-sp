@@ -67,6 +67,17 @@ export type BattlePlayerCard = CardInstance & { cooldownRemaining: number }
 
 export type BattleLoadout = [string | null, string | null]
 
+export type ShopOffer =
+  | { kind: 'item'; templateId: string }
+  | { kind: 'skill'; templateId: string }
+
+export type CampaignChest = {
+  items: ItemInstance[]
+  unboundCards: CardInstance[]
+}
+
+export type HubNotice = { kind: 'skill_drop'; templateId: string }
+
 export type CharacterMetaStatus = 'active' | 'downed'
 
 export type Character = {
@@ -267,4 +278,8 @@ export type CampaignState = {
   expedition: Expedition | null
   /** Hub-only tavern roster; null until first refresh. */
   tavernCandidates: TavernCandidate[] | null
+  chest: CampaignChest
+  shopOffers: ShopOffer[] | null
+  shopRefreshSeed: number
+  pendingHubNotice: HubNotice | null
 }

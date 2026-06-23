@@ -12,6 +12,7 @@ import type {
   PartyMemberBattleSnapshot,
   Unit,
 } from '../types'
+import { createCardInstance } from './cardFactory'
 import {
   applyMementoDeathRollsForDowned,
   applyRunAction,
@@ -31,7 +32,18 @@ import { MOD_OFFER_POOL } from '../content/modTemplates'
 import { resolveCarrierTags } from '../mods/carrierTags'
 import { milestoneThreshold, rollbackCarrierLevel } from '../memento/modSlots'
 import { MOD_SLOT_MILESTONES } from '../config/modSlotMilestones'
+import { SKILL_ACQUISITION } from '../config/skillAcquisition'
 import type { ModOffer, ModSlotState } from '../types'
+
+function withClassicTestCards(s: CampaignState): CampaignState {
+  const strike = createCardInstance('strike', 'c1')
+  const fireball = createCardInstance('fireball', 'c2')
+  const heal = createCardInstance('heal', 'c3')
+  return withHero(s, {
+    cards: [strike, fireball, heal],
+    battleLoadout: ['c1', 'c2'],
+  })
+}
 
 const HERO_ID = LEGACY_HERO_CHARACTER_ID
 
@@ -954,7 +966,7 @@ describe('inventory grid actions', () => {
   })
 
   it('REORDER_CARDS changes card order when multiple cards', () => {
-    let s = initialCampaignState()
+    let s = withClassicTestCards(initialCampaignState())
     s = applyRunAction(s, {
       type: 'REORDER_CARDS',
       characterId: HERO_ID,
@@ -1650,17 +1662,13 @@ describe('mod hub actions', () => {
   }
 
   function hubWithFireballModOffer(offer = fireballOffer(4242)) {
-    const s = initialCampaignState()
-    const cards = s.characters[0]!.cards.map((c) =>
-      c.id === 'c2'
-        ? {
-            ...c,
-            global_level: MOD_SLOT_MILESTONES.firstThreshold,
-            modSlots: [{ status: 'empty' as const, offer }],
-          }
-        : c,
-    )
-    return { ...s, characters: [{ ...s.characters[0]!, cards }] }
+    let s = initialCampaignState()
+    const fireball = {
+      ...createCardInstance('fireball', 'c2'),
+      global_level: MOD_SLOT_MILESTONES.firstThreshold,
+      modSlots: [{ status: 'empty' as const, offer }],
+    }
+    return withHero(s, { cards: [...hero(s).cards, fireball] })
   }
 
   it('PICK_MOD_OFFER validates modId in pending offer and fills slot with lm=0', () => {
@@ -1707,20 +1715,16 @@ describe('mod hub actions', () => {
     }
     const startLevel = milestoneThreshold(2) + 7
     let s = initialCampaignState()
-    const cards = s.characters[0]!.cards.map((c) =>
-      c.id === 'c2'
-        ? {
-            ...c,
-            global_level: startLevel,
-            modSlots: [
-              { status: 'empty' as const, offer: fireballOffer(1) },
-              slot1Filled,
-              slot2Filled,
-            ],
-          }
-        : c,
-    )
-    s = { ...s, characters: [{ ...s.characters[0]!, cards }] }
+    const fireball = {
+      ...createCardInstance('fireball', 'c2'),
+      global_level: startLevel,
+      modSlots: [
+        { status: 'empty' as const, offer: fireballOffer(1) },
+        slot1Filled,
+        slot2Filled,
+      ],
+    }
+    s = withHero(s, { cards: [...hero(s).cards, fireball] })
 
     s = applyRunAction(s, {
       type: 'REMOVE_MOD',
@@ -1926,7 +1930,7 @@ describe('victory mod Lm rolls', () => {
         },
       ],
     })
-    const init = initialCampaignState()
+    const init = withClassicTestCards(initialCampaignState())
     const cards = init.characters[0]!.cards.map((c) =>
       c.id === 'c1' ? { ...c, modSlots } : c,
     )
@@ -1948,5 +1952,106 @@ describe('victory mod Lm rolls', () => {
       templateId: 'mod-damage-up',
       lm: 1,
     })
+  })
+})
+
+describe('chest and shop offers', () => {
+  it('REFRESH_SHOP is free when shopOffers is null', () => {
+    let s: CampaignState = { ...initialCampaignState(), gold: 50, shopOffers: null }
+    s = applyRunAction(s, { type: 'REFRESH_SHOP', seed: 42, free: true })
+    expect(s.gold).toBe(50)
+    expect(s.shopOffers).not.toBeNull()
+    expect(s.shopOffers!.length).toBeGreaterThanOrEqual(5)
+  })
+
+  it('REFRESH_SHOP deducts gold when not free', () => {
+    let s: CampaignState = {
+      ...initialCampaignState(),
+      gold: SKILL_ACQUISITION.shopRefreshCost + 5,
+      shopOffers: [{ kind: 'item' as const, templateId: 'wooden_sword' }],
+    }
+    s = applyRunAction(s, { type: 'REFRESH_SHOP', seed: 99 })
+    expect(s.gold).toBe(5)
+    expect(s.shopOffers!.length).toBeGreaterThanOrEqual(5)
+  })
+
+  it('BUY_SHOP_OFFER skill adds card to chest', () => {
+    let s: CampaignState = {
+      ...initialCampaignState(),
+      gold: SKILL_ACQUISITION.shopSkillPrice,
+      shopOffers: [{ kind: 'skill' as const, templateId: 'fireball' }],
+    }
+    s = applyRunAction(s, { type: 'BUY_SHOP_OFFER', offerIndex: 0 })
+    expect(s.gold).toBe(0)
+    expect(s.chest.unboundCards).toHaveLength(1)
+    expect(s.chest.unboundCards[0]!.templateId).toBe('fireball')
+    expect(s.shopOffers).toHaveLength(0)
+    expect(s.codexDiscovered).toContain(codexEntryId('card', 'fireball'))
+  })
+
+  it('BUY_SHOP_OFFER item defaults to chest', () => {
+    let s: CampaignState = {
+      ...initialCampaignState(),
+      gold: 100,
+      shopOffers: [{ kind: 'item' as const, templateId: 'wooden_sword' }],
+    }
+    s = applyRunAction(s, { type: 'BUY_SHOP_OFFER', offerIndex: 0 })
+    expect(s.chest.items).toHaveLength(1)
+    expect(s.chest.items[0]!.templateId).toBe('wooden_sword')
+    expect(hero(s).items).toHaveLength(0)
+  })
+
+  it('BIND_CHEST_CARD moves card to character permanently', () => {
+    const card = createCardInstance('fireball', 'unbound-1')
+    let s: CampaignState = {
+      ...initialCampaignState(),
+      chest: { items: [], unboundCards: [card] },
+    }
+    s = applyRunAction(s, {
+      type: 'BIND_CHEST_CARD',
+      cardId: 'unbound-1',
+      characterId: HERO_ID,
+    })
+    expect(s.chest.unboundCards).toHaveLength(0)
+    expect(hero(s).cards.some((c) => c.id === 'unbound-1')).toBe(true)
+  })
+
+  it('MOVE_CHEST_ITEM_TO_CHARACTER transfers stash item', () => {
+    const item = { id: 'i1', templateId: 'wooden_sword', itemLevel: 1, modSlots: [] }
+    let s: CampaignState = {
+      ...initialCampaignState(),
+      chest: { items: [item], unboundCards: [] },
+    }
+    s = applyRunAction(s, {
+      type: 'MOVE_CHEST_ITEM_TO_CHARACTER',
+      itemId: 'i1',
+      characterId: HERO_ID,
+    })
+    expect(s.chest.items).toHaveLength(0)
+    expect(hero(s).items.some((i) => i.id === 'i1')).toBe(true)
+  })
+
+  it('MOVE_CHARACTER_ITEM_TO_CHEST moves unequipped item', () => {
+    const item = { id: 'i1', templateId: 'wooden_sword', itemLevel: 1, modSlots: [] }
+    let s = withHero(initialCampaignState(), { items: [item] })
+    s = applyRunAction(s, {
+      type: 'MOVE_CHARACTER_ITEM_TO_CHEST',
+      itemId: 'i1',
+      characterId: HERO_ID,
+    })
+    expect(hero(s).items).toHaveLength(0)
+    expect(s.chest.items.some((i) => i.id === 'i1')).toBe(true)
+  })
+
+  it('SELL_CHEST_ITEM adds gold and removes item', () => {
+    const item = { id: 'i1', templateId: 'wooden_sword', itemLevel: 1, modSlots: [] }
+    let s: CampaignState = {
+      ...initialCampaignState(),
+      gold: 0,
+      chest: { items: [item], unboundCards: [] },
+    }
+    s = applyRunAction(s, { type: 'SELL_CHEST_ITEM', itemId: 'i1' })
+    expect(s.chest.items).toHaveLength(0)
+    expect(s.gold).toBeGreaterThan(0)
   })
 })

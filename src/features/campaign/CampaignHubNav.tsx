@@ -21,7 +21,7 @@ type CampaignHubNavProps = {
   tabsDisabled?: boolean
 }
 
-const TAB_ORDER: CampaignHubTab[] = ['character', 'battle', 'shop', 'tavern', 'codex', 'help']
+const TAB_ORDER: CampaignHubTab[] = ['shop', 'character', 'battle', 'tavern', 'codex', 'help']
 
 const TAB_LABEL: Record<CampaignHubTab, string> = {
   character: 'Персонаж',

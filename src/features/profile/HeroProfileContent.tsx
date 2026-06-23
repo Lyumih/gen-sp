@@ -30,6 +30,8 @@ export type HeroProfileContentProps = {
   includeEquipmentReadout?: boolean
   /** Collapse с деталями карт (в хабе — отдельный список карт). */
   includeCardsCollapse?: boolean
+  /** Inline редактор облика (в хабе — только в модалке состава). */
+  includeAppearance?: boolean
 }
 
 export function HeroProfileContent({
@@ -40,6 +42,7 @@ export function HeroProfileContent({
   includeResourceStats = true,
   includeEquipmentReadout = true,
   includeCardsCollapse = true,
+  includeAppearance = false,
 }: HeroProfileContentProps) {
   const hero =
     (characterId !== undefined ? getCharacter(campaign, characterId) : undefined) ??
@@ -83,7 +86,7 @@ export function HeroProfileContent({
         showRating
       />
 
-      {mode === 'hub' ? (
+      {mode === 'hub' && includeAppearance ? (
         <HeroAppearanceEditor hero={hero} expeditionLocked={campaign.expedition !== null} />
       ) : null}
 

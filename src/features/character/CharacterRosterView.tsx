@@ -1,4 +1,5 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core'
+import { EditOutlined } from '@ant-design/icons'
 import { Button, List, Tag, Typography } from 'antd'
 import {
   getCharacter,
@@ -22,6 +23,8 @@ type CharacterRosterViewProps = {
   onSelectCharacter: (characterId: string) => void
   onAssignToSquad: (characterId: string) => void
   onRemoveFromSquad: (characterId: string) => void
+  onEditAppearance?: (characterId: string) => void
+  showSquadActions?: boolean
 }
 
 function RosterRow({
@@ -35,6 +38,8 @@ function RosterRow({
   onSelectCharacter,
   onAssignToSquad,
   onRemoveFromSquad,
+  onEditAppearance,
+  showSquadActions,
   squadHasEmptySlot,
 }: {
   character: Character
@@ -47,18 +52,23 @@ function RosterRow({
   onSelectCharacter: (characterId: string) => void
   onAssignToSquad: (characterId: string) => void
   onRemoveFromSquad: (characterId: string) => void
+  onEditAppearance?: (characterId: string) => void
+  showSquadActions: boolean
   squadHasEmptySlot: boolean
 }) {
   const inSquad = campaign.squad.includes(character.id)
   const isSelected = character.id === selectedCharacterId
+  const activeParsed = activeDragId ? parseDragId(activeDragId) : null
+  const isStashDrag = activeParsed?.kind === 'stash'
+  const isChestItemDrag = activeParsed?.kind === 'chest-item'
   const canReceiveItem =
     !transferDisabled &&
-    character.id !== inventoryCharacterId &&
-    activeDragId?.startsWith('stash:') === true
+    (isChestItemDrag || (isStashDrag && character.id !== inventoryCharacterId))
 
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: rosterCharacterDropId(character.id),
-    disabled: transferDisabled || character.id === inventoryCharacterId,
+    disabled:
+      transferDisabled || (isStashDrag && character.id === inventoryCharacterId),
   })
 
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
@@ -67,15 +77,31 @@ function RosterRow({
     data: { characterId: character.id },
   })
 
-  const activeParsed = activeDragId ? parseDragId(activeDragId) : null
-  const itemDragOver = isOver && activeParsed?.kind === 'stash'
+  const itemDragOver =
+    isOver &&
+    (activeParsed?.kind === 'stash' || activeParsed?.kind === 'chest-item')
   const cls = getCharacterClass(character.classId)
   const display = getCharacterDisplay(character)
   const stashCount = character.items.length
 
-  const squadActions = !squadLocked
-    ? inSquad
+  const squadActions =
+    showSquadActions && !squadLocked
+      ? inSquad
         ? [
+            ...(onEditAppearance
+              ? [
+                  <Button
+                    key="edit"
+                    size="small"
+                    icon={<EditOutlined />}
+                    aria-label="Редактировать облик"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onEditAppearance(character.id)
+                    }}
+                  />,
+                ]
+              : []),
             <Button
               key="remove"
               size="small"
@@ -88,6 +114,20 @@ function RosterRow({
             </Button>,
           ]
         : [
+            ...(onEditAppearance
+              ? [
+                  <Button
+                    key="edit"
+                    size="small"
+                    icon={<EditOutlined />}
+                    aria-label="Редактировать облик"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onEditAppearance(character.id)
+                    }}
+                  />,
+                ]
+              : []),
             <Button
               key="assign"
               size="small"
@@ -101,7 +141,20 @@ function RosterRow({
               Назначить
             </Button>,
           ]
-      : undefined
+      : onEditAppearance
+        ? [
+            <Button
+              key="edit"
+              size="small"
+              icon={<EditOutlined />}
+              aria-label="Редактировать облик"
+              onClick={(e) => {
+                e.stopPropagation()
+                onEditAppearance(character.id)
+              }}
+            />,
+          ]
+        : undefined
 
   return (
     <List.Item
@@ -167,6 +220,8 @@ export function CharacterRosterView({
   onSelectCharacter,
   onAssignToSquad,
   onRemoveFromSquad,
+  onEditAppearance,
+  showSquadActions = true,
 }: CharacterRosterViewProps) {
   const reserve = getReserveCharacters(campaign)
   const squadIds = campaign.squad.filter((id): id is string => id !== null)
@@ -179,7 +234,7 @@ export function CharacterRosterView({
   return (
     <div>
       <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
-        Roster ({roster.length})
+        Состав ({roster.length})
       </Typography.Text>
       {roster.length === 0 ? (
         <Typography.Text type="secondary">Нет персонажей</Typography.Text>
@@ -201,6 +256,8 @@ export function CharacterRosterView({
               onSelectCharacter={onSelectCharacter}
               onAssignToSquad={onAssignToSquad}
               onRemoveFromSquad={onRemoveFromSquad}
+              onEditAppearance={onEditAppearance}
+              showSquadActions={showSquadActions}
               squadHasEmptySlot={squadHasEmptySlot}
             />
           )}

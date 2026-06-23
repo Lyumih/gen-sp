@@ -5,7 +5,7 @@ import { codexEntryId } from '../codex/discovery'
 import type { CampaignState } from '../types'
 import { SCENARIOS } from '../campaign/scenarios'
 import { testCreateCharacter } from '../stats/testFixtures'
-import { migrateFromUnknown, migrateV5CampaignToV6, normalizeLoadedCampaign } from './migrate'
+import { migrateFromUnknown, migrateV5CampaignToV6, migrateV6CampaignToV7, normalizeLoadedCampaign } from './migrate'
 import { MOD_SLOT_MILESTONES } from '../config/modSlotMilestones'
 import { EMPTY_EQUIPMENT } from '../equipment/equipmentOrder'
 
@@ -124,32 +124,27 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
     expect(hero(out).equipment.weapon).toBeNull()
   })
 
-  it('adds missing starter cards from old saves', () => {
+  it('keeps strike-only hero cards without merging starter pool', () => {
     const init = initialCampaignState()
-    const strikeOnly = hero(init).cards.filter((c) => c.id === 'c1')
+    const strikeOnly = hero(init).cards
     const c: CampaignState = {
       ...init,
       characters: [{ ...hero(init), cards: strikeOnly }],
     }
     const out = normalizeLoadedCampaign(c)
-    expect(hero(out).cards.map((card) => card.id)).toEqual(['c1', 'c2', 'c3'])
-    expect(hero(out).cards.find((card) => card.id === 'c2')?.templateId).toBe('fireball')
-    expect(hero(out).cards.find((card) => card.id === 'c3')?.templateId).toBe('heal')
-    expect(hero(out).battleLoadout).toEqual(['c1', 'c2'])
+    expect(hero(out).cards).toHaveLength(1)
+    expect(hero(out).cards[0]!.templateId).toBe('strike')
+    expect(hero(out).battleLoadout[0]).toBe(hero(out).cards[0]!.id)
   })
 
-  it('adds missing starter cards to active battle playerCards', () => {
+  it('normalizes battle playerCards from loadout when in battle', () => {
     const init = initialCampaignState()
-    const strikeOnly = hero(init).cards.filter((c) => c.id === 'c1')
-    const withBattle = applyRunAction(
-      {
-        ...init,
-        characters: [{ ...hero(init), cards: strikeOnly }],
-      },
-      { type: 'START_OR_CONTINUE_BATTLE' },
-    )
+    const withBattle = applyRunAction(init, { type: 'START_OR_CONTINUE_BATTLE' })
     const out = normalizeLoadedCampaign(withBattle)
-    expect(out.battle?.playerCardsByUnitId[hero(out).id]?.map((card) => card.id)).toEqual(['c1', 'c2'])
+    const strikeId = hero(out).cards[0]!.id
+    expect(out.battle?.playerCardsByUnitId[hero(out).id]?.map((card) => card.id)).toEqual([
+      strikeId,
+    ])
   })
 
   it('adds battleLoadout default when missing', () => {
@@ -159,7 +154,8 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
       characters: [{ ...hero(init), battleLoadout: undefined }],
     } as unknown as CampaignState
     const out = normalizeLoadedCampaign(legacy)
-    expect(hero(out).battleLoadout).toEqual(['c1', 'c2'])
+    const strikeId = hero(out).cards[0]!.id
+    expect(hero(out).battleLoadout).toEqual([strikeId, null])
   })
 })
 
@@ -281,3 +277,72 @@ describe('migrateV5CampaignToV6', () => {
     expect(out.codexSeenEntryIds).toEqual(['mod:mod-damage-up'])
   })
 })
+
+describe('migrateV6CampaignToV7', () => {
+  it('hero keeps only strike; extra cards go to chest', () => {
+    const init = initialCampaignState()
+    const strike = hero(init).cards[0]!
+    const extra = {
+      id: 'c-extra',
+      templateId: 'fireball',
+      global_level: 1,
+      uses_count: 0,
+      modSlots: [],
+    }
+    const c: CampaignState = {
+      ...init,
+      characters: [
+        {
+          ...hero(init),
+          cards: [strike, extra],
+          battleLoadout: [strike.id, extra.id] as [string, string],
+        },
+      ],
+    }
+    const out = migrateV6CampaignToV7(c)
+    expect(hero(out).cards).toHaveLength(1)
+    expect(hero(out).cards[0]!.templateId).toBe('strike')
+    expect(out.chest.unboundCards.some((card) => card.id === 'c-extra')).toBe(true)
+  })
+
+  it('non-hero characters get one random skill; old cards unbound', () => {
+    const init = initialCampaignState()
+    const recruit = testCreateCharacter({ id: 'char-2', name: 'Наёмник', classId: 'warrior' })
+    recruit.cards = [
+      { id: 'r1', templateId: 'heal', global_level: 1, uses_count: 0, modSlots: [] },
+      { id: 'r2', templateId: 'fireball', global_level: 1, uses_count: 0, modSlots: [] },
+    ]
+    const c = {
+      ...init,
+      characters: [hero(init), recruit],
+    }
+    const out = migrateV6CampaignToV7(c)
+    const migrated = out.characters.find((ch) => ch.id === 'char-2')!
+    expect(migrated.cards).toHaveLength(1)
+    expect(migrated.cards[0]!.templateId).not.toBe('strike')
+    expect(out.chest.unboundCards.filter((card) => card.id === 'r1' || card.id === 'r2')).toHaveLength(2)
+  })
+
+  it('migrateFromUnknown v6 applies v7 migration', () => {
+    const init = initialCampaignState()
+    const c = withClassicLegacyCards(init)
+    const out = migrateFromUnknown({ version: 6, campaign: c })
+    expect(out).not.toBeNull()
+    expect(hero(out!).cards.every((card) => card.templateId === 'strike')).toBe(true)
+  })
+})
+
+function withClassicLegacyCards(c: CampaignState): CampaignState {
+  const strike = hero(c).cards[0]!
+  const fireball = {
+    id: 'c2',
+    templateId: 'fireball',
+    global_level: 1,
+    uses_count: 0,
+    modSlots: [],
+  }
+  return {
+    ...c,
+    characters: [{ ...hero(c), cards: [strike, fireball], battleLoadout: [strike.id, fireball.id] }],
+  }
+}

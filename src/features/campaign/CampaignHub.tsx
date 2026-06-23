@@ -1,11 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { FlagOutlined } from '@ant-design/icons'
 import { App, Card, Divider, Space } from 'antd'
 import { SCENARIOS } from '../../game/campaign/scenarios'
 import { unreadCodexEntryIds } from '../../game/codex/discovery'
-import { getItemTemplate } from '../../game/content/itemTemplates'
-import { findFirstEmptySquadSlotIndex, findSquadSlotIndex, getActiveCharacter } from '../../game/character/selectors'
-import { isItemEquipped } from '../../game/equipment/stashOrder'
+import { getCardDisplayLabel } from '../../game/descriptions/cardText'
+import { findFirstEmptySquadSlotIndex, findSquadSlotIndex } from '../../game/character/selectors'
 import type { EquipmentSlot } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
 import { CampaignBattleTab } from './CampaignBattleTab'
@@ -24,12 +23,20 @@ export function CampaignHub() {
   const campaign = useGameStore((s) => s.campaign)
   const dispatchRun = useGameStore((s) => s.dispatchRun)
   const [replaySlot, setReplaySlot] = useState(0)
-  const [activeTab, setActiveTab] = useState<CampaignHubTab>('battle')
+  const [activeTab, setActiveTab] = useState<CampaignHubTab>('shop')
   const done = campaign.scenarioIndex >= SCENARIOS.length
   const scenario = SCENARIOS[campaign.scenarioIndex]
   const inBattle = campaign.battle !== null
   const expeditionActive = campaign.expedition !== null
   const unreadCodexCount = unreadCodexEntryIds(campaign).length
+
+  useEffect(() => {
+    const notice = campaign.pendingHubNotice
+    if (notice?.kind === 'skill_drop') {
+      message.success(`В сундук попало умение: ${getCardDisplayLabel(notice.templateId)}`)
+      dispatchRun({ type: 'MARK_HUB_NOTICE_SEEN' })
+    }
+  }, [campaign.pendingHubNotice, dispatchRun, message])
 
   const handleTabChange = (tab: CampaignHubTab) => {
     if (tab === activeTab) return
@@ -39,16 +46,32 @@ export function CampaignHub() {
     setActiveTab(tab)
   }
 
-  const activeCharacterId = getActiveCharacter(campaign).id
+  const refreshShop = (free?: boolean) => {
+    dispatchRun({ type: 'REFRESH_SHOP', seed: Date.now(), free })
+  }
 
-  const buy = (templateId: string) => {
-    const t = getItemTemplate(templateId)
-    if (!t) return
-    if (campaign.gold < t.shopPrice) {
-      message.warning('Недостаточно золота')
-      return
-    }
-    dispatchRun({ type: 'BUY_ITEM', characterId: activeCharacterId, templateId })
+  const buyOffer = (
+    offerIndex: number,
+    destination?: 'chest' | 'character',
+    characterId?: string,
+  ) => {
+    dispatchRun({ type: 'BUY_SHOP_OFFER', offerIndex, destination, characterId })
+  }
+
+  const sellChestItem = (itemId: string) => {
+    dispatchRun({ type: 'SELL_CHEST_ITEM', itemId })
+  }
+
+  const bindChestCard = (cardId: string, characterId: string) => {
+    dispatchRun({ type: 'BIND_CHEST_CARD', cardId, characterId })
+  }
+
+  const moveChestItemToCharacter = (itemId: string, characterId: string) => {
+    dispatchRun({ type: 'MOVE_CHEST_ITEM_TO_CHARACTER', itemId, characterId })
+  }
+
+  const moveCharacterItemToChest = (itemId: string, characterId: string) => {
+    dispatchRun({ type: 'MOVE_CHARACTER_ITEM_TO_CHEST', itemId, characterId })
   }
 
   const equip = (characterId: string, itemId: string, slot: EquipmentSlot) => {
@@ -57,15 +80,6 @@ export function CampaignHub() {
 
   const unequip = (characterId: string, slot: EquipmentSlot) => {
     dispatchRun({ type: 'UNEQUIP_ITEM', characterId, slot })
-  }
-
-  const sellItem = (itemId: string) => {
-    const hero = getActiveCharacter(campaign)
-    if (isItemEquipped(itemId, hero.equipment)) {
-      message.warning('Сначала снимите предмет')
-      return
-    }
-    dispatchRun({ type: 'SELL_ITEM', characterId: activeCharacterId, itemId })
   }
 
   const reorderStash = (characterId: string, itemIds: string[]) => {
@@ -199,6 +213,10 @@ export function CampaignHub() {
             onReorderCards={reorderCards}
             onSetBattleLoadout={setBattleLoadout}
             onTransferItem={transferItem}
+            onSellChestItem={sellChestItem}
+            onBindChestCard={bindChestCard}
+            onMoveChestItemToCharacter={moveChestItemToCharacter}
+            onMoveCharacterItemToChest={moveCharacterItemToChest}
             onSetSquadSlot={setSquadSlot}
             onSwapSquadSlots={swapSquadSlots}
             onAssignToSquad={assignToSquad}
@@ -213,9 +231,13 @@ export function CampaignHub() {
           <CampaignShopTab
             campaign={campaign}
             inBattle={inBattle}
-            onBuy={buy}
+            onRefreshShop={refreshShop}
+            onBuyOffer={buyOffer}
             onInsufficientGold={() => message.warning('Недостаточно золота')}
-            onSell={sellItem}
+            onSellChestItem={sellChestItem}
+            onBindChestCard={bindChestCard}
+            onMoveChestItemToCharacter={moveChestItemToCharacter}
+            onUnequip={unequip}
           />
         ) : null}
 

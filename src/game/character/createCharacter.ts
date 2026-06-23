@@ -1,5 +1,3 @@
-import { cloneCards } from '../campaign/battleSnapshot'
-import { STARTER_CARDS } from '../campaign/runReducer'
 import type { BaseStats } from '../config/baseStats'
 import { EMPTY_EQUIPMENT } from '../equipment/equipmentOrder'
 import type { Character } from '../types'
@@ -15,14 +13,6 @@ export type CreateCharacterInput = {
 }
 
 export function createCharacter(input: CreateCharacterInput): Character {
-  const cards = cloneCards(STARTER_CARDS).map((c, i) => ({
-    ...c,
-    id: `c-${input.id}-${i + 1}`,
-  }))
-  const loadout: [string | null, string | null] = [
-    cards[0]?.id ?? null,
-    cards[1]?.id ?? null,
-  ]
   return {
     id: input.id,
     name: input.name,
@@ -32,8 +22,8 @@ export function createCharacter(input: CreateCharacterInput): Character {
     baseStatRating: input.baseStatRating,
     equipment: { ...EMPTY_EQUIPMENT },
     items: [],
-    cards,
-    battleLoadout: loadout,
+    cards: [],
+    battleLoadout: [null, null],
     iconEmoji: defaultIconEmojiForClass(input.classId),
     iconAccent: 'default',
     iconSkinTone: 'default',

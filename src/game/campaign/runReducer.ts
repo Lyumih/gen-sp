@@ -6,7 +6,7 @@ import { cellKey, inBounds, wallSet } from '../battle/grid'
 import { canCastAoEAt, canHealTarget } from '../battle/rangeOverlay'
 import { computeCardAttackDamage } from '../content/cardAttackDamage'
 import { computeCardHealAmount } from '../content/cardHealAmount'
-import { getCardAttackTemplate } from '../content/cardTemplates'
+import { CARD_ATTACK_TEMPLATES, getCardAttackTemplate } from '../content/cardTemplates'
 import {
   codexEntryId,
   discoverCodexEntry,
@@ -89,7 +89,15 @@ import {
   TAVERN_REFRESH_COST,
 } from '../tavern/generateCandidates'
 import { STARTER_HERO_BASE_STATS } from '../config/baseStats'
+import {
+  pickRandomSkillTemplateId,
+  rollBattleSkillDrop,
+  SKILL_ACQUISITION,
+} from '../config/skillAcquisition'
 import { computeBaseStatRating } from '../stats/computeRating'
+import { generateShopOffers } from '../shop/generateShopOffers'
+import { createCardInstance, createStrikeCardForHero } from './cardFactory'
+import { EMPTY_CHEST } from './chestDefaults'
 import type { Expedition } from '../types'
 
 export type RunAction =
@@ -163,6 +171,18 @@ export type RunAction =
       carrierId: string
       slotIndex: number
     }
+  | { type: 'REFRESH_SHOP'; seed?: number; free?: boolean }
+  | {
+      type: 'BUY_SHOP_OFFER'
+      offerIndex: number
+      destination?: 'chest' | 'character'
+      characterId?: string
+    }
+  | { type: 'MOVE_CHEST_ITEM_TO_CHARACTER'; itemId: string; characterId: string }
+  | { type: 'MOVE_CHARACTER_ITEM_TO_CHEST'; itemId: string; characterId: string }
+  | { type: 'BIND_CHEST_CARD'; cardId: string; characterId: string }
+  | { type: 'SELL_CHEST_ITEM'; itemId: string }
+  | { type: 'MARK_HUB_NOTICE_SEEN' }
 
 export { afterCarrierLevelChange }
 
@@ -421,7 +441,17 @@ function finalizeVictory(
 
   const mergedCharacters = mergeBattleCardsToParty(state.characters, b)
 
-  return {
+  const dropRng = seededRng(state.battleAttemptId * 9973 + 13)
+  let chest = state.chest ?? EMPTY_CHEST
+  let pendingHubNotice = state.pendingHubNotice
+  if (rollBattleSkillDrop(dropRng())) {
+    const templateId = pickRandomSkillTemplateId(dropRng)
+    const dropped = createCardInstance(templateId)
+    chest = { ...chest, unboundCards: [...chest.unboundCards, dropped] }
+    pendingHubNotice = { kind: 'skill_drop', templateId }
+  }
+
+  const base: CampaignState = {
     ...state,
     worldPower: b.worldPower,
     scenarioIndex: nextScenarioIndex,
@@ -433,7 +463,15 @@ function finalizeVictory(
     characters: mergedCharacters.map((c) =>
       c.id === hero.id ? { ...c, unitLevel, items } : c,
     ),
+    chest,
+    pendingHubNotice,
   }
+  if (pendingHubNotice?.kind === 'skill_drop') {
+    return withCodexDiscoveries(base, [
+      codexEntryId('card', pendingHubNotice.templateId),
+    ])
+  }
+  return base
 }
 
 const GEAR_HIT_SLOTS: readonly EquipmentSlot[] = ['armor', 'accessory']
@@ -1057,7 +1095,12 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       const hero = getCharacter(state, characterId)
       if (!hero) return state
       return updateCharacter(state, characterId, (c) => {
-        if (cardId !== null && !c.cards.some((card) => card.id === cardId)) return c
+        if (cardId !== null) {
+          const card = c.cards.find((x) => x.id === cardId)
+          if (!card) return c
+          const tmpl = CARD_ATTACK_TEMPLATES[card.templateId]
+          if (tmpl?.enabled === false) return c
+        }
         const next: BattleLoadout = [...c.battleLoadout]
         if (cardId !== null) {
           for (let i = 0; i < 2; i++) {
@@ -1345,7 +1388,17 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         items.push(inst)
         equipment[slot] = inst.id
       }
-      character = { ...character, items, equipment }
+      const skillTemplateId = pickRandomSkillTemplateId(
+        seededRng(state.characters.length * 31 + candidate.classId.length),
+      )
+      const skillCard = createCardInstance(skillTemplateId)
+      character = {
+        ...character,
+        items,
+        equipment,
+        cards: [skillCard],
+        battleLoadout: [skillCard.id, null],
+      }
 
       return withCodexDiscoveries(
         {
@@ -1356,9 +1409,146 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
             (c) => c.candidateId !== action.candidateId,
           ),
         },
-        [codexEntryId('class', candidate.classId)],
+        [codexEntryId('class', candidate.classId), codexEntryId('card', skillTemplateId)],
       )
     }
+    case 'REFRESH_SHOP': {
+      if (!assertHubActionAllowed(state, 'shop')) return state
+      const free = action.free === true && state.shopOffers === null
+      if (!free && state.gold < SKILL_ACQUISITION.shopRefreshCost) return state
+      const rng = action.seed !== undefined ? seededRng(action.seed) : () => Math.random()
+      return {
+        ...state,
+        gold: free ? state.gold : state.gold - SKILL_ACQUISITION.shopRefreshCost,
+        shopOffers: generateShopOffers(rng),
+        shopRefreshSeed: action.seed ?? state.shopRefreshSeed + 1,
+      }
+    }
+    case 'BUY_SHOP_OFFER': {
+      if (!assertHubActionAllowed(state, 'shop')) return state
+      const offer = state.shopOffers?.[action.offerIndex]
+      if (!offer) return state
+      if (offer.kind === 'skill') {
+        if (state.gold < SKILL_ACQUISITION.shopSkillPrice) return state
+        const card = createCardInstance(offer.templateId)
+        return withCodexDiscoveries(
+          {
+            ...state,
+            gold: state.gold - SKILL_ACQUISITION.shopSkillPrice,
+            chest: {
+              ...state.chest,
+              unboundCards: [...state.chest.unboundCards, card],
+            },
+            shopOffers: state.shopOffers!.filter((_, i) => i !== action.offerIndex),
+          },
+          [codexEntryId('card', offer.templateId)],
+        )
+      }
+      const tmpl = getItemTemplate(offer.templateId)
+      if (!tmpl || state.gold < tmpl.shopPrice) return state
+      const inst: ItemInstance = {
+        id: newItemId(),
+        templateId: offer.templateId,
+        itemLevel: 1,
+        modSlots: [],
+      }
+      const dest = action.destination ?? 'chest'
+      const nextOffers = state.shopOffers!.filter((_, i) => i !== action.offerIndex)
+      const base = {
+        ...state,
+        gold: state.gold - tmpl.shopPrice,
+        shopOffers: nextOffers,
+      }
+      if (dest === 'character') {
+        const characterId = action.characterId
+        if (!characterId || !getCharacter(state, characterId)) return state
+        return withCodexDiscoveries(
+          updateCharacter(base, characterId, (c) => ({
+            ...c,
+            items: [...c.items, inst],
+          })),
+          [codexEntryId('item', offer.templateId)],
+        )
+      }
+      return withCodexDiscoveries(
+        {
+          ...base,
+          chest: { ...state.chest, items: [...state.chest.items, inst] },
+        },
+        [codexEntryId('item', offer.templateId)],
+      )
+    }
+    case 'MOVE_CHEST_ITEM_TO_CHARACTER': {
+      if (!assertHubActionAllowed(state, 'transfer')) return state
+      const hero = getCharacter(state, action.characterId)
+      if (!hero) return state
+      const idx = state.chest.items.findIndex((i) => i.id === action.itemId)
+      if (idx < 0) return state
+      const item = state.chest.items[idx]!
+      return {
+        ...state,
+        chest: {
+          ...state.chest,
+          items: state.chest.items.filter((i) => i.id !== action.itemId),
+        },
+        characters: state.characters.map((c) =>
+          c.id === action.characterId ? { ...c, items: [...c.items, item] } : c,
+        ),
+      }
+    }
+    case 'MOVE_CHARACTER_ITEM_TO_CHEST': {
+      if (!assertHubActionAllowed(state, 'transfer')) return state
+      const hero = getCharacter(state, action.characterId)
+      if (!hero) return state
+      const item = hero.items.find((i) => i.id === action.itemId)
+      if (!item || isItemEquipped(action.itemId, hero.equipment)) return state
+      return {
+        ...state,
+        chest: { ...state.chest, items: [...state.chest.items, item] },
+        characters: state.characters.map((c) =>
+          c.id === action.characterId
+            ? { ...c, items: c.items.filter((i) => i.id !== action.itemId) }
+            : c,
+        ),
+      }
+    }
+    case 'BIND_CHEST_CARD': {
+      if (!assertHubActionAllowed(state, 'equip')) return state
+      const hero = getCharacter(state, action.characterId)
+      if (!hero) return state
+      const card = state.chest.unboundCards.find((c) => c.id === action.cardId)
+      if (!card) return state
+      return {
+        ...state,
+        chest: {
+          ...state.chest,
+          unboundCards: state.chest.unboundCards.filter((c) => c.id !== action.cardId),
+        },
+        characters: state.characters.map((c) =>
+          c.id === action.characterId ? { ...c, cards: [...c.cards, card] } : c,
+        ),
+      }
+    }
+    case 'SELL_CHEST_ITEM': {
+      if (!inHub(state)) return state
+      if (!assertHubActionAllowed(state, 'shop')) return state
+      const item = state.chest.items.find((i) => i.id === action.itemId)
+      if (!item) return state
+      const price = sellPriceForItem(item, getItemTemplate)
+      if (price <= 0) return state
+      return {
+        ...state,
+        gold: state.gold + price,
+        chest: {
+          ...state.chest,
+          items: state.chest.items.filter((i) => i.id !== action.itemId),
+        },
+      }
+    }
+    case 'MARK_HUB_NOTICE_SEEN':
+      return state.pendingHubNotice === null
+        ? state
+        : { ...state, pendingHubNotice: null }
     case 'RENAME_CHARACTER': {
       if (!assertHubActionAllowed(state, 'equip')) return state
       const hero = getCharacter(state, action.characterId)
@@ -1395,30 +1585,6 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
   }
 }
 
-export const STARTER_CARDS: CardInstance[] = [
-  {
-    id: 'c1',
-    templateId: 'strike',
-    global_level: 1,
-    uses_count: 0,
-    modSlots: [],
-  },
-  {
-    id: 'c2',
-    templateId: 'fireball',
-    global_level: 1,
-    uses_count: 0,
-    modSlots: [],
-  },
-  {
-    id: 'c3',
-    templateId: 'heal',
-    global_level: 1,
-    uses_count: 0,
-    modSlots: [],
-  },
-]
-
 export function initialCampaignState(): CampaignState {
   const hero = createCharacter({
     id: LEGACY_HERO_CHARACTER_ID,
@@ -1427,8 +1593,9 @@ export function initialCampaignState(): CampaignState {
     baseStats: STARTER_HERO_BASE_STATS,
     baseStatRating: computeBaseStatRating(STARTER_HERO_BASE_STATS),
   })
-  hero.cards = cloneCards(STARTER_CARDS)
-  hero.battleLoadout = ['c1', 'c2']
+  const strike = createStrikeCardForHero(hero.id)
+  hero.cards = [strike]
+  hero.battleLoadout = [strike.id, null]
   const squad: (string | null)[] = [LEGACY_HERO_CHARACTER_ID]
   while (squad.length < DEFAULT_SQUAD_SLOTS) squad.push(null)
 
@@ -1446,5 +1613,9 @@ export function initialCampaignState(): CampaignState {
     squad,
     expedition: null,
     tavernCandidates: null,
+    chest: { ...EMPTY_CHEST },
+    shopOffers: null,
+    shopRefreshSeed: 0,
+    pendingHubNotice: null,
   }
 }

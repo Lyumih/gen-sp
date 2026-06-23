@@ -71,6 +71,24 @@ describe('CampaignHubNav', () => {
     expect(disabledCount).toBeGreaterThanOrEqual(2)
   })
 
+  it('renders shop tab first in tab order', () => {
+    const html = renderToStaticMarkup(
+      createElement(CampaignHubNav, {
+        activeTab: 'shop',
+        onTabChange: () => {},
+        unreadCodexCount: 0,
+        codexDisabled: false,
+        shopDisabled: false,
+        tavernDisabled: false,
+      }),
+    )
+
+    const shopPos = html.indexOf('Магазин')
+    const characterPos = html.indexOf('Персонаж')
+    expect(shopPos).toBeGreaterThanOrEqual(0)
+    expect(characterPos).toBeGreaterThan(shopPos)
+  })
+
   it('renders help tab label and icon', () => {
     const html = renderToStaticMarkup(
       createElement(CampaignHubNav, {
