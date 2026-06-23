@@ -1,7 +1,7 @@
 import { computeUnitStat } from '../balance'
 import type { BaseStats, StatId } from '../config/baseStats'
 import type { ItemTemplate } from '../content/itemTemplates'
-import { aggregateGearHpBonus } from '../equipment/aggregates'
+import { aggregateGearHpMult } from '../equipment/aggregates'
 import { EQUIPMENT_ROLL_ORDER } from '../equipment/equipmentOrder'
 import { aggregatePassiveModBonuses } from '../mods/modPipeline'
 import type { EquipmentSlot, ItemInstance } from '../types'
@@ -20,16 +20,25 @@ export function getEquippedItems(
   return out
 }
 
-export function computeGearStatBonuses(
+export function computeGearHpMult(
   items: readonly ItemInstance[],
   equipment: Record<EquipmentSlot, string | null>,
   getTemplate: (templateId: string) => ItemTemplate | undefined,
+): number {
+  return aggregateGearHpMult(items, equipment, getTemplate)
+}
+
+export function computeGearStatBonuses(
+  items: readonly ItemInstance[],
+  equipment: Record<EquipmentSlot, string | null>,
+  _getTemplate: (templateId: string) => ItemTemplate | undefined,
 ): Partial<Record<StatId, number>> {
   const passive = aggregatePassiveModBonuses(getEquippedItems(items, equipment))
   return {
-    health: aggregateGearHpBonus(items, equipment, getTemplate) + passive.health,
     defense: passive.defense,
     initiative: passive.initiative,
+    // flat mod HP applied after mult in computeCharacterMaxHp
+    health: passive.health,
   }
 }
 
@@ -78,12 +87,13 @@ export function computeCharacterMaxHp(
   worldPower: number,
   getTemplate: (templateId: string) => ItemTemplate | undefined,
 ): number {
-  const gearBonuses = computeGearStatBonuses(member.items, member.equipment, getTemplate)
-  return computeEffectiveStat(
-    member.baseStats,
-    'health',
-    member.unitLevel,
+  const scaled = computeUnitStat({
+    baseStat: member.baseStats.health,
+    unitLevel: member.unitLevel,
     worldPower,
-    gearBonuses.health ?? 0,
-  )
+  })
+  const gearMult = computeGearHpMult(member.items, member.equipment, getTemplate)
+  const passiveHp =
+    computeGearStatBonuses(member.items, member.equipment, getTemplate).health ?? 0
+  return Math.round(scaled * gearMult) + passiveHp
 }

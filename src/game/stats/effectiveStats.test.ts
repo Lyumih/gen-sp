@@ -17,7 +17,7 @@ const sampleBaseStats: BaseStats = {
 
 describe('computeEffectiveStat', () => {
   it('scales base stat with unitLevel and worldPower', () => {
-    expect(computeEffectiveStat(sampleBaseStats, 'health', 1, 0)).toBe(Math.round(20 * 1.02))
+    expect(computeEffectiveStat(sampleBaseStats, 'health', 1, 0)).toBe(Math.round(20 * 1.01))
   })
 })
 
@@ -33,12 +33,12 @@ describe('computeCharacterMaxHp', () => {
       0,
       getItemTemplate,
     )
-    expect(hp).toBe(Math.round(20 * (1 + 0.02 + 0)))
+    expect(hp).toBe(Math.round(20 * (1 + 0.01 + 0)))
   })
 
   it('adds mod-hp-bonus-armor carrier_hp_add when armor has filled mod', () => {
-    const scaledBase = Math.round(20 * (1 + 0.02 + 0))
-    const templateGearHp = 2 * 1
+    const scaledBase = Math.round(20 * (1 + 0.01 + 0))
+    const gearMult = 1 + (2 * 1) / 100
     const modHp = 3
     const hp = computeCharacterMaxHp(
       {
@@ -57,6 +57,6 @@ describe('computeCharacterMaxHp', () => {
       0,
       getItemTemplate,
     )
-    expect(hp).toBe(scaledBase + templateGearHp + modHp)
+    expect(hp).toBe(Math.round(scaledBase * gearMult) + modHp)
   })
 })
