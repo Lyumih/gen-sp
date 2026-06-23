@@ -27,7 +27,7 @@ export function canEquipPassive(
 
   const nextEquip: PassiveEquipLoadout = [...passiveEquip]
   nextEquip[slotIndex] = passiveId
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 5; i++) {
     if (i !== slotIndex && nextEquip[i] === passiveId) nextEquip[i] = null
   }
 

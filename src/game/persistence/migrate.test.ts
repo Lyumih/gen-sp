@@ -103,7 +103,7 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
       battleAttemptSnapshot: {
         worldPower: 0,
         cards: hero(initialCampaignState()).cards,
-        battleLoadout: ['c1', 'c2', null] as [string | null, string | null, string | null],
+        battleLoadout: ['c1', 'c2', null, null] as BattleLoadout,
         playerUnitLevel: 1,
         modKillTargetCardId: 'c1',
         scenarioSlotIndex: 2,
@@ -163,7 +163,7 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
     } as unknown as CampaignState
     const out = normalizeLoadedCampaign(legacy)
     const strikeId = hero(out).cards[0]!.id
-    expect(hero(out).battleLoadout).toEqual([strikeId, null, null])
+    expect(hero(out).battleLoadout).toEqual([strikeId, null, null, null])
   })
 })
 
@@ -414,15 +414,15 @@ describe('migrate v8 → v9 passives and loadout', () => {
     }
   }
 
-  it('v8→v9 adds passives and extends loadout to 3', () => {
+  it('v8→v9 adds passives and extends loadout to 4 via v10 chain', () => {
     const v8 = { version: 8 as const, campaign: v8CampaignWithoutPassives(initialCampaignState()) }
     const out = migrateFromUnknown(v8)
     expect(out).not.toBeNull()
-    expect(SAVE_VERSION).toBe(9)
+    expect(SAVE_VERSION).toBe(10)
     expect(hero(out!).passives).toEqual([])
-    expect(hero(out!).passiveEquip).toEqual([null, null, null, null])
-    expect(hero(out!).battleLoadout).toHaveLength(3)
-    expect(hero(out!).battleLoadout[2]).toBeNull()
+    expect(hero(out!).passiveEquip).toEqual([null, null, null, null, null])
+    expect(hero(out!).battleLoadout).toHaveLength(4)
+    expect(hero(out!).battleLoadout[3]).toBeNull()
     expect(out!.chest.unboundPassives).toEqual([])
   })
 
@@ -442,8 +442,8 @@ describe('migrate v8 → v9 passives and loadout', () => {
     } as unknown as CampaignState
     const out = migrateV8CampaignToV9(legacy)
     expect(hero(out).passives).toEqual([])
-    expect(hero(out).passiveEquip).toEqual([null, null, null, null])
-    expect(hero(out).battleLoadout).toEqual([strike.id, null, null])
+    expect(hero(out).passiveEquip).toEqual([null, null, null, null, null])
+    expect(hero(out).battleLoadout).toEqual([strike.id, null, null, null])
     expect(out.chest.unboundPassives).toEqual([])
   })
 
@@ -451,6 +451,37 @@ describe('migrate v8 → v9 passives and loadout', () => {
     const out = migrateFromUnknown({ version: 9, campaign: initialCampaignState() })
     expect(out).not.toBeNull()
     expect(hero(out!).passives).toEqual([])
+    expect(hero(out!).specializationId).toBeNull()
+    expect(hero(out!).battleLoadout).toHaveLength(4)
+    expect(hero(out!).passiveEquip).toHaveLength(5)
+  })
+
+  it('v9→v10 adds specializationId null and pads loadout', () => {
+    const c = initialCampaignState()
+    const { specializationId: _, ...legacy } = c.characters[0]!
+    const v9 = {
+      version: 9,
+      campaign: {
+        ...c,
+        characters: [
+          {
+            ...legacy,
+            battleLoadout: [null, null, null],
+            passiveEquip: [null, null, null, null],
+          },
+        ],
+      },
+    }
+    const out = migrateFromUnknown(v9)
+    expect(out!.characters[0]!.specializationId).toBeNull()
+    expect(out!.characters[0]!.battleLoadout).toHaveLength(4)
+    expect(out!.characters[0]!.passiveEquip).toHaveLength(5)
+  })
+
+  it('migrateFromUnknown accepts version 10 saves', () => {
+    const out = migrateFromUnknown({ version: 10, campaign: initialCampaignState() })
+    expect(out).not.toBeNull()
+    expect(hero(out!).specializationId).toBeNull()
   })
 })
 

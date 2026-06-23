@@ -26,8 +26,8 @@ function member(id: string, spawnIndex: number): PartyMemberBattleSnapshot {
     equipment: { ...EMPTY_EQUIPMENT },
     cards: [],
     passives: [],
-    passiveEquip: [null, null, null, null],
-    battleLoadout: [null, null, null],
+    passiveEquip: [null, null, null, null, null],
+    battleLoadout: [null, null, null, null],
     metaStatus: 'active',
     spawnIndex,
   }

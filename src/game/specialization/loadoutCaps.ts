@@ -1,16 +1,12 @@
 import type { Character } from "../types";
 import { getSpecializationTemplate } from "./specializationTemplates";
 
-type CharacterWithSpecialization = Character & {
-  specializationId?: string | null;
-};
-
 export const BASE_SKILL_LOADOUT_SLOTS = 3;
 export const BASE_PASSIVE_EQUIP_SLOTS = 4;
 export const BASE_MAX_PASSIVES = 4;
 
 function getSpecializationId(character: Character): string | null {
-  return (character as CharacterWithSpecialization).specializationId ?? null;
+  return character.specializationId;
 }
 
 function bonusFromEffect(

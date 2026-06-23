@@ -47,7 +47,7 @@ function withClassicTestCards(s: CampaignState): CampaignState {
   const heal = createCardInstance('heal', 'c3')
   return withHero(s, {
     cards: [strike, fireball, heal],
-    battleLoadout: ['c1', 'c2', null],
+    battleLoadout: ['c1', 'c2', null, null],
   })
 }
 
@@ -177,7 +177,7 @@ function campaignWithBattle(b: BattleState): CampaignState {
       party: [
         partyMemberFromHero(h, {
           cards: cloneCards(heroBattleCards(b)),
-          battleLoadout: ['c1', 'c2', null],
+          battleLoadout: ['c1', 'c2', null, null],
         }),
       ],
     }),
@@ -1462,7 +1462,7 @@ describe('expedition state machine', () => {
           {
             characterId: HERO_ID,
             equipment: { weapon: null, armor: null, accessory: null },
-            battleLoadout: ['c1', 'c2', null],
+            battleLoadout: ['c1', 'c2', null, null],
             metaStatus: 'downed',
           },
         ],
@@ -1489,7 +1489,7 @@ describe('expedition state machine', () => {
           {
             characterId: HERO_ID,
             equipment: { weapon: null, armor: null, accessory: null },
-            battleLoadout: ['c1', 'c2', null],
+            battleLoadout: ['c1', 'c2', null, null],
             metaStatus: 'downed',
           },
         ],
@@ -1645,7 +1645,7 @@ describe('expedition state machine', () => {
           {
             characterId: HERO_ID,
             equipment: { weapon: null, armor: null, accessory: null },
-            battleLoadout: ['c1', 'c2', null],
+            battleLoadout: ['c1', 'c2', null, null],
             metaStatus: 'active',
           },
         ],
@@ -2239,7 +2239,7 @@ describe('passive hub actions', () => {
     const aegis = createPassiveInstance('paladin_aegis', 'p-aegis')
     let s = withHero(initialCampaignState(), {
       passives: [fortitude, aegis],
-      passiveEquip: ['p-fort', null, null, null],
+      passiveEquip: ['p-fort', null, null, null, null],
     })
     const next = applyRunAction(s, {
       type: 'SET_PASSIVE_EQUIP',
@@ -2256,7 +2256,7 @@ describe('passive hub actions', () => {
     const vigor = createPassiveInstance('warrior_vigor', 'p-vigor')
     let s = withHero(initialCampaignState(), {
       passives: [fortitude, vigor],
-      passiveEquip: [null, null, null, null],
+      passiveEquip: [null, null, null, null, null],
     })
     s = applyRunAction(s, {
       type: 'SET_PASSIVE_EQUIP',

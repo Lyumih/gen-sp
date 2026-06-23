@@ -27,9 +27,9 @@ function member(
         modSlots: [],
       },
     ],
-    battleLoadout: ['c1', null, null],
+    battleLoadout: ['c1', null, null, null],
     passives: [],
-    passiveEquip: [null, null, null, null],
+    passiveEquip: [null, null, null, null, null],
     metaStatus: 'active',
     spawnIndex: 0,
     ...partial,
@@ -40,7 +40,7 @@ describe('playerCardsByUnitFromParty', () => {
   it('maps each active member loadout by characterId', () => {
     const allyId = 'char-ally-1'
     const byUnit = playerCardsByUnitFromParty([
-      member({ characterId: HERO_ID, battleLoadout: ['c1', null, null] }),
+      member({ characterId: HERO_ID, battleLoadout: ['c1', null, null, null] }),
       member({
         characterId: allyId,
         cards: [
@@ -52,10 +52,10 @@ describe('playerCardsByUnitFromParty', () => {
             modSlots: [],
           },
         ],
-        battleLoadout: ['a1', null, null],
+        battleLoadout: ['a1', null, null, null],
         spawnIndex: 1,
       }),
-      member({ characterId: 'char-down', metaStatus: 'downed', battleLoadout: ['c1', null, null] }),
+      member({ characterId: 'char-down', metaStatus: 'downed', battleLoadout: ['c1', null, null, null] }),
     ])
 
     expect(Object.keys(byUnit).sort()).toEqual([HERO_ID, allyId].sort())
@@ -84,7 +84,7 @@ describe('mergeBattleCardsToParty', () => {
         modSlots: [],
       },
     ]
-    hero.battleLoadout = ['c1', null, null]
+    hero.battleLoadout = ['c1', null, null, null]
     const ally: Character = {
       ...hero,
       id: 'char-ally-1',
@@ -98,7 +98,7 @@ describe('mergeBattleCardsToParty', () => {
           modSlots: [],
         },
       ],
-      battleLoadout: ['a1', null, null],
+      battleLoadout: ['a1', null, null, null],
     }
     const battleCards: BattlePlayerCard[] = [
       {

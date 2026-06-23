@@ -349,7 +349,7 @@ export function makePlayerUnits(
     .filter((member) => placements.has(member.characterId))
     .map((member) => {
       const spawn = placements.get(member.characterId)!
-      const passiveEquip = member.passiveEquip ?? [null, null, null, null]
+      const passiveEquip = member.passiveEquip ?? [null, null, null, null, null]
       const passiveHpBonus =
         aggregatePassiveSkillStatBonuses(
           member.passives ?? [],

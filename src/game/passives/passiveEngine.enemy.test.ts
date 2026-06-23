@@ -46,7 +46,7 @@ describe('enemy passives in firePassives', () => {
     const result = firePassives({
       trigger: 'on_damaged',
       passives: [thorns],
-      passiveEquip: [thorns.id, null, null, null],
+      passiveEquip: [thorns.id, null, null, null, null],
       actor: enemy,
       battle,
       rng: () => 0.5,

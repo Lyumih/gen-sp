@@ -393,8 +393,8 @@ export function CardsInventoryView({
   const { modal, message } = App.useApp()
   const locked = inBattle || inventoryLocked
   const hero = getCharacter(campaign, characterId)
-  const loadout = hero?.battleLoadout ?? [null, null, null]
-  const passiveEquip = hero?.passiveEquip ?? [null, null, null, null]
+  const loadout = hero?.battleLoadout ?? [null, null, null, null]
+  const passiveEquip = hero?.passiveEquip ?? [null, null, null, null, null]
   const loadoutIds = new Set(loadout.filter((id): id is string => id !== null))
   const equippedPassiveIds = new Set(passiveEquip.filter((id): id is string => id !== null))
   const collectionCards = hero?.cards.filter((c) => !loadoutIds.has(c.id)) ?? []

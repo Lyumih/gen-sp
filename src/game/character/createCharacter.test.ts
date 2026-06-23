@@ -16,7 +16,7 @@ describe('createCharacter', () => {
     expect(c.unitLevel).toBe(1)
     expect(c.cards).toEqual([])
     expect(c.equipment.weapon).toBeNull()
-    expect(c.battleLoadout).toEqual([null, null, null])
+    expect(c.battleLoadout).toEqual([null, null, null, null])
     expect(c.baseStats.health).toBe(20)
   })
 })

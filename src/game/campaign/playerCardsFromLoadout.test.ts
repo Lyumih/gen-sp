@@ -26,18 +26,18 @@ const c3: CardInstance = {
 
 describe('playerCardsFromLoadout', () => {
   it('builds battle cards from loadout ids only', () => {
-    const cards = playerCardsFromLoadout([c1, c2, c3], ['c1', 'c2', 'c3'])
+    const cards = playerCardsFromLoadout([c1, c2, c3], ['c1', 'c2', 'c3', null])
     expect(cards.map((c) => c.id)).toEqual(['c1', 'c2', 'c3'])
     expect(cards.every((c) => c.cooldownRemaining === 0)).toBe(true)
   })
 
   it('supports two filled slots with third empty', () => {
-    const cards = playerCardsFromLoadout([c1, c2, c3], ['c1', 'c2', null])
+    const cards = playerCardsFromLoadout([c1, c2, c3], ['c1', 'c2', null, null])
     expect(cards.map((c) => c.id)).toEqual(['c1', 'c2'])
   })
 
   it('ignores unknown ids', () => {
-    const cards = playerCardsFromLoadout([c1], ['c1', 'missing', null])
+    const cards = playerCardsFromLoadout([c1], ['c1', 'missing', null, null])
     expect(cards.map((c) => c.id)).toEqual(['c1'])
   })
 })

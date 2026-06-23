@@ -5,7 +5,7 @@ export function playerCardsFromLoadout(
   collection: readonly CardInstance[],
   loadout: BattleLoadout | undefined,
 ): BattlePlayerCard[] {
-  const slots = loadout ?? (['c1', 'c2', null] as BattleLoadout)
+  const slots = loadout ?? (['c1', 'c2', null, null] as BattleLoadout)
   const out: BattlePlayerCard[] = []
   for (const id of slots) {
     if (id === null) continue

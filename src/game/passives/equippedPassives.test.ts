@@ -9,7 +9,7 @@ describe('equippedPassives', () => {
   const vigor = createPassiveInstance('warrior_vigor', 'p-vigor')
 
   it('getEquippedPassives returns only slotted passives in order', () => {
-    const equip: PassiveEquipLoadout = ['p-fort', null, 'p-vigor', null]
+    const equip: PassiveEquipLoadout = ['p-fort', null, 'p-vigor', null, null]
     expect(getEquippedPassives([fortitude, vigor, aegis], equip).map((p) => p.id)).toEqual([
       'p-fort',
       'p-vigor',
@@ -17,12 +17,12 @@ describe('equippedPassives', () => {
   })
 
   it('canEquipPassive allows non-conflicting passives', () => {
-    const equip: PassiveEquipLoadout = ['p-fort', null, null, null]
+    const equip: PassiveEquipLoadout = ['p-fort', null, null, null, null]
     expect(canEquipPassive([fortitude, vigor], equip, 'p-vigor', 1)).toEqual({ ok: true })
   })
 
   it('rejects duplicate stat_flat on same statId', () => {
-    const equip: PassiveEquipLoadout = ['p-fort', null, null, null]
+    const equip: PassiveEquipLoadout = ['p-fort', null, null, null, null]
     expect(canEquipPassive([fortitude, aegis], equip, 'p-aegis', 1)).toEqual({
       ok: false,
       reason: 'stat_stack_conflict',
@@ -30,7 +30,7 @@ describe('equippedPassives', () => {
   })
 
   it('rejects unknown passive id', () => {
-    const equip: PassiveEquipLoadout = [null, null, null, null]
+    const equip: PassiveEquipLoadout = [null, null, null, null, null]
     expect(canEquipPassive([fortitude], equip, 'missing', 0)).toEqual({
       ok: false,
       reason: 'not_owned',

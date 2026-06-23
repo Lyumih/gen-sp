@@ -72,7 +72,13 @@ export type PassiveInstance = {
   modSlots: ModSlotState[]
 }
 
-export type PassiveEquipLoadout = [string | null, string | null, string | null, string | null]
+export type PassiveEquipLoadout = [
+  string | null,
+  string | null,
+  string | null,
+  string | null,
+  string | null,
+]
 
 /** Поля карточки, участвующие в прогрессе за использование. */
 export type CardProgressSlice = Pick<CardInstance, 'global_level' | 'uses_count'>
@@ -80,7 +86,7 @@ export type CardProgressSlice = Pick<CardInstance, 'global_level' | 'uses_count'
 /** Карта в бою: прогресс + перезарядка (не сохраняется в кампании). */
 export type BattlePlayerCard = CardInstance & { cooldownRemaining: number }
 
-export type BattleLoadout = [string | null, string | null, string | null]
+export type BattleLoadout = [string | null, string | null, string | null, string | null]
 
 export type ShopOffer =
   | { kind: 'item'; templateId: string }
@@ -97,6 +103,7 @@ export type HubNotice =
   | { kind: 'skill_drop'; templateId: string }
   | { kind: 'passive_drop'; templateId: string }
   | { kind: 'dual_drop'; skillTemplateId: string; passiveTemplateId: string }
+  | { kind: 'specialization_reveal'; specializationId: string }
 
 export type CharacterMetaStatus = 'active' | 'downed'
 
@@ -107,6 +114,7 @@ export type Character = {
   unitLevel: number
   baseStats: BaseStats
   baseStatRating: number
+  specializationId: string | null
   equipment: Record<EquipmentSlot, string | null>
   items: ItemInstance[]
   cards: CardInstance[]

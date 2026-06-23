@@ -6,12 +6,8 @@ import {
   type SpecializationEffectKind,
 } from "./specializationTemplates";
 
-type CharacterWithSpecialization = Character & {
-  specializationId?: string | null;
-};
-
 function getSpecializationId(character: Character): string | null {
-  return (character as CharacterWithSpecialization).specializationId ?? null;
+  return character.specializationId;
 }
 
 function activePartyCharacterIds(campaign: CampaignState): string[] {

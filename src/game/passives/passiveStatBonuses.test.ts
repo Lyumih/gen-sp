@@ -16,9 +16,9 @@ const baseStats = {
 }
 
 function equip(ids: readonly string[]): PassiveEquipLoadout {
-  const loadout: PassiveEquipLoadout = [null, null, null, null]
+  const loadout: PassiveEquipLoadout = [null, null, null, null, null]
   ids.forEach((id, i) => {
-    if (i < 4) loadout[i] = id
+    if (i < 5) loadout[i] = id
   })
   return loadout
 }
@@ -38,7 +38,7 @@ describe('aggregatePassiveSkillStatBonuses', () => {
     const fortitude = createPassiveInstance('warrior_fortitude')
     const bonuses = aggregatePassiveSkillStatBonuses(
       [fortitude],
-      [null, null, null, null],
+      [null, null, null, null, null],
       baseStats,
     )
     expect(bonuses.defense).toBeUndefined()

@@ -1278,8 +1278,8 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         equipment,
         cards: [skillCard],
         passives: [passive],
-        passiveEquip: [passive.id, null, null, null],
-        battleLoadout: [skillCard.id, null, null],
+        passiveEquip: [passive.id, null, null, null, null],
+        battleLoadout: [skillCard.id, null, null, null],
       }
 
       return withCodexDiscoveries(
@@ -1581,7 +1581,7 @@ export function initialCampaignState(): CampaignState {
   })
   const strike = createStrikeCardForHero(hero.id)
   hero.cards = [strike]
-  hero.battleLoadout = [strike.id, null, null]
+  hero.battleLoadout = [strike.id, null, null, null]
   const squad: (string | null)[] = [LEGACY_HERO_CHARACTER_ID]
   while (squad.length < DEFAULT_SQUAD_SLOTS) squad.push(null)
 

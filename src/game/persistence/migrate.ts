@@ -169,26 +169,25 @@ function normalizeEquipmentRecord(
 
 function normalizeBattleLoadout(
   raw: unknown,
-  fallback: BattleLoadout = ['c1', 'c2', null],
+  fallback: BattleLoadout = ['c1', 'c2', null, null],
 ): BattleLoadout {
   if (Array.isArray(raw)) {
-    if (
-      raw.length === 3 &&
-      (raw[0] === null || typeof raw[0] === 'string') &&
-      (raw[1] === null || typeof raw[1] === 'string') &&
-      (raw[2] === null || typeof raw[2] === 'string')
-    ) {
-      return [raw[0], raw[1], raw[2]]
-    }
-    if (
-      raw.length === 2 &&
-      (raw[0] === null || typeof raw[0] === 'string') &&
-      (raw[1] === null || typeof raw[1] === 'string')
-    ) {
-      return [raw[0], raw[1], null]
+    const slots = raw.slice(0, 4).map((v) => (v === null || typeof v === 'string' ? v : null))
+    while (slots.length < 4) slots.push(null)
+    if (slots.every((v) => v === null || typeof v === 'string')) {
+      return [slots[0]!, slots[1]!, slots[2]!, slots[3]!]
     }
   }
   return fallback
+}
+
+function normalizePassiveEquip(raw: unknown): Character['passiveEquip'] {
+  if (Array.isArray(raw)) {
+    const slots = raw.slice(0, 5).map((v) => (typeof v === 'string' ? v : null))
+    while (slots.length < 5) slots.push(null)
+    return [slots[0]!, slots[1]!, slots[2]!, slots[3]!, slots[4]!]
+  }
+  return [null, null, null, null, null]
 }
 
 function normalizeCharacter(char: Character): Character {
@@ -201,9 +200,11 @@ function normalizeCharacter(char: Character): Character {
     cards[0]?.id ?? null,
     cards[1]?.id ?? null,
     cards[2]?.id ?? null,
+    cards[3]?.id ?? null,
   ])
   const unitLevel =
     typeof char.unitLevel === 'number' && Number.isFinite(char.unitLevel) ? char.unitLevel : 1
+  const rawChar = char as Character & { specializationId?: string | null }
   return {
     ...char,
     unitLevel,
@@ -211,15 +212,12 @@ function normalizeCharacter(char: Character): Character {
     equipment,
     cards,
     battleLoadout,
+    specializationId:
+      typeof rawChar.specializationId === 'string' || rawChar.specializationId === null
+        ? rawChar.specializationId
+        : null,
     passives: Array.isArray(char.passives) ? char.passives : [],
-    passiveEquip: Array.isArray(char.passiveEquip) && char.passiveEquip.length === 4
-      ? [
-          typeof char.passiveEquip[0] === 'string' ? char.passiveEquip[0] : null,
-          typeof char.passiveEquip[1] === 'string' ? char.passiveEquip[1] : null,
-          typeof char.passiveEquip[2] === 'string' ? char.passiveEquip[2] : null,
-          typeof char.passiveEquip[3] === 'string' ? char.passiveEquip[3] : null,
-        ]
-      : [null, null, null, null],
+    passiveEquip: normalizePassiveEquip(char.passiveEquip),
     iconEmoji:
       typeof char.iconEmoji === 'string' && isValidIconEmoji(char.iconEmoji)
         ? char.iconEmoji
@@ -254,6 +252,7 @@ function normalizePartyMember(
     cards[0]?.id ?? null,
     cards[1]?.id ?? null,
     cards[2]?.id ?? null,
+    cards[3]?.id ?? null,
   ])
   const unitLevel =
     typeof member.unitLevel === 'number' && Number.isFinite(member.unitLevel) ? member.unitLevel : 1
@@ -272,14 +271,7 @@ function normalizePartyMember(
     equipment,
     cards,
     passives: Array.isArray(member.passives) ? member.passives.map((p) => ({ ...p })) : [],
-    passiveEquip: Array.isArray(member.passiveEquip)
-      ? ([
-          member.passiveEquip[0] ?? null,
-          member.passiveEquip[1] ?? null,
-          member.passiveEquip[2] ?? null,
-          member.passiveEquip[3] ?? null,
-        ] as PartyMemberBattleSnapshot['passiveEquip'])
-      : [null, null, null, null],
+    passiveEquip: normalizePassiveEquip(member.passiveEquip),
     battleLoadout,
     metaStatus: member.metaStatus === 'downed' ? 'downed' : 'active',
     spawnIndex: typeof member.spawnIndex === 'number' ? member.spawnIndex : 0,
@@ -312,6 +304,7 @@ function normalizeBattleAttemptSnapshot(
     cards[0]?.id ?? null,
     cards[1]?.id ?? null,
     cards[2]?.id ?? null,
+    cards[3]?.id ?? null,
   ])
   const unitLevel =
     typeof raw.playerUnitLevel === 'number' && Number.isFinite(raw.playerUnitLevel)
@@ -412,7 +405,7 @@ function withDefaultScenarioSlotIndex(c: CampaignState): CampaignState {
 }
 
 function rebuildBattleLoadoutFromCards(cards: readonly CardInstance[]): BattleLoadout {
-  return [cards[0]?.id ?? null, cards[1]?.id ?? null, cards[2]?.id ?? null]
+  return [cards[0]?.id ?? null, cards[1]?.id ?? null, cards[2]?.id ?? null, cards[3]?.id ?? null]
 }
 
 export function migrateV6CampaignToV7(c: CampaignState): CampaignState {
@@ -461,6 +454,7 @@ function withDefaultBattleLoadout(c: CampaignState): CampaignState {
       char.cards[0]?.id ?? null,
       char.cards[1]?.id ?? null,
       char.cards[2]?.id ?? null,
+      char.cards[3]?.id ?? null,
     ]),
   }))
   const changed = characters.some((char, i) => char !== c.characters[i])
@@ -569,12 +563,13 @@ function withSnapshotBattleLoadout(c: CampaignState): CampaignState {
   if (!snap) return c
   let changed = false
   const party = snap.party.map((member) => {
-    const normalized = normalizeBattleLoadout(member.battleLoadout, ['c1', 'c2', null])
+    const normalized = normalizeBattleLoadout(member.battleLoadout, ['c1', 'c2', null, null])
     const current = member.battleLoadout
     if (
       normalized[0] === current[0] &&
       normalized[1] === current[1] &&
-      normalized[2] === current[2]
+      normalized[2] === current[2] &&
+      normalized[3] === current[3]
     ) {
       return member
     }
@@ -738,6 +733,7 @@ export function migrateV2CampaignToV3(c: LegacyCampaignStateV2): CampaignState {
     hero.cards[0]?.id ?? null,
     hero.cards[1]?.id ?? null,
     hero.cards[2]?.id ?? null,
+    hero.cards[3]?.id ?? null,
   ])
 
   const {
@@ -884,26 +880,18 @@ export function migrateV7CampaignToV8(c: CampaignState): CampaignState {
   return normalizeBattleGearMults(normalizeLoadedCampaign(c))
 }
 
-const DEFAULT_PASSIVE_EQUIP: Character['passiveEquip'] = [null, null, null, null]
 
 function migrateCharacterToV9(char: Character): Character {
   const cards = Array.isArray(char.cards) ? char.cards : []
   return {
     ...char,
     passives: Array.isArray(char.passives) ? char.passives : [],
-    passiveEquip:
-      Array.isArray(char.passiveEquip) && char.passiveEquip.length === 4
-        ? [
-            typeof char.passiveEquip[0] === 'string' ? char.passiveEquip[0] : null,
-            typeof char.passiveEquip[1] === 'string' ? char.passiveEquip[1] : null,
-            typeof char.passiveEquip[2] === 'string' ? char.passiveEquip[2] : null,
-            typeof char.passiveEquip[3] === 'string' ? char.passiveEquip[3] : null,
-          ]
-        : DEFAULT_PASSIVE_EQUIP,
+    passiveEquip: normalizePassiveEquip(char.passiveEquip),
     battleLoadout: normalizeBattleLoadout(char.battleLoadout, [
       cards[0]?.id ?? null,
       cards[1]?.id ?? null,
       cards[2]?.id ?? null,
+      null,
     ]),
   }
 }
@@ -922,6 +910,43 @@ export function migrateV8CampaignToV9(c: CampaignState): CampaignState {
     ...c,
     characters: c.characters.map(migrateCharacterToV9),
     chest: migrateChestToV9(c),
+  })
+}
+
+function migrateCharacterToV10(char: Character): Character {
+  const raw = char as Character & { specializationId?: string | null }
+  return {
+    ...char,
+    specializationId:
+      typeof raw.specializationId === 'string' || raw.specializationId === null
+        ? raw.specializationId
+        : null,
+    battleLoadout: normalizeBattleLoadout(char.battleLoadout),
+    passiveEquip: normalizePassiveEquip(char.passiveEquip),
+  }
+}
+
+function migratePartyMemberToV10(
+  member: PartyMemberBattleSnapshot,
+): PartyMemberBattleSnapshot {
+  return {
+    ...member,
+    battleLoadout: normalizeBattleLoadout(member.battleLoadout),
+    passiveEquip: normalizePassiveEquip(member.passiveEquip),
+  }
+}
+
+export function migrateV9CampaignToV10(c: CampaignState): CampaignState {
+  const battleAttemptSnapshot = c.battleAttemptSnapshot
+    ? {
+        ...c.battleAttemptSnapshot,
+        party: c.battleAttemptSnapshot.party.map(migratePartyMemberToV10),
+      }
+    : null
+  return normalizeLoadedCampaign({
+    ...c,
+    characters: c.characters.map(migrateCharacterToV10),
+    battleAttemptSnapshot,
   })
 }
 
@@ -971,10 +996,11 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
     version !== 6 &&
     version !== 7 &&
     version !== 8 &&
-    version !== 9
+    version !== 9 &&
+    version !== 10
   ) {
     console.warn(
-      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, 4, 5, 6, 7, 8, or 9`,
+      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, 4, 5, 6, 7, 8, 9, or 10`,
     )
     return null
   }
@@ -999,6 +1025,9 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
   }
   if (version <= 8) {
     campaign = migrateV8CampaignToV9(campaign)
+  }
+  if (version <= 9) {
+    campaign = migrateV9CampaignToV10(campaign)
   }
   return campaign
 }

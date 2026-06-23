@@ -45,6 +45,6 @@ describe('passiveCombatStats', () => {
     const attacker = state.units[0] as Unit
     const damage = applyPassiveAttackBonus(state, attacker, HERO_BASIC_MELEE_DAMAGE)
     expect(damage).toBeGreaterThan(HERO_BASIC_MELEE_DAMAGE)
-    expect(passiveEquipFromBattlePassives([rage])).toEqual([rage.id, null, null, null])
+    expect(passiveEquipFromBattlePassives([rage])).toEqual([rage.id, null, null, null, null])
   })
 })

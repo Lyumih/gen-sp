@@ -39,9 +39,9 @@ function battle(overrides: Partial<BattleState> = {}): BattleState {
 }
 
 function equip(ids: readonly string[]): PassiveEquipLoadout {
-  const loadout: PassiveEquipLoadout = [null, null, null, null]
+  const loadout: PassiveEquipLoadout = [null, null, null, null, null]
   ids.forEach((id, i) => {
-    if (i < 4) loadout[i] = id
+    if (i < 5) loadout[i] = id
   })
   return loadout
 }

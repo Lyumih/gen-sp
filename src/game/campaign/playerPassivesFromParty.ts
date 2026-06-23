@@ -18,7 +18,7 @@ export function passivesByUnitFromParty(
   const out: Record<string, PassiveInstance[]> = {}
   for (const member of party) {
     if (member.metaStatus !== 'active') continue
-    const passiveEquip = member.passiveEquip ?? [null, null, null, null]
+    const passiveEquip = member.passiveEquip ?? [null, null, null, null, null]
     const equipped = equippedPassivesForBattle(member.passives ?? [], passiveEquip)
     if (equipped.length > 0) {
       out[member.characterId] = equipped
@@ -30,9 +30,9 @@ export function passivesByUnitFromParty(
 export function passiveEquipFromBattlePassives(
   passives: readonly PassiveInstance[],
 ): PartyMemberBattleSnapshot['passiveEquip'] {
-  const equip: PartyMemberBattleSnapshot['passiveEquip'] = [null, null, null, null]
+  const equip: PartyMemberBattleSnapshot['passiveEquip'] = [null, null, null, null, null]
   passives.forEach((p, i) => {
-    if (i < 4) equip[i] = p.id
+    if (i < 5) equip[i] = p.id
   })
   return equip
 }
