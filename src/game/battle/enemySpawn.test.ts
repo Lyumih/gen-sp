@@ -93,7 +93,7 @@ describe('pickEnemyArchetypesFromPool', () => {
     const picks: string[] = []
     const rng = () => 0.99
     for (let i = 0; i < 5; i++) {
-      picks.push(...pickEnemyArchetypesFromPool(['melee'], 1, rng))
+      picks.push(...pickEnemyArchetypesFromPool(['arena', 'melee', 'rush'], 1, rng))
     }
     expect(picks.every((id) => id === 'enemy_orc_ravager')).toBe(true)
   })

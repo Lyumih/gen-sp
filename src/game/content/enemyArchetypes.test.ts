@@ -26,11 +26,11 @@ describe('getEnemyArchetype', () => {
     expect(getEnemyArchetype('unknown_enemy')).toBeUndefined()
   })
 
-  it('lists all registered archetype ids', () => {
+  it('lists 27 content archetype ids (legacy excluded from pool)', () => {
     expect(ENEMY_ARCHETYPE_IDS).toContain('enemy_orc_ravager')
     expect(ENEMY_ARCHETYPE_IDS).toContain('boss_blink_hunter')
-    expect(ENEMY_ARCHETYPE_IDS).toContain('grunt')
-    expect(ENEMY_ARCHETYPE_IDS).toContain('boss')
-    expect(ENEMY_ARCHETYPE_IDS).toHaveLength(4)
+    expect(ENEMY_ARCHETYPE_IDS).not.toContain('grunt')
+    expect(ENEMY_ARCHETYPE_IDS).not.toContain('boss')
+    expect(ENEMY_ARCHETYPE_IDS).toHaveLength(27)
   })
 })
