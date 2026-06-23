@@ -4,6 +4,7 @@ import { App, Card, Divider, Space } from 'antd'
 import { SCENARIOS } from '../../game/campaign/scenarios'
 import { unreadCodexEntryIds } from '../../game/codex/discovery'
 import { getCardDisplayLabel } from '../../game/descriptions/cardText'
+import { getPassiveTemplate } from '../../game/content/passiveTemplates'
 import { findFirstEmptySquadSlotIndex, findSquadSlotIndex } from '../../game/character/selectors'
 import type { EquipmentSlot } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
@@ -32,10 +33,14 @@ export function CampaignHub() {
 
   useEffect(() => {
     const notice = campaign.pendingHubNotice
-    if (notice?.kind === 'skill_drop') {
+    if (!notice) return
+    if (notice.kind === 'skill_drop') {
       message.success(`В сундук попало умение: ${getCardDisplayLabel(notice.templateId)}`)
-      dispatchRun({ type: 'MARK_HUB_NOTICE_SEEN' })
+    } else if (notice.kind === 'passive_drop') {
+      const label = getPassiveTemplate(notice.templateId)?.label ?? notice.templateId
+      message.success(`В сундук попал навык: ${label}`)
     }
+    dispatchRun({ type: 'MARK_HUB_NOTICE_SEEN' })
   }, [campaign.pendingHubNotice, dispatchRun, message])
 
   const handleTabChange = (tab: CampaignHubTab) => {

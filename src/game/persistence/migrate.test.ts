@@ -408,9 +408,9 @@ describe('migrate v8 → v9 passives and loadout', () => {
           ...charWithoutPassives,
           cards: [strike, fireball],
           battleLoadout: [strike.id, fireball.id] as unknown as BattleLoadout,
-        },
+        } as (typeof c.characters)[number],
       ],
-      chest: { items: [], unboundCards: [] },
+      chest: { items: [], unboundCards: [], unboundPassives: [] },
     }
   }
 
