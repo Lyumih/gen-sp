@@ -1909,7 +1909,7 @@ describe('mod hub actions', () => {
   }
 
   function hubWithFireballModOffer(offer = fireballOffer(4242)) {
-    let s = initialCampaignState()
+    const s = initialCampaignState()
     const fireball = {
       ...createCardInstance('fireball', 'c2'),
       global_level: MOD_SLOT_MILESTONES.firstThreshold,
@@ -2405,7 +2405,7 @@ describe('chest and shop offers', () => {
     reserve.passives = [passive]
     reserve.passiveEquip = [passive.id, null, null, null, null]
 
-    let s: CampaignState = {
+    const s: CampaignState = {
       ...initialCampaignState(),
       characters: [getPrimaryCharacter(initialCampaignState()), reserve],
       squad: [HERO_ID, 'char-reserve-1', null, null],
@@ -2597,7 +2597,7 @@ describe('passive hub actions', () => {
   it('SET_PASSIVE_EQUIP rejects duplicate stat_flat defense stacking', () => {
     const fortitude = createPassiveInstance('warrior_fortitude', 'p-fort')
     const aegis = createPassiveInstance('paladin_aegis', 'p-aegis')
-    let s = withHero(initialCampaignState(), {
+    const s = withHero(initialCampaignState(), {
       passives: [fortitude, aegis],
       passiveEquip: ['p-fort', null, null, null, null],
     })

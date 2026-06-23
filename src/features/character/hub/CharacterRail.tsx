@@ -37,15 +37,14 @@ function RailCell({
   onSelectCharacter: (characterId: string) => void
 }) {
   const character = campaign.characters.find((c) => c.id === characterId)
+  const { setNodeRef, isOver } = useDroppable({
+    id: rosterCharacterDropId(characterId),
+    disabled: transferDisabled || !character,
+  })
   if (!character) return null
   const cls = getCharacterClass(character.classId)
   const display = getCharacterDisplay(character)
   const selected = characterId === selectedCharacterId
-
-  const { setNodeRef, isOver } = useDroppable({
-    id: rosterCharacterDropId(characterId),
-    disabled: transferDisabled,
-  })
 
   return (
     <Tooltip

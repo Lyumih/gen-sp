@@ -55,11 +55,8 @@ export function ShopHubLayout({
   )
   const [activeTab, setActiveTab] = useState<ShopTabKey>('offers')
 
-  useEffect(() => {
-    if (!getCharacter(campaign, selectedCharacterId)) {
-      setSelectedCharacterId(getActiveCharacter(campaign).id)
-    }
-  }, [campaign, selectedCharacterId])
+  const activeCharacterId =
+    getCharacter(campaign, selectedCharacterId)?.id ?? getActiveCharacter(campaign).id
 
   useEffect(() => {
     if (campaign.shopOffers === null && !inBattle && !expeditionActive) {
@@ -67,7 +64,7 @@ export function ShopHubLayout({
     }
   }, [campaign.shopOffers, inBattle, expeditionActive, onRefreshShop])
 
-  const hero = getCharacter(campaign, selectedCharacterId) ?? getActiveCharacter(campaign)
+  const hero = getCharacter(campaign, activeCharacterId) ?? getActiveCharacter(campaign)
   const stash = stashItemsFromCampaign(hero.items, hero.equipment)
   const chestCount =
     campaign.chest.items.length +
@@ -104,15 +101,15 @@ export function ShopHubLayout({
     <div className="game-character-hub">
       <CharacterRail
         campaign={campaign}
-        selectedCharacterId={selectedCharacterId}
+        selectedCharacterId={activeCharacterId}
         transferDisabled
         onSelectCharacter={setSelectedCharacterId}
       />
       <ShopBuildPanel
         campaign={campaign}
-        characterId={selectedCharacterId}
+        characterId={activeCharacterId}
         inBattle={inBattle}
-        onUnequip={(slot) => onUnequip(selectedCharacterId, slot)}
+        onUnequip={(slot) => onUnequip(activeCharacterId, slot)}
       />
       <Tabs
         size="small"
@@ -127,7 +124,7 @@ export function ShopHubLayout({
               <ShopSellPanel
                 stash={stash}
                 inBattle={inBattle}
-                onSellItem={(itemId) => onSellItem(selectedCharacterId, itemId)}
+                onSellItem={(itemId) => onSellItem(activeCharacterId, itemId)}
               />
             ),
           },
@@ -139,20 +136,20 @@ export function ShopHubLayout({
                 campaign={campaign}
                 inBattle={inBattle}
                 inventoryLocked={expeditionActive}
-                bindCharacterId={selectedCharacterId}
+                bindCharacterId={activeCharacterId}
                 bindCharacterName={hero.name}
                 showIntro={false}
                 dndEnabled={false}
                 onSellChestItem={onSellChestItem}
                 onSellChestCard={onSellChestCard}
                 onSellChestPassive={onSellChestPassive}
-                onBindCard={(cardId) => onBindChestCard(cardId, selectedCharacterId)}
+                onBindCard={(cardId) => onBindChestCard(cardId, activeCharacterId)}
                 onBindPassive={(passiveId) =>
-                  onBindChestPassive(passiveId, selectedCharacterId)
+                  onBindChestPassive(passiveId, activeCharacterId)
                 }
                 onAssignItemToCharacter={
                   onMoveChestItemToCharacter
-                    ? (itemId) => onMoveChestItemToCharacter(itemId, selectedCharacterId)
+                    ? (itemId) => onMoveChestItemToCharacter(itemId, activeCharacterId)
                     : undefined
                 }
               />

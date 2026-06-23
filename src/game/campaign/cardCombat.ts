@@ -191,7 +191,7 @@ export function finalizeCardUse(
       ],
     }
   }
-  let nextState = applyWeaponProgressOnAttackSkill(state, actorId, tmpl, roll)
+  const nextState = applyWeaponProgressOnAttackSkill(state, actorId, tmpl, roll)
   return { ...nextState, battle }
 }
 
@@ -251,7 +251,7 @@ export function dispatchCardAttackUse(input: CardAttackUseInput): CampaignState 
           modCtx: battleModContext(modCtx),
         }
 
-  let bWithCards: BattleState = {
+  const bWithCards: BattleState = {
     ...battle,
     playerCardsByUnitId: {
       ...battle.playerCardsByUnitId,
@@ -325,7 +325,7 @@ export function dispatchCardAoEUse(input: CardAoEUseInput): CampaignState | null
 
   const damage = tmpl.kind === 'utility' && card.templateId === 'smoke_bomb' ? 0 : resolved.amount
 
-  let bWithCards: BattleState = {
+  const bWithCards: BattleState = {
     ...battle,
     playerCardsByUnitId: {
       ...battle.playerCardsByUnitId,
@@ -405,7 +405,7 @@ export function dispatchCardHealUse(input: CardHealUseInput): CampaignState | nu
   const nextCard: BattlePlayerCard = { ...used, cooldownRemaining: cd }
   const fromCard = { cardId: card.id, templateId: card.templateId }
 
-  let bWithCards: BattleState = {
+  const bWithCards: BattleState = {
     ...battle,
     playerCardsByUnitId: {
       ...battle.playerCardsByUnitId,

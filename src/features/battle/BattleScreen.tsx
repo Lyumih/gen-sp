@@ -21,7 +21,6 @@ import {
 } from '../../game/battle/combat'
 import { getHeroRangedCooldown } from '../../game/battle/heroRangedCooldown'
 import { describeCardCombatStats, getCardDisplayLabel } from '../../game/descriptions/cardText'
-import { describeCardModSummary } from '../../game/descriptions/modText'
 import { UI_CELL, UI_DAMAGE, UI_HEART, UI_LEVEL, UI_WORLD_POWER } from '../../game/ui/labels'
 import { WORLD_POWER_TOOLTIP } from '../campaign/resourceTooltips'
 import { GamePanel } from '../layout/GamePanel'
@@ -31,10 +30,11 @@ import { computeEffectiveStats, computeGearStatBonuses } from '../../game/stats/
 import { aggregatePassiveSkillStatBonuses } from '../../game/passives/passiveStatBonuses'
 import { computePassiveRangedRangeBonus } from '../../game/passives/passiveEngine'
 import { getItemTemplate } from '../../game/content/itemTemplates'
+import { BattleCardPopover } from './BattleCardPopover'
 import { BattleUnitTooltip } from './BattleUnitTooltip'
 import { UnitToken } from './UnitToken'
 import { HeroProfileModal } from '../profile/HeroProfileModal'
-import type { BattlePlayerCard, CampaignState, Character, Unit } from '../../game/types'
+import type { CampaignState, Unit } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
 import { getUnitDisplay } from '../../game/character/display'
 import { turnBadgeLabel } from '../../game/battle/turnBadge'
@@ -68,27 +68,6 @@ type ActionMode = 'move' | 'melee' | 'ranged' | 'card'
 
 const CELL_PX = 58
 const HERO_AI_DELAY_MS = 2000
-
-function cardDetailLines(
-  card: BattlePlayerCard,
-  character: Character,
-  campaign: CampaignState,
-  actor?: Unit,
-): string[] {
-  const desc = describeCardCombatStats(card, character, campaign, actor)
-  const modSummary = describeCardModSummary(card.modSlots)
-  if (!modSummary) return desc.lines
-  return [...desc.lines, `Моды: ${modSummary}`]
-}
-
-function cardTooltipTitle(
-  card: BattlePlayerCard,
-  character: Character,
-  campaign: CampaignState,
-  actor?: Unit,
-): string {
-  return cardDetailLines(card, character, campaign, actor).join('\n')
-}
 
 function BattleUnitCell({
   unit,
@@ -196,12 +175,13 @@ export function BattleScreen() {
   const [profileOpen, setProfileOpen] = useState(false)
   const [hoverCell, setHoverCell] = useState<{ x: number; y: number } | null>(null)
   const [hoveredEnemyId, setHoveredEnemyId] = useState<string | null>(null)
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
+  const [selectedCardPickId, setSelectedCardPickId] = useState<string | null>(null)
   const [pendingAoeCell, setPendingAoeCell] = useState<{ x: number; y: number } | null>(null)
   const [explosionCells, setExplosionCells] = useState<Set<string>>(new Set())
-  const [selectedPlayerUnitId, setSelectedPlayerUnitId] = useState<string | null>(null)
+  const [playerUnitPickId, setPlayerUnitPickId] = useState<string | null>(null)
   const [highlightedUnitId, setHighlightedUnitId] = useState<string | null>(null)
   const logEndRef = useRef<HTMLDivElement>(null)
+  const [trackedTurnId, setTrackedTurnId] = useState<string | undefined>(undefined)
 
   const currentId = battle ? getCurrentActorId(battle) : undefined
   const currentTurnIndex =
@@ -231,13 +211,33 @@ export function BattleScreen() {
   const effectiveRangedRange = HERO_BASIC_RANGED_MAX_RANGE + passiveRangedRangeBonus
   const heroRangedCooldown = battle && actor ? getHeroRangedCooldown(battle, actor.id) : 0
   const heroRangedOnCd = heroRangedCooldown > 0
-  const actorCards = battle && currentId ? getActorPlayerCards(battle, currentId) : []
+  const actorCards = useMemo(
+    () => (battle && currentId ? getActorPlayerCards(battle, currentId) : []),
+    [battle, currentId],
+  )
 
-  useEffect(() => {
-    if (currentId && current?.side === 'player') {
-      setSelectedPlayerUnitId(currentId)
+  if (currentId !== trackedTurnId) {
+    setTrackedTurnId(currentId)
+    if (playerUnitPickId !== null) setPlayerUnitPickId(null)
+  }
+
+  const selectedPlayerUnitId =
+    current?.side === 'player' ? (playerUnitPickId ?? currentId ?? null) : playerUnitPickId
+
+  const selectedCardId = useMemo(() => {
+    if (!battle || actorCards.length === 0) return null
+    if (selectedCardPickId && actorCards.some((c) => c.id === selectedCardPickId)) {
+      return selectedCardPickId
     }
-  }, [currentId, current?.side])
+    return actorCards[0]!.id
+  }, [battle, actorCards, selectedCardPickId])
+
+  const aoeResetKey = `${mode}:${selectedCardId ?? ''}:${currentId ?? ''}`
+  const [storedAoeResetKey, setStoredAoeResetKey] = useState(aoeResetKey)
+  if (aoeResetKey !== storedAoeResetKey) {
+    setStoredAoeResetKey(aoeResetKey)
+    if (pendingAoeCell !== null) setPendingAoeCell(null)
+  }
 
   useEffect(() => {
     if (!battle || battle.phase !== 'ongoing' || !currentId) return
@@ -324,21 +324,6 @@ export function BattleScreen() {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [battle?.battleLog.length])
 
-  useEffect(() => {
-    if (!battle || actorCards.length === 0) {
-      setSelectedCardId(null)
-      return
-    }
-    setSelectedCardId((prev) => {
-      if (prev !== null && actorCards.some((c) => c.id === prev)) return prev
-      return actorCards[0]!.id
-    })
-  }, [battle, actorCards])
-
-  useEffect(() => {
-    setPendingAoeCell(null)
-  }, [mode, selectedCardId, currentId])
-
   const overlayActive = Boolean(
     battle &&
       battle.phase === 'ongoing' &&
@@ -347,12 +332,11 @@ export function BattleScreen() {
       currentId === actor.id,
   )
 
-  const selectedCard = actorCards.find((c) => c.id === selectedCardId)
-  const selectedCardTemplate = selectedCard
-    ? getCardAttackTemplate(selectedCard.templateId)
-    : undefined
-
   const overlaySets = useMemo(() => {
+    const selectedCard = actorCards.find((c) => c.id === selectedCardId)
+    const selectedCardTemplate = selectedCard
+      ? getCardAttackTemplate(selectedCard.templateId)
+      : undefined
     if (!battle || !actor || !overlayActive) {
       return {
         threatBase: new Set<string>(),
@@ -472,11 +456,12 @@ export function BattleScreen() {
   }, [
     battle,
     actor,
+    actorCards,
     overlayActive,
     mode,
     hoveredEnemyId,
     hoverCell,
-    selectedCardTemplate,
+    selectedCardId,
     pendingAoeCell,
     heroRangedOnCd,
     effectiveRangedRange,
@@ -570,7 +555,7 @@ export function BattleScreen() {
     if (autoBattleEnabled) return
     const target = unitAt(x, y)
     if (target?.side === 'player' && current?.side === 'player') {
-      setSelectedPlayerUnitId(target.id)
+      setPlayerUnitPickId(target.id)
       if (target.id !== currentId) {
         message.info('Сейчас ход другого бойца')
         return
@@ -1052,7 +1037,7 @@ export function BattleScreen() {
                   value={mode === 'card' ? selectedCardId : undefined}
                   onChange={(e) => {
                     setMode('card')
-                    setSelectedCardId(e.target.value)
+                    setSelectedCardPickId(e.target.value)
                   }}
                   disabled={actionsDisabled || actorCards.length === 0}
                 >
@@ -1073,10 +1058,12 @@ export function BattleScreen() {
                         : ''
                     const cdHint = onCd ? ` · CD ${c.cooldownRemaining}` : ''
                     return (
-                      <Tooltip
+                      <BattleCardPopover
                         key={c.id}
-                        title={cardTooltipTitle(c, actorCharacter, campaign, actor)}
-                        mouseEnterDelay={0.3}
+                        card={c}
+                        character={actorCharacter}
+                        campaign={campaign}
+                        actor={actor}
                       >
                         <Radio.Button
                           value={c.id}
@@ -1088,7 +1075,7 @@ export function BattleScreen() {
                             {`${getCardDisplayLabel(c.templateId)}${effect !== null ? ` — ${String(effect)}${effectUi}` : ''}${aoeHint}${cdHint}`}
                           </span>
                         </Radio.Button>
-                      </Tooltip>
+                      </BattleCardPopover>
                     )
                   })}
                 </Radio.Group>

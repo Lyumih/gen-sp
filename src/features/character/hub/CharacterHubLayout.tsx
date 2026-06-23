@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState, type ReactNode } from 'react'
+import { useReducer, useState, type ReactNode } from 'react'
 import { Modal, Tabs } from 'antd'
 import { getActiveCharacter, getCharacter } from '../../../game/character/selectors'
 import { stashItemsFromCampaign } from '../../../game/equipment/stashOrder'
@@ -88,22 +88,20 @@ export function CharacterHubLayout({
   const [focus, dispatchFocus] = useReducer(loadoutFocusReducer, null)
   const [previewItemId, setPreviewItemId] = useState<string | null>(null)
 
-  useEffect(() => {
+  const selectedCharacter = getCharacter(campaign, selectedCharacterId) ?? getActiveCharacter(campaign)
+  const activeCharacterId = selectedCharacter.id
+
+  const handleSelectCharacter = (characterId: string) => {
+    setSelectedCharacterId(characterId)
     dispatchFocus({ type: 'clear' })
     setPreviewItemId(null)
-  }, [selectedCharacterId])
-
-  useEffect(() => {
-    if (!getCharacter(campaign, selectedCharacterId)) {
-      setSelectedCharacterId(getActiveCharacter(campaign).id)
-    }
-  }, [campaign, selectedCharacterId])
+  }
 
   const handleStashItemClick = (itemId: string) => {
     if (inBattle) return
-    const result = resolveItemClickEquip(campaign, selectedCharacterId, itemId, focus)
+    const result = resolveItemClickEquip(campaign, activeCharacterId, itemId, focus)
     if (result.type === 'equip') {
-      onEquip(selectedCharacterId, result.itemId, result.slot)
+      onEquip(activeCharacterId, result.itemId, result.slot)
       dispatchFocus({ type: 'clear' })
       setPreviewItemId(null)
     } else if (result.type === 'invalid' && result.reason === 'wrong_slot') {
@@ -121,7 +119,6 @@ export function CharacterHubLayout({
   const transferDisabled = inBattle || squadLocked
   const canReleaseCharacter =
     !inBattle && !squadLocked && campaign.characters.length > 1
-  const selectedCharacter = getCharacter(campaign, selectedCharacterId) ?? getActiveCharacter(campaign)
   const appearanceCharacter =
     appearanceCharacterId !== null ? getCharacter(campaign, appearanceCharacterId) : null
 
@@ -138,10 +135,10 @@ export function CharacterHubLayout({
 
   const cardHandlers = {
     onSetBattleLoadout: (slotIndex: 0 | 1 | 2 | 3, cardId: string | null) =>
-      onSetBattleLoadout(selectedCharacterId, slotIndex, cardId),
+      onSetBattleLoadout(activeCharacterId, slotIndex, cardId),
     onSetPassiveEquip: (slotIndex: 0 | 1 | 2 | 3 | 4, passiveId: string | null) =>
-      onSetPassiveEquip(selectedCharacterId, slotIndex, passiveId),
-    onReorderCards: (cardIds: string[]) => onReorderCards(selectedCharacterId, cardIds),
+      onSetPassiveEquip(activeCharacterId, slotIndex, passiveId),
+    onReorderCards: (cardIds: string[]) => onReorderCards(activeCharacterId, cardIds),
   }
 
   const renderStashTabs = (itemsPanel: ReactNode) => (
@@ -157,7 +154,7 @@ export function CharacterHubLayout({
           children: (
             <CardsInventoryView
               campaign={campaign}
-              characterId={selectedCharacterId}
+              characterId={activeCharacterId}
               inBattle={inBattle}
               inventoryLocked={expeditionActive}
               modsDisabled={modsDisabled}
@@ -169,7 +166,7 @@ export function CharacterHubLayout({
               onSetPassiveEquip={cardHandlers.onSetPassiveEquip}
               onPickModOffer={(carrierKind, carrierId, slotIndex, modTemplateId) =>
                 onPickModOffer(
-                  selectedCharacterId,
+                  activeCharacterId,
                   carrierKind,
                   carrierId,
                   slotIndex,
@@ -177,9 +174,9 @@ export function CharacterHubLayout({
                 )
               }
               onRemoveMod={(carrierKind, carrierId, slotIndex) =>
-                onRemoveMod(selectedCharacterId, carrierKind, carrierId, slotIndex)
+                onRemoveMod(activeCharacterId, carrierKind, carrierId, slotIndex)
               }
-              onSellCard={(cardId) => onSellCard(selectedCharacterId, cardId)}
+              onSellCard={(cardId) => onSellCard(activeCharacterId, cardId)}
             />
           ),
         },
@@ -189,7 +186,7 @@ export function CharacterHubLayout({
           children: (
             <CardsInventoryView
               campaign={campaign}
-              characterId={selectedCharacterId}
+              characterId={activeCharacterId}
               inBattle={inBattle}
               inventoryLocked={expeditionActive}
               modsDisabled={modsDisabled}
@@ -201,7 +198,7 @@ export function CharacterHubLayout({
               onSetPassiveEquip={cardHandlers.onSetPassiveEquip}
               onPickModOffer={(carrierKind, carrierId, slotIndex, modTemplateId) =>
                 onPickModOffer(
-                  selectedCharacterId,
+                  activeCharacterId,
                   carrierKind,
                   carrierId,
                   slotIndex,
@@ -209,7 +206,7 @@ export function CharacterHubLayout({
                 )
               }
               onRemoveMod={(carrierKind, carrierId, slotIndex) =>
-                onRemoveMod(selectedCharacterId, carrierKind, carrierId, slotIndex)
+                onRemoveMod(activeCharacterId, carrierKind, carrierId, slotIndex)
               }
             />
           ),
@@ -222,15 +219,15 @@ export function CharacterHubLayout({
               campaign={campaign}
               inBattle={inBattle}
               inventoryLocked={expeditionActive}
-              bindCharacterId={selectedCharacterId}
+              bindCharacterId={activeCharacterId}
               onSellChestItem={onSellChestItem}
               onSellChestCard={onSellChestCard}
               onSellChestPassive={onSellChestPassive}
               bindCharacterName={selectedCharacter.name}
-              onBindCard={(cardId) => onBindChestCard(cardId, selectedCharacterId)}
-              onBindPassive={(passiveId) => onBindChestPassive(passiveId, selectedCharacterId)}
+              onBindCard={(cardId) => onBindChestCard(cardId, activeCharacterId)}
+              onBindPassive={(passiveId) => onBindChestPassive(passiveId, activeCharacterId)}
               onAssignItemToCharacter={(itemId) =>
-                onMoveChestItemToCharacter(itemId, selectedCharacterId)
+                onMoveChestItemToCharacter(itemId, activeCharacterId)
               }
               showIntro={false}
               dndEnabled
@@ -245,28 +242,28 @@ export function CharacterHubLayout({
     <>
       <EquipmentInventoryView
         campaign={campaign}
-        characterId={selectedCharacterId}
+        characterId={activeCharacterId}
         inBattle={inBattle}
         modsDisabled={modsDisabled}
         modsDisabledTooltip={modsDisabledTooltip}
         squadLocked={squadLocked}
-        onEquip={(itemId, slot) => onEquip(selectedCharacterId, itemId, slot)}
-        onUnequip={(slot) => onUnequip(selectedCharacterId, slot)}
-        onReorderStash={(itemIds) => onReorderStash(selectedCharacterId, itemIds)}
-        onSellItem={(itemId) => onSellItem(selectedCharacterId, itemId)}
+        onEquip={(itemId, slot) => onEquip(activeCharacterId, itemId, slot)}
+        onUnequip={(slot) => onUnequip(activeCharacterId, slot)}
+        onReorderStash={(itemIds) => onReorderStash(activeCharacterId, itemIds)}
+        onSellItem={(itemId) => onSellItem(activeCharacterId, itemId)}
         onInvalidSlot={onInvalidSlot}
         onTransferItem={(itemId, toCharacterId) =>
-          onTransferItem(itemId, selectedCharacterId, toCharacterId)
+          onTransferItem(itemId, activeCharacterId, toCharacterId)
         }
         onMoveChestItemToCharacter={onMoveChestItemToCharacter}
         onMoveCharacterItemToChest={(itemId) =>
-          onMoveCharacterItemToChest(itemId, selectedCharacterId)
+          onMoveCharacterItemToChest(itemId, activeCharacterId)
         }
         onPickModOffer={(_kind, carrierId, slotIndex, modTemplateId) =>
-          onPickModOffer(selectedCharacterId, 'item', carrierId, slotIndex, modTemplateId)
+          onPickModOffer(activeCharacterId, 'item', carrierId, slotIndex, modTemplateId)
         }
         onRemoveMod={(_kind, carrierId, slotIndex) =>
-          onRemoveMod(selectedCharacterId, 'item', carrierId, slotIndex)
+          onRemoveMod(activeCharacterId, 'item', carrierId, slotIndex)
         }
         onSetBattleLoadout={cardHandlers.onSetBattleLoadout}
         onSetPassiveEquip={cardHandlers.onSetPassiveEquip}
@@ -279,9 +276,9 @@ export function CharacterHubLayout({
           rail: (
             <CharacterRail
               campaign={campaign}
-              selectedCharacterId={selectedCharacterId}
+              selectedCharacterId={activeCharacterId}
               transferDisabled={transferDisabled}
-              onSelectCharacter={setSelectedCharacterId}
+              onSelectCharacter={handleSelectCharacter}
               onEditAppearance={setAppearanceCharacterId}
               onReleaseCharacter={onReleaseCharacter}
               canReleaseCharacter={canReleaseCharacter}
@@ -291,13 +288,13 @@ export function CharacterHubLayout({
             <>
               <CharacterBuildPanel
                 campaign={campaign}
-                characterId={selectedCharacterId}
+                characterId={activeCharacterId}
                 focus={focus}
                 previewItemId={previewItemId}
               />
               <CardsInventoryView
                 campaign={campaign}
-                characterId={selectedCharacterId}
+                characterId={activeCharacterId}
                 inBattle={inBattle}
                 inventoryLocked={expeditionActive}
                 modsDisabled={modsDisabled}
@@ -309,7 +306,7 @@ export function CharacterHubLayout({
                 onSetPassiveEquip={cardHandlers.onSetPassiveEquip}
                 onPickModOffer={(carrierKind, carrierId, slotIndex, modTemplateId) =>
                   onPickModOffer(
-                    selectedCharacterId,
+                    activeCharacterId,
                     carrierKind,
                     carrierId,
                     slotIndex,
@@ -317,7 +314,7 @@ export function CharacterHubLayout({
                   )
                 }
                 onRemoveMod={(carrierKind, carrierId, slotIndex) =>
-                  onRemoveMod(selectedCharacterId, carrierKind, carrierId, slotIndex)
+                  onRemoveMod(activeCharacterId, carrierKind, carrierId, slotIndex)
                 }
               />
             </>

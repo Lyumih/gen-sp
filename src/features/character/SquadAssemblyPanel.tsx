@@ -119,15 +119,14 @@ function ReserveCell({
   onSetSquadSlot: (slotIndex: number, characterId: string | null) => void
 }) {
   const character = getCharacter(campaign, characterId)
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: rosterCharacterDragId(characterId),
+    disabled: disabled || !character,
+    data: { characterId },
+  })
   if (!character) return null
   const display = getCharacterDisplay(character)
   const cls = getCharacterClass(character.classId)
-
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: rosterCharacterDragId(characterId),
-    disabled,
-    data: { characterId },
-  })
 
   return (
     <div className="inv-slot-wrap">
