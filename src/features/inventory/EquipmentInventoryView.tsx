@@ -24,6 +24,7 @@ import {
   itemInstanceDescriptionLinesFromInstance,
   itemPriceLine,
   itemSelectShortLabel,
+  itemSellPrice,
 } from '../../game/descriptions/itemText'
 import { EQUIPMENT_ROLL_ORDER } from '../../game/equipment/equipmentOrder'
 import {
@@ -71,6 +72,7 @@ type EquipmentInventoryViewProps = {
   onEquip: (itemId: string, slot: EquipmentSlot) => void
   onUnequip: (slot: EquipmentSlot) => void
   onReorderStash: (itemIds: string[]) => void
+  onSellItem?: (itemId: string) => void
   onInvalidSlot: () => void
   onTransferItem?: (itemId: string, toCharacterId: string) => void
   onMoveChestItemToCharacter?: (itemId: string, characterId: string) => void
@@ -121,6 +123,8 @@ function characterStashPopover(
   onOpenPicker: (slotIndex: number, offer: ModOffer) => void,
   onConfirmRemove: (slotIndex: number) => void,
   onMoveToChest?: () => void,
+  onSell?: () => void,
+  sellPrice?: number,
 ) {
   const tmpl = getItemTemplate(item.templateId)
   const lines = itemInstanceDescriptionLinesFromInstance(item, getItemTemplate)
@@ -135,7 +139,7 @@ function characterStashPopover(
       </ul>
       {tmpl ? (
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-          {itemPriceLine(tmpl.shopPrice)}
+          {itemPriceLine(sellPrice ?? tmpl.shopPrice)}
         </Typography.Text>
       ) : null}
       <ItemPopoverActions
@@ -144,6 +148,17 @@ function characterStashPopover(
           { key: 'equip', label: 'Надеть', type: 'primary', onClick: onEquip },
           ...(onMoveToChest
             ? [{ key: 'chest', label: 'В сундук', onClick: onMoveToChest }]
+            : []),
+          ...(onSell
+            ? [
+                {
+                  key: 'sell',
+                  label: 'Продать',
+                  danger: true,
+                  disabled: (sellPrice ?? 0) <= 0,
+                  onClick: onSell,
+                },
+              ]
             : []),
         ]}
       />
@@ -209,6 +224,8 @@ function SortableStashCell({
   onConfirmRemove,
   modsDisabledTooltip,
   onMoveToChest,
+  onSell,
+  sellPrice,
 }: {
   item: ItemInstance
   inBattle: boolean
@@ -220,6 +237,8 @@ function SortableStashCell({
   onOpenPicker: (slotIndex: number, offer: ModOffer) => void
   onConfirmRemove: (slotIndex: number) => void
   onMoveToChest?: () => void
+  onSell?: () => void
+  sellPrice?: number
 }) {
   const tmpl = getItemTemplate(item.templateId)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -241,7 +260,13 @@ function SortableStashCell({
       {...listeners}
       emoji={resolveItemEmoji(tmpl, tmpl?.slot ?? 'weapon')}
       levelBadge={`${UI_LEVEL}${item.itemLevel}`}
-      contextBadge={tmpl ? SLOT_EMOJI[tmpl.slot] : undefined}
+      contextBadge={
+        sellPrice !== undefined && sellPrice > 0
+          ? `${sellPrice} 💰`
+          : tmpl
+            ? SLOT_EMOJI[tmpl.slot]
+            : undefined
+      }
       showModPendingBadge={!modsDisabled && hasPendingModOffer(item.modSlots)}
       slotDots={item.modSlots.length > 0 ? <ModSlotDots modSlots={item.modSlots} /> : undefined}
       state={cellState}
@@ -255,6 +280,8 @@ function SortableStashCell({
         onOpenPicker,
         onConfirmRemove,
         onMoveToChest,
+        onSell,
+        sellPrice,
       )}
       ariaLabel={tmpl ? itemSelectShortLabel(tmpl, item.itemLevel) : item.id}
       onDoubleClick={onDoubleClick}
@@ -371,6 +398,7 @@ export function EquipmentInventoryView({
   onEquip,
   onUnequip,
   onReorderStash,
+  onSellItem,
   onInvalidSlot,
   onTransferItem,
   onMoveChestItemToCharacter,
@@ -599,6 +627,7 @@ export function EquipmentInventoryView({
               }
               const item = stash[index]!
               const tmpl = getItemTemplate(item.templateId)
+              const sellPrice = tmpl ? itemSellPrice(tmpl) : 0
               const modHandlers = bindItemModHandlers(item)
               return (
                 <SortableStashCell
@@ -610,6 +639,7 @@ export function EquipmentInventoryView({
                   cellState={
                     inBattle ? 'disabled' : flashInvalid ? 'invalidDrop' : 'filled'
                   }
+                  sellPrice={onSellItem ? sellPrice : undefined}
                   onEquip={() => {
                     if (inBattle || !tmpl) return
                     onEquip(item.id, tmpl.slot)
@@ -623,6 +653,9 @@ export function EquipmentInventoryView({
                     onMoveCharacterItemToChest && !squadLocked
                       ? () => onMoveCharacterItemToChest(item.id)
                       : undefined
+                  }
+                  onSell={
+                    onSellItem ? () => onSellItem(item.id) : undefined
                   }
                 />
               )

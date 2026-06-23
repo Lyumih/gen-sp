@@ -980,6 +980,34 @@ describe('inventory grid actions', () => {
     expect(s).toEqual(before)
   })
 
+  it('SELL_CARD refunds half skill price and removes card', () => {
+    let s = withClassicTestCards({ ...initialCampaignState(), gold: 0 })
+    const healId = hero(s).cards.find((c) => c.templateId === 'heal')!.id
+    s = applyRunAction(s, { type: 'SELL_CARD', characterId: HERO_ID, cardId: healId })
+    expect(hero(s).cards.some((c) => c.id === healId)).toBe(false)
+    expect(s.gold).toBe(50)
+  })
+
+  it('SELL_CARD no-op for strike and loadout cards', () => {
+    let s = withClassicTestCards(initialCampaignState())
+    const strikeId = hero(s).cards.find((c) => c.templateId === 'strike')!.id
+    const beforeGold = s.gold
+    s = applyRunAction(s, { type: 'SELL_CARD', characterId: HERO_ID, cardId: strikeId })
+    expect(hero(s).cards.some((c) => c.id === strikeId)).toBe(true)
+    expect(s.gold).toBe(beforeGold)
+
+    s = applyRunAction(s, {
+      type: 'SET_BATTLE_LOADOUT',
+      characterId: HERO_ID,
+      slotIndex: 1,
+      cardId: hero(s).cards.find((c) => c.templateId === 'heal')!.id,
+    })
+    const healId = hero(s).battleLoadout[1]!
+    const before = s
+    s = applyRunAction(s, { type: 'SELL_CARD', characterId: HERO_ID, cardId: healId })
+    expect(s).toEqual(before)
+  })
+
   it('REORDER_CARDS changes card order when multiple cards', () => {
     let s = withClassicTestCards(initialCampaignState())
     s = applyRunAction(s, {
@@ -2069,5 +2097,17 @@ describe('chest and shop offers', () => {
     s = applyRunAction(s, { type: 'SELL_CHEST_ITEM', itemId: 'i1' })
     expect(s.chest.items).toHaveLength(0)
     expect(s.gold).toBeGreaterThan(0)
+  })
+
+  it('SELL_CHEST_CARD adds gold and removes unbound card', () => {
+    const card = createCardInstance('fireball', 'chest-fb')
+    let s: CampaignState = {
+      ...initialCampaignState(),
+      gold: 0,
+      chest: { items: [], unboundCards: [card] },
+    }
+    s = applyRunAction(s, { type: 'SELL_CHEST_CARD', cardId: 'chest-fb' })
+    expect(s.chest.unboundCards).toHaveLength(0)
+    expect(s.gold).toBe(50)
   })
 })

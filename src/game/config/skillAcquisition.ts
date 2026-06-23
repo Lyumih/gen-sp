@@ -44,3 +44,10 @@ export function pickRandomSkillTemplateId(rng: () => number): string {
   const idx = Math.floor(rng() * pool.length)
   return pool[Math.min(idx, pool.length - 1)]!
 }
+
+/** Цена продажи умения в магазин (50% от shopSkillPrice). */
+export function sellPriceForSkill(
+  cfg: SkillAcquisitionConfig = SKILL_ACQUISITION,
+): number {
+  return Math.floor(cfg.shopSkillPrice * 0.5)
+}

@@ -62,6 +62,18 @@ export function CampaignHub() {
     dispatchRun({ type: 'SELL_CHEST_ITEM', itemId })
   }
 
+  const sellItem = (characterId: string, itemId: string) => {
+    dispatchRun({ type: 'SELL_ITEM', characterId, itemId })
+  }
+
+  const sellCard = (characterId: string, cardId: string) => {
+    dispatchRun({ type: 'SELL_CARD', characterId, cardId })
+  }
+
+  const sellChestCard = (cardId: string) => {
+    dispatchRun({ type: 'SELL_CHEST_CARD', cardId })
+  }
+
   const bindChestCard = (cardId: string, characterId: string) => {
     dispatchRun({ type: 'BIND_CHEST_CARD', cardId, characterId })
   }
@@ -214,6 +226,9 @@ export function CampaignHub() {
             onSetBattleLoadout={setBattleLoadout}
             onTransferItem={transferItem}
             onSellChestItem={sellChestItem}
+            onSellChestCard={sellChestCard}
+            onSellItem={sellItem}
+            onSellCard={sellCard}
             onBindChestCard={bindChestCard}
             onMoveChestItemToCharacter={moveChestItemToCharacter}
             onMoveCharacterItemToChest={moveCharacterItemToChest}
@@ -235,6 +250,8 @@ export function CampaignHub() {
             onBuyOffer={buyOffer}
             onInsufficientGold={() => message.warning('Недостаточно золота')}
             onSellChestItem={sellChestItem}
+            onSellChestCard={sellChestCard}
+            onSellItem={sellItem}
             onBindChestCard={bindChestCard}
             onMoveChestItemToCharacter={moveChestItemToCharacter}
             onUnequip={unequip}

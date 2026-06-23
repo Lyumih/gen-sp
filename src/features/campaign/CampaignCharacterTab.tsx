@@ -24,6 +24,9 @@ type CampaignCharacterTabProps = {
   onSetBattleLoadout: (characterId: string, slotIndex: 0 | 1, cardId: string | null) => void
   onTransferItem: (itemId: string, fromCharacterId: string, toCharacterId: string) => void
   onSellChestItem: (itemId: string) => void
+  onSellChestCard: (cardId: string) => void
+  onSellItem: (characterId: string, itemId: string) => void
+  onSellCard: (characterId: string, cardId: string) => void
   onBindChestCard: (cardId: string, characterId: string) => void
   onMoveChestItemToCharacter: (itemId: string, characterId: string) => void
   onMoveCharacterItemToChest: (itemId: string, characterId: string) => void
@@ -58,6 +61,9 @@ export function CampaignCharacterTab({
   onSetBattleLoadout,
   onTransferItem,
   onSellChestItem,
+  onSellChestCard,
+  onSellItem,
+  onSellCard,
   onBindChestCard,
   onMoveChestItemToCharacter,
   onMoveCharacterItemToChest,
@@ -116,6 +122,7 @@ export function CampaignCharacterTab({
         onEquip={(itemId, slot) => onEquip(selectedCharacterId, itemId, slot)}
         onUnequip={(slot) => onUnequip(selectedCharacterId, slot)}
         onReorderStash={(itemIds) => onReorderStash(selectedCharacterId, itemIds)}
+        onSellItem={(itemId) => onSellItem(selectedCharacterId, itemId)}
         onInvalidSlot={onInvalidSlot}
         onTransferItem={(itemId, toCharacterId) =>
           onTransferItem(itemId, selectedCharacterId, toCharacterId)
@@ -208,6 +215,7 @@ export function CampaignCharacterTab({
                 onRemoveMod={(_kind, carrierId, slotIndex) =>
                   onRemoveMod(selectedCharacterId, 'card', carrierId, slotIndex)
                 }
+                onSellCard={(cardId) => onSellCard(selectedCharacterId, cardId)}
               />
             </div>
             <div style={{ marginTop: 16 }}>
@@ -218,6 +226,7 @@ export function CampaignCharacterTab({
                 campaign={campaign}
                 inBattle={inBattle}
                 onSellChestItem={onSellChestItem}
+                onSellChestCard={onSellChestCard}
                 bindCharacterName={selectedCharacter.name}
                 onBindCard={(cardId) => onBindChestCard(cardId, selectedCharacterId)}
                 onAssignItemToCharacter={(itemId) =>

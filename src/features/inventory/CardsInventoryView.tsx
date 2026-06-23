@@ -21,10 +21,13 @@ import { App, Divider, Space, Tooltip, Typography } from 'antd'
 import { getCardAttackTemplate } from '../../game/content/cardTemplates'
 import { getCharacter } from '../../game/character/selectors'
 import { describeCardCombatStats } from '../../game/descriptions/cardText'
+import { itemPriceLine } from '../../game/descriptions/itemText'
+import { sellPriceForSkill } from '../../game/config/skillAcquisition'
 import type { CampaignState, CardInstance, ItemInstance, ModOffer } from '../../game/types'
 import { UI_DAMAGE, UI_HEART, UI_LEVEL } from '../../game/ui/labels'
 import { InventoryCell } from './InventoryCell'
 import { InventoryGrid } from './InventoryGrid'
+import { ItemPopoverActions } from './ItemPopoverActions'
 import { ModOfferPicker } from './ModOfferPicker'
 import { cardDragId, loadoutDragId, parseDragId } from './inventoryDnD'
 import { resolveCardEmoji } from './inventoryEmoji'
@@ -62,6 +65,7 @@ type CardsInventoryViewProps = {
     modTemplateId: string,
   ) => void
   onRemoveMod: (carrierKind: 'card', carrierId: string, slotIndex: number) => void
+  onSellCard?: (cardId: string) => void
 }
 
 function SortableCardCell({
@@ -74,6 +78,8 @@ function SortableCardCell({
   onOpenPicker,
   onConfirmRemove,
   modsDisabledTooltip,
+  onSell,
+  sellPrice,
 }: {
   card: CardInstance
   inBattle: boolean
@@ -84,6 +90,8 @@ function SortableCardCell({
   equippedWeapon: ItemInstance | null
   onOpenPicker: (carrierId: string, slotIndex: number, offer: ModOffer) => void
   onConfirmRemove: (card: CardInstance, slotIndex: number) => void
+  onSell?: () => void
+  sellPrice?: number
 }) {
   const tmpl = getCardAttackTemplate(card.templateId)
   const loadoutBlocked = tmpl?.enabled === false
@@ -124,6 +132,25 @@ function SortableCardCell({
           />
         </>
       ) : null}
+      {onSell ? (
+        <>
+          {sellPrice !== undefined && sellPrice > 0 ? (
+            <Typography.Text style={{ fontSize: 12 }}>{itemPriceLine(sellPrice)}</Typography.Text>
+          ) : null}
+          <ItemPopoverActions
+            inBattle={inBattle}
+            actions={[
+              {
+                key: 'sell',
+                label: 'Продать',
+                danger: true,
+                disabled: (sellPrice ?? 0) <= 0,
+                onClick: onSell,
+              },
+            ]}
+          />
+        </>
+      ) : null}
     </Space>
   )
 
@@ -140,7 +167,11 @@ function SortableCardCell({
       emoji={resolveCardEmoji(tmpl)}
       levelBadge={`${UI_LEVEL}${card.global_level}`}
       contextBadge={
-        stats.expectedDamage !== null ? `${effectUi}${stats.expectedDamage}` : undefined
+        sellPrice !== undefined && sellPrice > 0
+          ? `${sellPrice} 💰`
+          : stats.expectedDamage !== null
+            ? `${effectUi}${stats.expectedDamage}`
+            : undefined
       }
       showModPendingBadge={showModBadge}
       slotDots={card.modSlots.length > 0 ? <ModSlotDots modSlots={card.modSlots} /> : undefined}
@@ -230,6 +261,7 @@ export function CardsInventoryView({
   onSetBattleLoadout,
   onPickModOffer,
   onRemoveMod,
+  onSellCard,
 }: CardsInventoryViewProps) {
   const { modal } = App.useApp()
   const hero = getCharacter(campaign, characterId)
@@ -307,6 +339,16 @@ export function CardsInventoryView({
     }
   }
 
+  const skillSellPrice = sellPriceForSkill()
+
+  function sellPropsForCard(card: CardInstance) {
+    if (!onSellCard || card.templateId === 'strike') return {}
+    return {
+      onSell: () => onSellCard(card.id),
+      sellPrice: skillSellPrice,
+    }
+  }
+
   function renderLoadoutSlot(slotIndex: 0 | 1) {
     const cardId = loadout[slotIndex]
     const card = cardId !== null ? resolveCard(cardId) : null
@@ -359,6 +401,7 @@ export function CardsInventoryView({
                 equippedWeapon={equippedWeapon}
                 onOpenPicker={openPicker}
                 onConfirmRemove={confirmRemoveMod}
+                {...sellPropsForCard(card)}
               />
             )
           }}

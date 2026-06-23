@@ -4,6 +4,7 @@ import {
   pickRandomSkillTemplateId,
   rollBattleSkillDrop,
   rollShopSkillOffer,
+  sellPriceForSkill,
 } from './skillAcquisition'
 
 const testCfg = {
@@ -35,5 +36,9 @@ describe('skillAcquisition', () => {
   it('rollShopSkillOffer respects threshold', () => {
     expect(rollShopSkillOffer(0.49, testCfg)).toBe(true)
     expect(rollShopSkillOffer(0.51, testCfg)).toBe(false)
+  })
+
+  it('sellPriceForSkill is half of shopSkillPrice', () => {
+    expect(sellPriceForSkill(testCfg)).toBe(50)
   })
 })

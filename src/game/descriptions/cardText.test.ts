@@ -6,7 +6,7 @@ import { describeCardCombatStats, getCardDisplayLabel } from './cardText'
 
 describe('getCardDisplayLabel', () => {
   it('returns label for strike', () => {
-    expect(getCardDisplayLabel('strike')).toBe('Удар')
+    expect(getCardDisplayLabel('strike')).toBe('Сильный удар')
   })
 
   it('falls back to templateId', () => {
@@ -30,7 +30,7 @@ describe('describeCardCombatStats', () => {
 
     const d = describeCardCombatStats(card, 1, gearStrikeDamageMult)
     expect(d.expectedDamage).toBe(afterGear)
-    expect(d.displayLabel).toBe('Удар')
+    expect(d.displayLabel).toBe('Сильный удар')
     expect(d.lines.some((l) => l.includes('кулаки'))).toBe(true)
     expect(d.lines.some((l) => l.includes('Экипировка: ×1.03'))).toBe(true)
     expect(d.lines.some((l) => l.includes(`💥 база (⭐0): ${base}`))).toBe(true)

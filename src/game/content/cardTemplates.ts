@@ -35,7 +35,7 @@ export type CardAttackTemplate = {
 export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>> = {
   /** Action channel only: no card L/modSlots; damage from equipped weapon (or virtual fists). */
   strike: {
-    label: 'Удар',
+    label: 'Сильный удар',
     kind: 'melee',
     maxRange: 1,
     damageToken: '40%%',

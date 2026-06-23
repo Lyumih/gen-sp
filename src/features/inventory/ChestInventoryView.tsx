@@ -8,6 +8,7 @@ import {
   itemPriceLine,
   itemSellPrice,
 } from '../../game/descriptions/itemText'
+import { sellPriceForSkill } from '../../game/config/skillAcquisition'
 import { getItemTemplate } from '../../game/content/itemTemplates'
 import type { CampaignState, ItemInstance } from '../../game/types'
 import { UI_LEVEL } from '../../game/ui/labels'
@@ -21,6 +22,7 @@ type ChestInventoryViewProps = {
   campaign: CampaignState
   inBattle: boolean
   onSellChestItem: (itemId: string) => void
+  onSellChestCard?: (cardId: string) => void
   onBindCard?: (cardId: string) => void
   bindCharacterName?: string
   onAssignItemToCharacter?: (itemId: string) => void
@@ -136,6 +138,7 @@ export function ChestInventoryView({
   campaign,
   inBattle,
   onSellChestItem,
+  onSellChestCard,
   onBindCard,
   bindCharacterName,
   onAssignItemToCharacter,
@@ -172,11 +175,15 @@ export function ChestInventoryView({
         const card = unboundCards[index - items.length]!
         const tmpl = getCardAttackTemplate(card.templateId)
         const label = getCardDisplayLabel(card.templateId)
+        const skillSellPrice = sellPriceForSkill()
+        const canSellCard = Boolean(onSellChestCard) && card.templateId !== 'strike'
         return (
           <InventoryCell
             key={card.id}
             emoji={resolveCardEmoji(tmpl)}
-            contextBadge="🃏"
+            contextBadge={
+              canSellCard && skillSellPrice > 0 ? `${skillSellPrice} 💰` : '🃏'
+            }
             levelBadge={`${UI_LEVEL}${card.global_level}`}
             state={inBattle ? 'disabled' : 'filled'}
             popoverTitle={label}
@@ -185,19 +192,37 @@ export function ChestInventoryView({
                 <Typography.Text style={{ fontSize: 12 }}>
                   Умение уровня {card.global_level}. Привязка к персонажу необратима.
                 </Typography.Text>
-                {onBindCard && bindCharacterName ? (
-                  <ItemPopoverActions
-                    inBattle={inBattle}
-                    actions={[
-                      {
-                        key: 'bind',
-                        label: `Назначить: ${bindCharacterName}`,
-                        type: 'primary',
-                        onClick: () => onBindCard(card.id),
-                      },
-                    ]}
-                  />
+                {canSellCard && skillSellPrice > 0 ? (
+                  <Typography.Text style={{ fontSize: 12 }}>
+                    {itemPriceLine(skillSellPrice)}
+                  </Typography.Text>
                 ) : null}
+                <ItemPopoverActions
+                  inBattle={inBattle}
+                  actions={[
+                    ...(onBindCard && bindCharacterName
+                      ? [
+                          {
+                            key: 'bind',
+                            label: `Назначить: ${bindCharacterName}`,
+                            type: 'primary' as const,
+                            onClick: () => onBindCard(card.id),
+                          },
+                        ]
+                      : []),
+                    ...(canSellCard
+                      ? [
+                          {
+                            key: 'sell',
+                            label: 'Продать',
+                            danger: true,
+                            disabled: skillSellPrice <= 0,
+                            onClick: () => onSellChestCard!(card.id),
+                          },
+                        ]
+                      : []),
+                  ]}
+                />
               </Space>
             }
             ariaLabel={label}

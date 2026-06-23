@@ -44,6 +44,7 @@ import {
 } from '../mods/modPipeline'
 import { MOD_OFFER_POOL, getModTemplate } from '../content/modTemplates'
 import { rollMementoLevelUp } from '../memento/rollMementoLevelUp'
+import { sellPriceForSkill } from '../config/skillAcquisition'
 import type {
   BattleAction,
   BattleAttemptSnapshot,
@@ -132,6 +133,7 @@ export type RunAction =
   | { type: 'UNEQUIP_ITEM'; characterId: string; slot: EquipmentSlot }
   | { type: 'REORDER_CARDS'; characterId: string; cardIds: string[] }
   | { type: 'SELL_ITEM'; characterId: string; itemId: string }
+  | { type: 'SELL_CARD'; characterId: string; cardId: string }
   | { type: 'REORDER_STASH'; characterId: string; itemIds: string[] }
   | { type: 'SET_SQUAD_SLOT'; slotIndex: number; characterId: string | null }
   | { type: 'SWAP_SQUAD_SLOTS'; from: number; to: number }
@@ -182,6 +184,7 @@ export type RunAction =
   | { type: 'MOVE_CHARACTER_ITEM_TO_CHEST'; itemId: string; characterId: string }
   | { type: 'BIND_CHEST_CARD'; cardId: string; characterId: string }
   | { type: 'SELL_CHEST_ITEM'; itemId: string }
+  | { type: 'SELL_CHEST_CARD'; cardId: string }
   | { type: 'MARK_HUB_NOTICE_SEEN' }
 
 export { afterCarrierLevelChange }
@@ -1201,6 +1204,28 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         }),
       )
     }
+    case 'SELL_CARD': {
+      if (!inHub(state)) return state
+      if (!assertHubActionAllowed(state, 'shop')) return state
+      const hero = getCharacter(state, action.characterId)
+      if (!hero) return state
+      const card = hero.cards.find((c) => c.id === action.cardId)
+      if (!card || card.templateId === 'strike') return state
+      if (hero.battleLoadout.includes(action.cardId)) return state
+      const price = sellPriceForSkill()
+      if (price <= 0) return state
+      return updateCharacter(
+        {
+          ...state,
+          gold: state.gold + price,
+        },
+        action.characterId,
+        (c) => ({
+          ...c,
+          cards: c.cards.filter((x) => x.id !== action.cardId),
+        }),
+      )
+    }
     case 'REORDER_STASH': {
       if (!inHub(state)) return state
       const hero = getCharacter(state, action.characterId)
@@ -1543,6 +1568,22 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         chest: {
           ...state.chest,
           items: state.chest.items.filter((i) => i.id !== action.itemId),
+        },
+      }
+    }
+    case 'SELL_CHEST_CARD': {
+      if (!inHub(state)) return state
+      if (!assertHubActionAllowed(state, 'shop')) return state
+      const card = state.chest.unboundCards.find((c) => c.id === action.cardId)
+      if (!card || card.templateId === 'strike') return state
+      const price = sellPriceForSkill()
+      if (price <= 0) return state
+      return {
+        ...state,
+        gold: state.gold + price,
+        chest: {
+          ...state.chest,
+          unboundCards: state.chest.unboundCards.filter((c) => c.id !== action.cardId),
         },
       }
     }
