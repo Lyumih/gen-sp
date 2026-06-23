@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useState, type ReactNode } from 'react'
 import { Modal, Tabs } from 'antd'
 import { getActiveCharacter, getCharacter } from '../../../game/character/selectors'
+import { stashItemsFromCampaign } from '../../../game/equipment/stashOrder'
 import type { CampaignState, EquipmentSlot } from '../../../game/types'
 import { EquipmentInventoryView } from '../../inventory/EquipmentInventoryView'
 import { CardsInventoryView } from '../../inventory/CardsInventoryView'
@@ -128,6 +129,12 @@ export function CharacterHubLayout({
     campaign.chest.items.length +
     campaign.chest.unboundCards.length +
     campaign.chest.unboundPassives.length
+  const itemCount = stashItemsFromCampaign(
+    selectedCharacter.items,
+    selectedCharacter.equipment,
+  ).length
+  const cardCount = selectedCharacter.cards.length
+  const passiveCount = selectedCharacter.passives.length
 
   const cardHandlers = {
     onSetBattleLoadout: (slotIndex: 0 | 1 | 2 | 3, cardId: string | null) =>
@@ -143,10 +150,10 @@ export function CharacterHubLayout({
       activeKey={stashTab}
       onChange={(key) => setStashTab(key as StashTabKey)}
       items={[
-        { key: 'items', label: 'Предметы', children: itemsPanel },
+        { key: 'items', label: `Предметы (${itemCount})`, children: itemsPanel },
         {
           key: 'cards',
-          label: 'Умения',
+          label: `Умения (${cardCount})`,
           children: (
             <CardsInventoryView
               campaign={campaign}
@@ -178,7 +185,7 @@ export function CharacterHubLayout({
         },
         {
           key: 'passives',
-          label: 'Навыки',
+          label: `Навыки (${passiveCount})`,
           children: (
             <CardsInventoryView
               campaign={campaign}

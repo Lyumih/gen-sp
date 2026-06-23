@@ -1,5 +1,5 @@
 import { PlayCircleOutlined } from '@ant-design/icons'
-import { Button, Tooltip } from 'antd'
+import { Button, Flex, Space, Tooltip, Typography } from 'antd'
 import type { CampaignState } from '../../game/types'
 import { UI_DNA, UI_GOLD, UI_WORLD_POWER } from '../../game/ui/labels'
 import type { CampaignHubTab } from './campaignHubShared'
@@ -19,6 +19,27 @@ type GameHeaderProps = {
   tabsDisabled?: boolean
   onBattleClick: () => void
   battleScreenActive?: boolean
+}
+
+function HeaderResource({
+  emoji,
+  value,
+  tooltip,
+}: {
+  emoji: string
+  value: number
+  tooltip: string
+}) {
+  return (
+    <Tooltip title={tooltip} mouseEnterDelay={0.3}>
+      <Space size={4} align="center">
+        <span className="game-header__resource-emoji" aria-hidden>
+          {emoji}
+        </span>
+        <Typography.Text strong>{value}</Typography.Text>
+      </Space>
+    </Tooltip>
+  )
 }
 
 export function GameHeader({
@@ -43,10 +64,13 @@ export function GameHeader({
 
   return (
     <header className="game-header">
-      <div className="game-header__left">
-        <span className="game-header__brand" aria-label="Gen">
-          {UI_DNA} Gen
-        </span>
+      <Flex align="center" gap="middle" style={{ width: '100%' }}>
+        <Flex flex={1} align="center" style={{ minWidth: 0 }}>
+          <Typography.Text strong className="game-header__brand">
+            {UI_DNA} Gen
+          </Typography.Text>
+        </Flex>
+
         <CampaignHubNav
           activeTab={activeTab}
           onTabChange={onTabChange}
@@ -56,36 +80,33 @@ export function GameHeader({
           tavernDisabled={tavernDisabled}
           tabsDisabled={tabsDisabled}
         />
-      </div>
-      <div className="game-header__right">
-        <Tooltip title={GOLD_TOOLTIP} mouseEnterDelay={0.3}>
-          <span className="game-header__resource">
-            <span className="game-header__resource-emoji" aria-hidden>
-              {UI_GOLD}
-            </span>
-            <strong>{campaign.gold}</strong>
-          </span>
-        </Tooltip>
-        <Tooltip title={WORLD_POWER_TOOLTIP} mouseEnterDelay={0.3}>
-          <span className="game-header__resource">
-            <span className="game-header__resource-emoji" aria-hidden>
-              {UI_WORLD_POWER}
-            </span>
-            <strong>{campaign.worldPower}</strong>
-          </span>
-        </Tooltip>
-        <Tooltip title={battleTooltip} mouseEnterDelay={0.3}>
-          <Button
-            type={battleHighlighted ? 'primary' : 'default'}
-            size="small"
-            icon={<PlayCircleOutlined aria-hidden />}
-            disabled={battleScreenActive}
-            onClick={onBattleClick}
-          >
-            Бой
-          </Button>
-        </Tooltip>
-      </div>
+
+        <Flex flex={1} align="center" justify="flex-end" style={{ minWidth: 0 }}>
+          <Space size="middle" align="center" wrap={false}>
+            <HeaderResource
+              emoji={UI_GOLD}
+              value={campaign.gold}
+              tooltip={GOLD_TOOLTIP}
+            />
+            <HeaderResource
+              emoji={UI_WORLD_POWER}
+              value={campaign.worldPower}
+              tooltip={WORLD_POWER_TOOLTIP}
+            />
+            <Tooltip title={battleTooltip} mouseEnterDelay={0.3}>
+              <Button
+                type="primary"
+                size="small"
+                icon={<PlayCircleOutlined aria-hidden />}
+                disabled={battleScreenActive}
+                onClick={onBattleClick}
+              >
+                Бой
+              </Button>
+            </Tooltip>
+          </Space>
+        </Flex>
+      </Flex>
     </header>
   )
 }
