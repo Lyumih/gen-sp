@@ -3,6 +3,7 @@ import { getEnemyTemplate } from '../content/enemyTemplates'
 import { computeEffectiveStat, computeGearStatBonuses } from '../stats/effectiveStats'
 import { buildRoundTurnOrder } from '../battle/initiative'
 import { computeCharacterMaxHpForScenario } from './heroMaxHp'
+import { aggregatePassiveSkillStatBonuses } from '../passives/passiveStatBonuses'
 import { playerCardsByUnitFromParty } from '../battle/playerCards'
 import { passivesByUnitFromParty } from './playerPassivesFromParty'
 import { playerGearModSlotsByUnitFromParty } from './playerGearFromParty'
@@ -106,7 +107,15 @@ export function makePlayerUnits(
     .filter((member) => placements.has(member.characterId))
     .map((member) => {
       const spawn = placements.get(member.characterId)!
-      const maxHp = computeCharacterMaxHpForScenario(member, scenario, snapshot.worldPower)
+      const passiveEquip = member.passiveEquip ?? [null, null, null, null]
+      const passiveHpBonus =
+        aggregatePassiveSkillStatBonuses(
+          member.passives ?? [],
+          passiveEquip,
+          member.baseStats,
+        ).health ?? 0
+      const maxHp =
+        computeCharacterMaxHpForScenario(member, scenario, snapshot.worldPower) + passiveHpBonus
       const gearBonuses = computeGearStatBonuses(
         member.items,
         member.equipment,

@@ -1,4 +1,4 @@
-import { getModTemplate } from '../content/modTemplates'
+import { getPassiveModTemplate } from '../content/passiveModTemplates'
 import type { PassiveTrigger } from '../content/passiveTemplates'
 import { getPassiveTemplate } from '../content/passiveTemplates'
 import { resolveCarrierTags } from '../mods/carrierTags'
@@ -58,6 +58,22 @@ export type PassiveCombatPatch =
       amount: number
     }
   | {
+      kind: 'dodge'
+      targetId: string
+    }
+  | {
+      kind: 'apply_status'
+      targetId: string
+      statusTemplateId: string
+      effectPower: number
+    }
+  | {
+      kind: 'regen_bonus'
+      unitId: string
+      amount: number
+    }
+
+  | {
       kind: 'aoe_splash'
       attackerId: string
       centerX: number
@@ -65,10 +81,12 @@ export type PassiveCombatPatch =
       damage: number
     }
 
+export type PassiveFirePhase = 'full' | 'dodge' | 'post_damage'
 export type PassiveFireResult = {
   passives: PassiveInstance[]
   log: BattleLogEntry[]
   combatPatches: PassiveCombatPatch[]
+  dodged: boolean
 }
 
 export type PassiveFireInput = {
@@ -86,13 +104,17 @@ export type PassiveFireInput = {
   moveCells?: number
   fromCard?: { cardId: string; templateId: string }
   attackKind?: 'melee' | 'ranged' | 'aoe'
+  phase?: PassiveFirePhase
+  regenHeal?: number
+  targetX?: number
+  targetY?: number
 }
 
 function passiveModProcBonus(passive: PassiveInstance): number {
   let bonus = 0
   for (const slot of passive.modSlots) {
     if (slot.status !== 'filled') continue
-    const tmpl = getModTemplate(slot.templateId)
+    const tmpl = getPassiveModTemplate(slot.templateId)
     if (!tmpl) continue
     for (const op of tmpl.ops) {
       if (op.kind === 'crit_chance_add') {
@@ -108,7 +130,8 @@ function rollPassiveProc(
   templateProcChance: number | undefined,
   rng: () => number,
 ): boolean {
-  const chance = (templateProcChance ?? 0) + passiveModProcBonus(passive)
+  if (templateProcChance === undefined) return true
+  const chance = templateProcChance + passiveModProcBonus(passive)
   if (chance <= 0) return false
   return rng() <= chance
 }
@@ -148,10 +171,7 @@ function resolveTemplatePassive(
   if (template.id === 'rogue_smoke_veil') {
     const proc = rollPassiveProc(passive, template.procChance, input.rng)
     if (!proc) return { patches: [], triggered: false }
-    const amount = input.damageDealt ?? 0
-    if (amount > 0) {
-      patches.push({ kind: 'dodge_heal', targetId: input.actor.id, amount })
-    }
+    patches.push({ kind: 'dodge', targetId: input.actor.id })
     return { patches, triggered: true }
   }
 
@@ -290,7 +310,57 @@ function resolveTemplatePassive(
       return { patches, triggered: patches.length > 0 }
     }
 
-    return { patches, triggered: true }
+    if (template.id === 'healer_renewal') {
+      const bonus = Math.max(1, Math.round(scaledPassiveOpValue(1, passive, 'flat')))
+      patches.push({ kind: 'regen_bonus', unitId: input.actor.id, amount: bonus })
+      return { patches, triggered: true }
+    }
+
+    if (template.id === 'mage_ignite' && input.targetId) {
+      const target = input.battle.units.find((u) => u.id === input.targetId)
+      const splashDamage = Math.max(1, Math.round((input.damageDealt ?? 0) * 0.5))
+      if (target && splashDamage > 0) {
+        patches.push({
+          kind: 'aoe_splash',
+          attackerId: input.actor.id,
+          centerX: target.x,
+          centerY: target.y,
+          damage: splashDamage,
+        })
+      }
+      return { patches, triggered: patches.length > 0 }
+    }
+
+    if (template.id === 'rogue_venom' && input.targetId) {
+      patches.push({
+        kind: 'apply_status',
+        targetId: input.targetId,
+        statusTemplateId: 'poison_blade',
+        effectPower: Math.max(3, input.damageDealt ?? 3),
+      })
+      return { patches, triggered: true }
+    }
+
+    if (template.id === 'warlock_spread_plague' && input.targetId) {
+      const killed = input.battle.units.find((u) => u.id === input.targetId)
+      if (!killed) return { patches: [], triggered: false }
+      for (const [nx, ny] of orthoNeighbors(killed.x, killed.y)) {
+        const neighbor = input.battle.units.find(
+          (u) => u.side === 'enemy' && u.hp > 0 && u.x === nx && u.y === ny,
+        )
+        if (neighbor) {
+          patches.push({
+            kind: 'apply_status',
+            targetId: neighbor.id,
+            statusTemplateId: 'corruption',
+            effectPower: 6,
+          })
+        }
+      }
+      return { patches, triggered: patches.length > 0 }
+    }
+
+    return { patches, triggered: patches.length > 0 }
   }
 
   if (template.effectKind === 'stat_flat' || template.effectKind === 'stat_pct') {
@@ -381,11 +451,18 @@ export function firePassives(input: PassiveFireInput): PassiveFireResult {
   const passivesById = new Map(input.passives.map((p) => [p.id, { ...p }]))
   const log: BattleLogEntry[] = []
   const combatPatches: PassiveCombatPatch[] = []
+  const phase = input.phase ?? 'full'
+  let dodged = false
 
   for (const passive of equipped) {
     const template = getPassiveTemplate(passive.templateId)
     if (!template || template.levelTrigger !== input.trigger) continue
     if (input.trigger === 'on_move' && (input.moveCells ?? 0) < 1) continue
+    if (input.trigger === 'on_regen_tick' && (input.regenHeal ?? 0) <= 0) continue
+
+    const isSmokeVeil = template.id === 'rogue_smoke_veil'
+    if (phase === 'dodge' && !isSmokeVeil) continue
+    if (phase !== 'dodge' && isSmokeVeil) continue
 
     void resolveCarrierTags('passive', passive.templateId)
 
@@ -406,6 +483,7 @@ export function firePassives(input: PassiveFireInput): PassiveFireResult {
       )
     }
 
+    if (patches.some((p) => p.kind === 'dodge')) dodged = true
     combatPatches.push(...patches)
   }
 
@@ -413,5 +491,6 @@ export function firePassives(input: PassiveFireInput): PassiveFireResult {
     passives: input.passives.map((p) => passivesById.get(p.id) ?? p),
     log,
     combatPatches,
+    dodged,
   }
 }

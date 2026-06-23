@@ -3,6 +3,7 @@ import type { Unit } from '../types'
 
 export type UnitStatusKind =
   | 'attack_up'
+  | 'defense_up'
   | 'defense_down'
   | 'card_damage_up'
   | 'rooted'
@@ -50,6 +51,9 @@ export function statusCombatModifiers(unit: Unit): StatusCombatModifiers {
     switch (s.kind) {
       case 'attack_up':
         mods.attackFlat += s.magnitude
+        break
+      case 'defense_up':
+        mods.defenseFlat += s.magnitude
         break
       case 'defense_down':
         mods.defenseFlat -= s.magnitude

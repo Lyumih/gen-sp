@@ -1,11 +1,18 @@
 import type { BattleAction, BattleLogEntry, BattleModContext, BattleState, ModSlotState, PassiveInstance, Unit } from '../types'
 import { isUnitRooted } from './unitStatus'
+import { appendUnitStatus, statusForSkill } from './unitStatus'
 import { canMeleeAttack, canRangedAttack, withDamage, withHeal } from './combat'
 import { cellKey, manhattan, orthoNeighbors, wallSet } from './grid'
 import { advanceTurn } from './initiative'
 import { hasLineOfSight } from './lineOfSight'
 import { isPartyWipe } from './outcomes'
 import { cellsInAoE, reachableMoveCells } from './rangeOverlay'
+import {
+  applyPassiveAttackBonus,
+  applyPassiveHealBonus,
+  mitigatePassiveDefense,
+  rollPassiveCritDamage,
+} from '../passives/passiveCombatStats'
 import {
   computeHealSplashAmount,
   computeLifestealHeal,
@@ -19,6 +26,7 @@ import {
 import { getModTemplate } from '../content/modTemplates'
 import { passiveEquipFromBattlePassives } from '../campaign/playerPassivesFromParty'
 import {
+  computePassiveRangedRangeBonus,
   computePassiveStrikeDamageMult,
   firePassives,
   type PassiveCombatPatch,
@@ -123,6 +131,10 @@ function applyPassivePatches(
   let killed: Unit | null = null
 
   for (const patch of patches) {
+    if (patch.kind === 'dodge') {
+      continue
+    }
+
     if (patch.kind === 'dodge_heal') {
       const unit = getUnit(next, patch.targetId)
       if (!isAliveUnit(unit)) continue
@@ -149,6 +161,74 @@ function applyPassivePatches(
         amount: patch.amount,
         ...(fromCard ? { fromCard } : {}),
       })
+      continue
+    }
+
+    if (patch.kind === 'defense_add') {
+      const unit = getUnit(next, patch.unitId)
+      if (!isAliveUnit(unit)) continue
+      const effect = {
+        id: `battle-line-def-${patch.unitId}-${next.battleLog.length}`,
+        kind: 'defense_up' as const,
+        remainingTurns: 1,
+        magnitude: patch.amount,
+        sourceTemplateId: 'warrior_battle_line',
+      }
+      next = updateUnit(next, patch.unitId, appendUnitStatus(unit, effect))
+      continue
+    }
+
+    if (patch.kind === 'regen_bonus') {
+      const target = getUnit(next, patch.unitId)
+      if (!isAliveUnit(target)) continue
+      const healed = withHeal(target, patch.amount)
+      next = updateUnit(next, patch.unitId, healed)
+      log.push({
+        type: 'heal',
+        healerId: patch.unitId,
+        targetId: patch.unitId,
+        amount: patch.amount,
+        ...(fromCard ? { fromCard } : {}),
+      })
+      continue
+    }
+
+    if (patch.kind === 'apply_status') {
+      const target = getUnit(next, patch.targetId)
+      if (!isAliveUnit(target)) continue
+      const effect = statusForSkill(patch.statusTemplateId, patch.effectPower)
+      if (effect) {
+        next = updateUnit(next, patch.targetId, appendUnitStatus(target, effect))
+        log.push({
+          type: 'status_applied',
+          unitId: patch.targetId,
+          statusKind: effect.kind,
+          sourceTemplateId: patch.statusTemplateId,
+        })
+      }
+      continue
+    }
+
+    if (patch.kind === 'aoe_splash') {
+      for (const [nx, ny] of orthoNeighbors(patch.centerX, patch.centerY)) {
+        const splashTarget = next.units.find(
+          (u) => u.hp > 0 && u.x === nx && u.y === ny && u.id !== patch.attackerId,
+        )
+        if (!splashTarget) continue
+        const updated = withDamage(splashTarget, patch.damage)
+        const wasKill = updated.hp <= 0 && splashTarget.hp > 0
+        next = updateUnit(next, splashTarget.id, updated)
+        log.push({
+          type: 'strike',
+          attackerId: patch.attackerId,
+          targetId: splashTarget.id,
+          damage: patch.damage,
+          attackKind: 'aoe',
+          targetKilled: wasKill,
+          ...(fromCard ? { fromCard } : {}),
+        })
+        if (wasKill && splashTarget.side === 'enemy') killed = updated
+      }
       continue
     }
 
@@ -190,9 +270,9 @@ function triggerUnitPassives(
   trigger: PassiveTrigger,
   actor: Unit,
   ctx: Omit<PassiveFireInput, 'trigger' | 'passives' | 'passiveEquip' | 'actor' | 'battle' | 'rng' | 'randomInt1to100'>,
-): { state: BattleState; killed: Unit | null } {
+): { state: BattleState; killed: Unit | null; dodged: boolean } {
   const passives = unitPassives(state, actor.id)
-  if (passives.length === 0) return { state, killed: null }
+  if (passives.length === 0) return { state, killed: null, dodged: false }
 
   const result = firePassives({
     trigger,
@@ -208,7 +288,40 @@ function triggerUnitPassives(
   let next = updateUnitPassives(state, actor.id, result.passives)
   next = appendLog(next, result.log)
   const patchResult = applyPassivePatches(next, result.combatPatches, ctx.fromCard)
-  return { state: patchResult.state, killed: patchResult.killed }
+  return {
+    state: patchResult.state,
+    killed: patchResult.killed,
+    dodged: result.dodged,
+  }
+}
+
+/** Advances turn and fires on_turn_start / on_regen_tick passives for player actors. */
+export function advanceBattleTurn(state: BattleState): BattleState {
+  const logLen = state.battleLog.length
+  let next = advanceTurn(state)
+  if (next.phase !== 'ongoing') return next
+
+  const actorId = getCurrentActorId(next)
+  if (!actorId) return next
+  const actor = getUnit(next, actorId)
+  if (!isAliveUnit(actor) || actor.side !== 'player') return next
+
+  let regenHeal = 0
+  for (const entry of next.battleLog.slice(logLen)) {
+    if (entry.type === 'status_tick' && entry.unitId === actorId && entry.regenHeal) {
+      regenHeal = entry.regenHeal
+    }
+  }
+
+  const turnStart = triggerUnitPassives(next, 'on_turn_start', actor, {})
+  next = turnStart.state
+
+  if (regenHeal > 0) {
+    const regenTick = triggerUnitPassives(next, 'on_regen_tick', actor, { regenHeal })
+    next = regenTick.state
+  }
+
+  return next
 }
 
 function updateUnit(state: BattleState, unitId: string, next: Unit): BattleState {
@@ -422,13 +535,40 @@ function applySingleStrike(
 
   let damage = params.damage
   if (attacker.side === 'player') {
+    damage = applyPassiveAttackBonus(state, attacker, damage)
     const mult = computePassiveStrikeDamageMult(unitPassives(state, attacker.id), attacker)
     damage = Math.round(damage * mult)
+    if (!params.fromCard) {
+      damage = rollPassiveCritDamage(state, attacker, damage, passiveChanceRng(state))
+    }
+  }
+
+  let next = state
+  let dodged = false
+
+  if (target.side === 'player') {
+    const dodgeCheck = triggerUnitPassives(next, 'on_damaged', target, {
+      phase: 'dodge',
+      attackerId: params.attackerId,
+      damageDealt: damage,
+      attackKind: params.attackKind,
+      ...(params.fromCard !== undefined ? { fromCard: params.fromCard } : {}),
+    })
+    next = dodgeCheck.state
+    dodged = dodgeCheck.dodged
+  }
+
+  if (dodged) {
+    return { state: next, killed: null }
+  }
+
+  if (target.side === 'player') {
+    damage = mitigatePassiveDefense(next, target, damage)
   }
 
   const updated = withDamage(target, damage)
   const wasKill = updated.hp <= 0 && target.hp > 0
-  let next = updateUnit(state, params.targetId, updated)
+  next = updateUnit(next, params.targetId, updated)
   const log: BattleLogEntry[] = [
     {
       type: 'strike',
@@ -453,8 +593,9 @@ function applySingleStrike(
   if (attackerProcs.killed) killed = attackerProcs.killed
 
   const damagedTarget = getUnit(next, params.targetId)
-  if (isAliveUnit(damagedTarget) && damagedTarget.side === 'player') {
+  if (isAliveUnit(damagedTarget) && damagedTarget.side === 'player' && damage > 0) {
     const damaged = triggerUnitPassives(next, 'on_damaged', damagedTarget, {
+      phase: 'post_damage',
       attackerId: params.attackerId,
       damageDealt: damage,
       attackKind: params.attackKind,
@@ -471,6 +612,8 @@ function applySingleStrike(
       targetId: params.targetId,
       damageDealt: damage,
       attackKind: params.attackKind,
+      targetX: target.x,
+      targetY: target.y,
       ...(params.fromCard !== undefined ? { fromCard: params.fromCard } : {}),
     })
     next = fired.state
@@ -535,7 +678,7 @@ function tryMove(state: BattleState, action: Extract<BattleAction, { type: 'move
 
   next = afterHpChange(next, null)
   if (next.phase !== 'ongoing') return next
-  return advanceTurn(next)
+  return advanceBattleTurn(next)
 }
 
 function tryAttack(state: BattleState, action: Extract<BattleAction, { type: 'attack' }>): BattleState {
@@ -549,10 +692,14 @@ function tryAttack(state: BattleState, action: Extract<BattleAction, { type: 'at
   if (attacker.id === target.id) return state
 
   const walls = wallSet(state.walls)
+  const rangeBonus =
+    action.kind === 'ranged'
+      ? computePassiveRangedRangeBonus(unitPassives(state, attacker.id), attacker, state)
+      : 0
   const ok =
     action.kind === 'melee'
       ? canMeleeAttack(attacker, target)
-      : canRangedAttack(attacker, target, action.maxRange, walls)
+      : canRangedAttack(attacker, target, action.maxRange + rangeBonus, walls)
   if (!ok) return state
 
   const strikeParams: StrikeParams = {
@@ -569,7 +716,7 @@ function tryAttack(state: BattleState, action: Extract<BattleAction, { type: 'at
   next = applySelfHealOnUse(next, action.attackerId, action.modCtx, action.fromCard)
   next = afterHpChange(next, killed)
   if (next.phase !== 'ongoing') return next
-  return advanceTurn(next)
+  return advanceBattleTurn(next)
 }
 
 function tryAoEStrike(
@@ -629,7 +776,7 @@ function tryAoEStrike(
   const enemiesAlive = next.units.some((u) => u.side === 'enemy' && u.hp > 0)
   if (isPartyWipe(next)) return { ...next, phase: 'defeat' }
   if (!enemiesAlive) return { ...next, phase: 'victory' }
-  return advanceTurn(next)
+  return advanceBattleTurn(next)
 }
 
 function findHealSplashTargets(state: BattleState, target: Unit): Unit[] {
@@ -658,14 +805,15 @@ function tryHeal(state: BattleState, action: Extract<BattleAction, { type: 'heal
   if (d > 2) return state
   if (d > 0 && !hasLineOfSight(healer.x, healer.y, target.x, target.y, walls)) return state
 
-  const updated = withHeal(target, action.amount)
+  const healAmount = applyPassiveHealBonus(state, healer, action.amount)
+  const updated = withHeal(target, healAmount)
   let next = updateUnit(state, action.targetId, updated)
   const log: BattleLogEntry[] = [
     {
       type: 'heal',
       healerId: action.healerId,
       targetId: action.targetId,
-      amount: action.amount,
+      amount: healAmount,
       ...(action.fromCard !== undefined ? { fromCard: action.fromCard } : {}),
     },
   ]
@@ -696,7 +844,7 @@ function tryHeal(state: BattleState, action: Extract<BattleAction, { type: 'heal
   if (isAliveUnit(healerAfter) && healerAfter.side === 'player') {
     const fired = triggerUnitPassives(next, 'on_card_heal', healerAfter, {
       targetId: action.targetId,
-      healAmount: action.amount,
+      healAmount: healAmount,
       ...(action.fromCard !== undefined ? { fromCard: action.fromCard } : {}),
     })
     next = fired.state
@@ -704,7 +852,7 @@ function tryHeal(state: BattleState, action: Extract<BattleAction, { type: 'heal
 
   next = afterHpChange(next, null)
   if (next.phase !== 'ongoing') return next
-  return advanceTurn(next)
+  return advanceBattleTurn(next)
 }
 
 export function applyAction(state: BattleState, action: BattleAction): BattleState {

@@ -1,8 +1,7 @@
-import { applyAction } from '../battle/reducer'
+import { applyAction, advanceBattleTurn } from '../battle/reducer'
 import { canMeleeAttack, canRangedAttack } from '../battle/combat'
 import { cellKey, inBounds, manhattan, wallSet } from '../battle/grid'
 import { hasLineOfSight } from '../battle/lineOfSight'
-import { advanceTurn } from '../battle/initiative'
 import { canCastAoEAt, canHealTarget } from '../battle/rangeOverlay'
 import { cellsInAoE } from '../battle/rangeOverlay'
 import {
@@ -391,7 +390,7 @@ export function dispatchCardHealUse(input: CardHealUseInput): CampaignState | nu
         { type: 'resurrect', healerId: actorId, targetId: target.id, hp, fromCard },
       ],
     }
-    if (nextBattle.phase === 'ongoing') nextBattle = advanceTurn(nextBattle)
+    if (nextBattle.phase === 'ongoing') nextBattle = advanceBattleTurn(nextBattle)
   } else {
     nextBattle = applyAction(bWithCards, {
       type: 'heal',
@@ -455,7 +454,7 @@ export function dispatchCardBuffUse(input: CardBuffUseInput): CampaignState | nu
   }
 
   nextBattle = withStatuses(nextBattle, target.id, [status, defDebuff])
-  if (nextBattle.phase === 'ongoing') nextBattle = advanceTurn(nextBattle)
+  if (nextBattle.phase === 'ongoing') nextBattle = advanceBattleTurn(nextBattle)
 
   return finalizeCardUse(state, battle, nextBattle, card, used, roll, tmpl, actorId)
 }

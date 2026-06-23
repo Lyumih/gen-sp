@@ -3,7 +3,9 @@ import { LEGACY_HERO_CHARACTER_ID } from '../character/constants'
 import type { BattleModContext, BattleState, ModSlotState, Unit } from '../types'
 import { createPassiveInstance } from '../passives/passiveFactory'
 import { cellKey, manhattan, orthoNeighbors } from './grid'
-import { applyAction } from './reducer'
+import { TEST_BASE_STATS } from '../stats/testFixtures'
+import { appendUnitStatus, statusForSkill } from './unitStatus'
+import { applyAction, advanceBattleTurn } from './reducer'
 
 const HERO_ID = LEGACY_HERO_CHARACTER_ID
 
@@ -421,6 +423,101 @@ describe('applyAction passive procs', () => {
       true,
     )
     expect(next.units.find((u) => u.id === 'e1')!.hp).toBeLessThan(20)
+  })
+
+  it('rogue_smoke_veil dodges damage on successful proc', () => {
+    const smoke = createPassiveInstance('rogue_smoke_veil')
+    const s = battle({
+      units: [
+        unit({ id: HERO_ID, side: 'player', x: 1, y: 0, hp: 8, maxHp: 10, unitLevel: 1 }),
+        unit({ id: 'e1', side: 'enemy', x: 2, y: 0, hp: 20, maxHp: 20, unitLevel: 1 }),
+      ],
+      currentTurnIndex: 1,
+      turnOrder: [HERO_ID, 'e1'],
+      passivesByUnitId: { [HERO_ID]: [smoke] },
+      passiveRng: () => 0.01,
+    })
+    const next = applyAction(s, {
+      type: 'attack',
+      attackerId: 'e1',
+      targetId: HERO_ID,
+      damage: 2,
+      kind: 'melee',
+    })
+    expect(next.units.find((u) => u.id === HERO_ID)!.hp).toBe(8)
+    expect(
+      next.battleLog.some((e) => e.type === 'passive_proc' && e.templateId === 'rogue_smoke_veil'),
+    ).toBe(true)
+  })
+
+  it('berserker_rage increases outgoing strike damage', () => {
+    const rage = createPassiveInstance('berserker_rage')
+    const baseUnits = [
+      unit({
+        id: HERO_ID,
+        side: 'player',
+        x: 1,
+        y: 0,
+        hp: 10,
+        maxHp: 10,
+        unitLevel: 1,
+        baseStats: TEST_BASE_STATS,
+      }),
+      unit({ id: 'e1', side: 'enemy', x: 2, y: 0, hp: 30, maxHp: 30, unitLevel: 1 }),
+    ]
+    const without = applyAction(
+      battle({ units: baseUnits, passiveRng: () => 1 }),
+      { type: 'attack', attackerId: HERO_ID, targetId: 'e1', damage: 5, kind: 'melee' },
+    )
+    const withRage = applyAction(
+      battle({
+        units: baseUnits,
+        passivesByUnitId: { [HERO_ID]: [rage] },
+        passiveRng: () => 1,
+      }),
+      { type: 'attack', attackerId: HERO_ID, targetId: 'e1', damage: 5, kind: 'melee' },
+    )
+    expect(withRage.units.find((u) => u.id === 'e1')!.hp).toBeLessThan(
+      without.units.find((u) => u.id === 'e1')!.hp,
+    )
+  })
+
+  it('advanceBattleTurn fires warrior_battle_line on player turn start', () => {
+    const battleLine = createPassiveInstance('warrior_battle_line')
+    const s = battle({
+      units: [
+        unit({ id: HERO_ID, side: 'player', x: 0, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
+        unit({ id: 'ally', side: 'player', x: 1, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
+        unit({ id: 'e1', side: 'enemy', x: 3, y: 0, hp: 5, maxHp: 5, unitLevel: 1 }),
+      ],
+      currentTurnIndex: 0,
+      turnOrder: ['e1', HERO_ID],
+      passivesByUnitId: { [HERO_ID]: [battleLine] },
+    })
+    const next = advanceBattleTurn(s)
+    expect(
+      next.battleLog.some((e) => e.type === 'passive_proc' && e.templateId === 'warrior_battle_line'),
+    ).toBe(true)
+  })
+
+  it('advanceBattleTurn fires healer_renewal on regen tick', () => {
+    const renewal = createPassiveInstance('healer_renewal')
+    const regenStatus = statusForSkill('regeneration', 6)
+    let hero = unit({ id: HERO_ID, side: 'player', x: 0, y: 0, hp: 5, maxHp: 10, unitLevel: 1 })
+    if (regenStatus) hero = appendUnitStatus(hero, regenStatus)
+    const s = battle({
+      units: [
+        hero,
+        unit({ id: 'e1', side: 'enemy', x: 2, y: 0, hp: 5, maxHp: 5, unitLevel: 1 }),
+      ],
+      currentTurnIndex: 0,
+      turnOrder: ['e1', HERO_ID],
+      passivesByUnitId: { [HERO_ID]: [renewal] },
+    })
+    const next = advanceBattleTurn(s)
+    expect(
+      next.battleLog.some((e) => e.type === 'passive_proc' && e.templateId === 'healer_renewal'),
+    ).toBe(true)
   })
 })
 

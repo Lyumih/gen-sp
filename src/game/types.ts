@@ -94,6 +94,7 @@ export type CampaignChest = {
 export type HubNotice =
   | { kind: 'skill_drop'; templateId: string }
   | { kind: 'passive_drop'; templateId: string }
+  | { kind: 'dual_drop'; skillTemplateId: string; passiveTemplateId: string }
 
 export type CharacterMetaStatus = 'active' | 'downed'
 

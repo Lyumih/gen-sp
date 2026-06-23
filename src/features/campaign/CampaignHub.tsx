@@ -39,6 +39,11 @@ export function CampaignHub() {
     } else if (notice.kind === 'passive_drop') {
       const label = getPassiveTemplate(notice.templateId)?.label ?? notice.templateId
       message.success(`В сундук попал навык: ${label}`)
+    } else if (notice.kind === 'dual_drop') {
+      const skillLabel = getCardDisplayLabel(notice.skillTemplateId)
+      const passiveLabel =
+        getPassiveTemplate(notice.passiveTemplateId)?.label ?? notice.passiveTemplateId
+      message.success(`В сундук попали: умение ${skillLabel} и навык ${passiveLabel}`)
     }
     dispatchRun({ type: 'MARK_HUB_NOTICE_SEEN' })
   }, [campaign.pendingHubNotice, dispatchRun, message])

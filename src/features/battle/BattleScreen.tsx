@@ -23,6 +23,7 @@ import { describeCardModSummary } from '../../game/descriptions/modText'
 import { UI_CELL, UI_DAMAGE, UI_HEART, UI_LEVEL } from '../../game/ui/labels'
 import { computeEffectiveStats, computeGearStatBonuses } from '../../game/stats/effectiveStats'
 import { aggregatePassiveSkillStatBonuses } from '../../game/passives/passiveStatBonuses'
+import { computePassiveRangedRangeBonus } from '../../game/passives/passiveEngine'
 import { getItemTemplate } from '../../game/content/itemTemplates'
 import { BattleUnitTooltip } from './BattleUnitTooltip'
 import { UnitToken } from './UnitToken'
@@ -214,6 +215,12 @@ export function BattleScreen() {
   }, [battle?.excludedCharacterIds, campaign])
   const current = battle?.units.find((u) => u.id === currentId)
   const actor = current?.side === 'player' && current.hp > 0 ? current : undefined
+  const passiveRangedRangeBonus = useMemo(() => {
+    if (!battle || !actor) return 0
+    const passives = battle.passivesByUnitId?.[actor.id] ?? []
+    return computePassiveRangedRangeBonus(passives, actor, battle)
+  }, [battle, actor])
+  const effectiveRangedRange = HERO_BASIC_RANGED_MAX_RANGE + passiveRangedRangeBonus
   const actorCards = battle && currentId ? getActorPlayerCards(battle, currentId) : []
 
   useEffect(() => {
@@ -346,13 +353,13 @@ export function BattleScreen() {
       )
       validTargetCells = validSingleTargetCells(battle, actor.x, actor.y, 'melee', 1)
     } else if (mode === 'ranged') {
-      actionRangeCells = attackRangeCells(battle, actor.x, actor.y, HERO_BASIC_RANGED_MAX_RANGE)
+      actionRangeCells = attackRangeCells(battle, actor.x, actor.y, effectiveRangedRange)
       validTargetCells = validSingleTargetCells(
         battle,
         actor.x,
         actor.y,
         'ranged',
-        HERO_BASIC_RANGED_MAX_RANGE,
+        effectiveRangedRange,
       )
       } else if (mode === 'card' && selectedCardTemplate) {
       if (selectedCardTemplate.kind === 'aoe' || (selectedCardTemplate.kind === 'utility' && selectedCardTemplate.aoeSize !== undefined)) {
@@ -645,7 +652,7 @@ export function BattleScreen() {
       targetId: target.id,
       damage: HERO_BASIC_RANGED_DAMAGE,
       kind: 'ranged',
-      maxRange: HERO_BASIC_RANGED_MAX_RANGE,
+      maxRange: effectiveRangedRange,
     })
   }
 
@@ -958,7 +965,7 @@ export function BattleScreen() {
                   <Radio.Button value="ranged">
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                       <AimOutlined aria-hidden />
-                      {`Выстрел (≤${HERO_BASIC_RANGED_MAX_RANGE}${UI_CELL}) — ${HERO_BASIC_RANGED_DAMAGE}${UI_DAMAGE}`}
+                      {`Выстрел (≤${effectiveRangedRange}${UI_CELL}) — ${HERO_BASIC_RANGED_DAMAGE}${UI_DAMAGE}`}
                     </span>
                   </Radio.Button>
                 </Space>

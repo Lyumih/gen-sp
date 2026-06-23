@@ -456,22 +456,34 @@ function finalizeVictory(
   let pendingHubNotice = state.pendingHubNotice
   const codexDiscoveries: string[] = []
 
-  if (rollBattleSkillDrop(dropRng())) {
-    const templateId = pickRandomSkillTemplateId(dropRng)
-    const dropped = createCardInstance(templateId)
+  const skillDropped = rollBattleSkillDrop(dropRng())
+  let skillTemplateId: string | undefined
+  if (skillDropped) {
+    skillTemplateId = pickRandomSkillTemplateId(dropRng)
+    const dropped = createCardInstance(skillTemplateId)
     chest = { ...chest, unboundCards: [...chest.unboundCards, dropped] }
-    pendingHubNotice = { kind: 'skill_drop', templateId }
-    codexDiscoveries.push(codexEntryId('card', templateId))
+    codexDiscoveries.push(codexEntryId('card', skillTemplateId))
   }
 
-  if (rollBattlePassiveDrop(dropRng())) {
-    const passiveTemplateId = pickRandomPassiveTemplateId(dropRng)
+  const passiveDropped = rollBattlePassiveDrop(dropRng())
+  let passiveTemplateId: string | undefined
+  if (passiveDropped) {
+    passiveTemplateId = pickRandomPassiveTemplateId(dropRng)
     const droppedPassive = createPassiveInstance(passiveTemplateId)
     chest = { ...chest, unboundPassives: [...chest.unboundPassives, droppedPassive] }
-    if (!pendingHubNotice) {
-      pendingHubNotice = { kind: 'passive_drop', templateId: passiveTemplateId }
-    }
     codexDiscoveries.push(`passive:${passiveTemplateId}`)
+  }
+
+  if (skillDropped && passiveDropped && skillTemplateId && passiveTemplateId) {
+    pendingHubNotice = {
+      kind: 'dual_drop',
+      skillTemplateId,
+      passiveTemplateId,
+    }
+  } else if (skillDropped && skillTemplateId) {
+    pendingHubNotice = { kind: 'skill_drop', templateId: skillTemplateId }
+  } else if (passiveDropped && passiveTemplateId) {
+    pendingHubNotice = { kind: 'passive_drop', templateId: passiveTemplateId }
   }
 
   const base: CampaignState = {

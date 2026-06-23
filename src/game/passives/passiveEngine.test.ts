@@ -79,8 +79,8 @@ describe('firePassives', () => {
       randomInt1to100: () => 100,
       damageDealt: 2,
       attackerId: 'e1',
+      phase: 'post_damage',
     })
-    expect(result.passives[0]!.uses_count).toBe(1)
     expect(result.passives[0]!.global_level).toBe(2)
     expect(result.combatPatches).toHaveLength(0)
   })
@@ -119,10 +119,76 @@ describe('firePassives', () => {
       randomInt1to100: () => 1,
       damageDealt: 2,
       attackerId: 'e1',
+      phase: 'post_damage',
     })
     expect(result.passives[0]!.uses_count).toBe(0)
     expect(result.log).toHaveLength(0)
     expect(result.combatPatches).toHaveLength(0)
+  })
+
+  it('warrior_battle_line proc without procChance always triggers with allies nearby', () => {
+    const battleLine = createPassiveInstance('warrior_battle_line')
+    const allyId = 'ally-1'
+    const actor = unit({
+      id: HERO_ID,
+      side: 'player',
+      x: 0,
+      y: 0,
+      hp: 10,
+      maxHp: 10,
+      unitLevel: 1,
+    })
+    const result = firePassives({
+      trigger: 'on_turn_start',
+      passives: [battleLine],
+      passiveEquip: equip([battleLine.id]),
+      actor,
+      battle: battle({
+        units: [
+          actor,
+          unit({
+            id: allyId,
+            side: 'player',
+            x: 1,
+            y: 0,
+            hp: 10,
+            maxHp: 10,
+            unitLevel: 1,
+          }),
+        ],
+      }),
+      rng: () => 0.99,
+      randomInt1to100: () => 1,
+    })
+    expect(result.passives[0]!.uses_count).toBe(1)
+    expect(result.combatPatches).toEqual([
+      expect.objectContaining({ kind: 'defense_add', unitId: HERO_ID, amount: 1 }),
+    ])
+  })
+
+  it('healer_renewal proc without procChance triggers on regen tick', () => {
+    const renewal = createPassiveInstance('healer_renewal')
+    const actor = unit({
+      id: HERO_ID,
+      side: 'player',
+      x: 0,
+      y: 0,
+      hp: 8,
+      maxHp: 10,
+      unitLevel: 1,
+    })
+    const result = firePassives({
+      trigger: 'on_regen_tick',
+      passives: [renewal],
+      passiveEquip: equip([renewal.id]),
+      actor,
+      battle: battle(),
+      rng: () => 0.99,
+      randomInt1to100: () => 1,
+      regenHeal: 3,
+    })
+    expect(result.passives[0]!.uses_count).toBe(1)
+    expect(result.combatPatches.some((p) => p.kind === 'regen_bonus')).toBe(true)
   })
 
   it('levels proc passive only on successful proc', () => {
@@ -159,6 +225,7 @@ describe('firePassives', () => {
       randomInt1to100: () => 100,
       damageDealt: 2,
       attackerId: 'e1',
+      phase: 'post_damage',
     })
     expect(result.passives[0]!.uses_count).toBe(1)
     expect(result.log.some((e) => e.type === 'passive_proc')).toBe(true)

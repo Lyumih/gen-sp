@@ -2271,7 +2271,7 @@ describe('passive drops and tavern', () => {
     })
     expect(s.chest.unboundCards.length).toBeGreaterThanOrEqual(1)
     expect(s.chest.unboundPassives.length).toBeGreaterThanOrEqual(1)
-    expect(s.pendingHubNotice?.kind).toBe('skill_drop')
+    expect(s.pendingHubNotice?.kind).toBe('dual_drop')
   })
 
   it('FINALIZE_VICTORY passive-only drop sets passive_drop notice', () => {
