@@ -1,12 +1,12 @@
 import type { ItemTemplate } from '../../game/content/itemTemplates'
 import {
-  aggregateGearCardLevelBonus,
+  aggregateGearDamageMult,
 } from '../../game/equipment/aggregates'
-import { computeGearStatBonuses } from '../../game/stats/effectiveStats'
+import { computeCharacterMaxHp } from '../../game/stats/effectiveStats'
 import { getCharacter } from '../../game/character/selectors'
 import type { CampaignState, EquipmentSlot } from '../../game/types'
 
-export type EquipDelta = { deltaHp: number; deltaCardLevel: number }
+export type EquipDelta = { deltaMaxHp: number; deltaDamageMult: number }
 
 export function previewEquipDelta(
   campaign: CampaignState,
@@ -22,19 +22,15 @@ export function previewEquipDelta(
   const tmpl = getTemplate(item.templateId)
   if (!tmpl || tmpl.slot !== slot) return null
 
-  const beforeHp = computeGearStatBonuses(hero.items, hero.equipment, getTemplate).health ?? 0
-  const beforeCard = aggregateGearCardLevelBonus(
-    hero.items,
-    hero.equipment,
-    getTemplate,
-  )
-
+  const worldPower = campaign.worldPower
+  const beforeHp = computeCharacterMaxHp(hero, worldPower, getTemplate)
   const nextEquipment = { ...hero.equipment, [slot]: itemId }
-  const afterHp = computeGearStatBonuses(hero.items, nextEquipment, getTemplate).health ?? 0
-  const afterCard = aggregateGearCardLevelBonus(hero.items, nextEquipment, getTemplate)
+  const afterHp = computeCharacterMaxHp({ ...hero, equipment: nextEquipment }, worldPower, getTemplate)
+  const beforeMult = aggregateGearDamageMult(hero.items, hero.equipment, getTemplate)
+  const afterMult = aggregateGearDamageMult(hero.items, nextEquipment, getTemplate)
 
   return {
-    deltaHp: afterHp - beforeHp,
-    deltaCardLevel: afterCard - beforeCard,
+    deltaMaxHp: afterHp - beforeHp,
+    deltaDamageMult: afterMult - beforeMult,
   }
 }

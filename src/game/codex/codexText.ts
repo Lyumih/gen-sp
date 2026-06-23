@@ -23,7 +23,8 @@ function formatTagSummaryLine(tags: readonly string[]): string {
 
 export function describeCodexEntry(
   entry: CodexEntry,
-  gearCardLevelBonus = 0,
+  gearDamageMult = 1,
+  gearStrikeDamageMult = 1,
 ): { label: string; summaryLines: string[]; detailLines: string[] } {
   switch (entry.category) {
     case 'class': {
@@ -63,7 +64,7 @@ export function describeCodexEntry(
         modSlots: [],
       }
       const tmpl = getCardAttackTemplate(entry.templateId)
-      const d = describeCardCombatStats(card, gearCardLevelBonus)
+      const d = describeCardCombatStats(card, gearDamageMult, gearStrikeDamageMult)
       const tagLine = tmpl ? formatTagSummaryLine(tmpl.tags) : ''
       return {
         label: d.displayLabel,

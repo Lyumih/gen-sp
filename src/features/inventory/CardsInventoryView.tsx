@@ -21,7 +21,7 @@ import { App, Divider, Space, Tooltip, Typography } from 'antd'
 import { getCardAttackTemplate } from '../../game/content/cardTemplates'
 import { getCharacter } from '../../game/character/selectors'
 import { describeCardCombatStats } from '../../game/descriptions/cardText'
-import type { CampaignState, CardInstance, ModOffer } from '../../game/types'
+import type { CampaignState, CardInstance, ItemInstance, ModOffer } from '../../game/types'
 import { UI_DAMAGE, UI_HEART, UI_LEVEL } from '../../game/ui/labels'
 import { InventoryCell } from './InventoryCell'
 import { InventoryGrid } from './InventoryGrid'
@@ -51,7 +51,8 @@ type CardsInventoryViewProps = {
   inBattle: boolean
   modsDisabled?: boolean
   modsDisabledTooltip?: string
-  gearCardLevelBonus: number
+  gearDamageMult: number
+  gearStrikeDamageMult: number
   onReorderCards: (cardIds: string[]) => void
   onSetBattleLoadout: (slotIndex: 0 | 1, cardId: string | null) => void
   onPickModOffer: (
@@ -67,7 +68,9 @@ function SortableCardCell({
   card,
   inBattle,
   modsDisabled,
-  gearCardLevelBonus,
+  gearDamageMult,
+  gearStrikeDamageMult,
+  equippedWeapon,
   onOpenPicker,
   onConfirmRemove,
   modsDisabledTooltip,
@@ -76,13 +79,20 @@ function SortableCardCell({
   inBattle: boolean
   modsDisabled: boolean
   modsDisabledTooltip?: string
-  gearCardLevelBonus: number
+  gearDamageMult: number
+  gearStrikeDamageMult: number
+  equippedWeapon: ItemInstance | null
   onOpenPicker: (carrierId: string, slotIndex: number, offer: ModOffer) => void
   onConfirmRemove: (card: CardInstance, slotIndex: number) => void
 }) {
   const tmpl = getCardAttackTemplate(card.templateId)
   const loadoutBlocked = tmpl?.enabled === false
-  const stats = describeCardCombatStats(card, gearCardLevelBonus)
+  const stats = describeCardCombatStats(
+    card,
+    gearDamageMult,
+    gearStrikeDamageMult,
+    equippedWeapon,
+  )
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: cardDragId(card.id),
     disabled: inBattle || loadoutBlocked,
@@ -156,7 +166,9 @@ function LoadoutSlotCell({
   card,
   inBattle,
   modsDisabled,
-  gearCardLevelBonus,
+  gearDamageMult,
+  gearStrikeDamageMult,
+  equippedWeapon,
   onOpenPicker,
   onConfirmRemove,
   modsDisabledTooltip,
@@ -166,7 +178,9 @@ function LoadoutSlotCell({
   inBattle: boolean
   modsDisabled: boolean
   modsDisabledTooltip?: string
-  gearCardLevelBonus: number
+  gearDamageMult: number
+  gearStrikeDamageMult: number
+  equippedWeapon: ItemInstance | null
   onOpenPicker: (carrierId: string, slotIndex: number, offer: ModOffer) => void
   onConfirmRemove: (card: CardInstance, slotIndex: number) => void
 }) {
@@ -183,7 +197,9 @@ function LoadoutSlotCell({
           inBattle={inBattle}
           modsDisabled={modsDisabled}
           modsDisabledTooltip={modsDisabledTooltip}
-          gearCardLevelBonus={gearCardLevelBonus}
+          gearDamageMult={gearDamageMult}
+          gearStrikeDamageMult={gearStrikeDamageMult}
+          equippedWeapon={equippedWeapon}
           onOpenPicker={onOpenPicker}
           onConfirmRemove={onConfirmRemove}
         />
@@ -208,7 +224,8 @@ export function CardsInventoryView({
   inBattle,
   modsDisabled = false,
   modsDisabledTooltip,
-  gearCardLevelBonus,
+  gearDamageMult,
+  gearStrikeDamageMult,
   onReorderCards,
   onSetBattleLoadout,
   onPickModOffer,
@@ -217,6 +234,11 @@ export function CardsInventoryView({
   const { modal } = App.useApp()
   const hero = getCharacter(campaign, characterId)
   const loadout = hero?.battleLoadout ?? [null, null]
+  const equippedWeaponId = hero?.equipment.weapon ?? null
+  const equippedWeapon =
+    equippedWeaponId !== null && hero
+      ? (hero.items.find((i) => i.id === equippedWeaponId) ?? null)
+      : null
   const loadoutIds = new Set(loadout.filter((id): id is string => id !== null))
   const collectionCards = hero?.cards.filter((c) => !loadoutIds.has(c.id)) ?? []
   const cardIds = collectionCards.map((c) => c.id)
@@ -296,7 +318,9 @@ export function CardsInventoryView({
         inBattle={inBattle}
         modsDisabled={modsDisabled}
         modsDisabledTooltip={modsDisabledTooltip}
-        gearCardLevelBonus={gearCardLevelBonus}
+        gearDamageMult={gearDamageMult}
+        gearStrikeDamageMult={gearStrikeDamageMult}
+        equippedWeapon={equippedWeapon}
         onOpenPicker={openPicker}
         onConfirmRemove={confirmRemoveMod}
       />
@@ -330,7 +354,9 @@ export function CardsInventoryView({
                 inBattle={inBattle}
                 modsDisabled={modsDisabled}
                 modsDisabledTooltip={modsDisabledTooltip}
-                gearCardLevelBonus={gearCardLevelBonus}
+                gearDamageMult={gearDamageMult}
+                gearStrikeDamageMult={gearStrikeDamageMult}
+                equippedWeapon={equippedWeapon}
                 onOpenPicker={openPicker}
                 onConfirmRemove={confirmRemoveMod}
               />

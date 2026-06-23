@@ -10,7 +10,11 @@ import {
   itemInstanceDescriptionLinesFromInstance,
 } from '../../game/descriptions/itemText'
 import { getItemTemplate } from '../../game/content/itemTemplates'
-import { aggregateGearCardLevelBonus } from '../../game/equipment/aggregates'
+import {
+  aggregateGearDamageMult,
+  aggregateGearHpMult,
+  aggregateGearStrikeDamageMult,
+} from '../../game/equipment/aggregates'
 import { EQUIPMENT_ROLL_ORDER } from '../../game/equipment/equipmentOrder'
 import { computeEffectiveStats, computeGearStatBonuses } from '../../game/stats/effectiveStats'
 import type { BattleState, CampaignState } from '../../game/types'
@@ -51,14 +55,21 @@ export function HeroProfileContent({
   const hubScenario = SCENARIOS[campaign.scenarioIndex]
 
   const gearBonusesHub = computeGearStatBonuses(hero.items, hero.equipment, getItemTemplate)
-  const gearCardHub = aggregateGearCardLevelBonus(
+  const gearHpMultHub = aggregateGearHpMult(hero.items, hero.equipment, getItemTemplate)
+  const gearDamageMultHub = aggregateGearDamageMult(hero.items, hero.equipment, getItemTemplate)
+  const gearStrikeDamageMultHub = aggregateGearStrikeDamageMult(
     hero.items,
     hero.equipment,
     getItemTemplate,
   )
 
+  const equippedWeaponId = hero.equipment.weapon
+  const equippedWeapon =
+    equippedWeaponId !== null
+      ? (hero.items.find((i) => i.id === equippedWeaponId) ?? null)
+      : null
+
   const heroUnit = battle?.units.find((u) => u.side === 'player')
-  const gearCardBattle = battle?.gearCardLevelBonus ?? 0
 
   const primaryMember = hubSnapshot.party[0]
   const expectedMaxHpHub =
@@ -102,13 +113,14 @@ export function HeroProfileContent({
       ) : null}
 
       <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
-        Бонусы экипировки: +{gearBonusesHub.health ?? 0} к max {UI_HEART}, +{gearCardHub} к {UI_LEVEL} для {UI_DAMAGE}{' '}
-        карт
+        Экипировка: {UI_HEART} ×{gearHpMultHub.toFixed(2)}, {UI_DAMAGE} ×
+        {gearDamageMultHub.toFixed(2)}
         {mode === 'battle' && battle ? (
           <>
             <br />
             <span>
-              (в этом бою снимок бонуса к {UI_DAMAGE} карт: <strong>{gearCardBattle}</strong>)
+              (в этом бою снимок: {UI_DAMAGE} ×{battle.gearDamageMult.toFixed(2)}, удар ×
+              {battle.gearStrikeDamageMult.toFixed(2)})
             </span>
           </>
         ) : null}
@@ -181,9 +193,16 @@ export function HeroProfileContent({
           <Collapse
             size="small"
             items={hero.cards.map((c) => {
-              const gear =
-                mode === 'battle' && battle ? battle.gearCardLevelBonus : gearCardHub
-              const desc = describeCardCombatStats(c, gear)
+              const gearDamage =
+                mode === 'battle' && battle ? battle.gearDamageMult : gearDamageMultHub
+              const gearStrike =
+                mode === 'battle' && battle ? battle.gearStrikeDamageMult : gearStrikeDamageMultHub
+              const desc = describeCardCombatStats(
+                c,
+                gearDamage,
+                gearStrike,
+                equippedWeapon,
+              )
               return {
                 key: c.id,
                 label: (

@@ -6,14 +6,15 @@ import { getItemTemplate } from '../../game/content/itemTemplates'
 import { previewEquipDelta } from './previewEquipDelta'
 
 describe('previewEquipDelta', () => {
-  it('returns hp and card level delta when equipping into empty weapon slot', () => {
+  it('returns max hp and damage mult delta when equipping into empty weapon slot', () => {
     const s = applyRunAction(
       { ...initialCampaignState(), gold: 100 },
       { type: 'BUY_ITEM', characterId: LEGACY_HERO_CHARACTER_ID, templateId: 'wooden_sword' },
     )
     const itemId = getPrimaryCharacter(s).items[0]!.id
     const delta = previewEquipDelta(s, LEGACY_HERO_CHARACTER_ID, itemId, 'weapon', getItemTemplate)
-    expect(delta).toEqual({ deltaHp: 0, deltaCardLevel: 1 })
+    expect(delta).toEqual({ deltaMaxHp: 0, deltaDamageMult: expect.any(Number) })
+    expect(delta!.deltaDamageMult).toBeCloseTo(0.01)
   })
 
   it('returns null for wrong slot type', () => {

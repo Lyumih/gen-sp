@@ -11,8 +11,6 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons'
 import { Alert, App, Badge, Button, Card, Collapse, Radio, Space, Switch, Tooltip, Typography } from 'antd'
-import { computeCardAttackDamage } from '../../game/content/cardAttackDamage'
-import { computeCardHealAmount } from '../../game/content/cardHealAmount'
 import { getCardAttackTemplate } from '../../game/content/cardTemplates'
 import {
   HERO_BASIC_MELEE_DAMAGE,
@@ -27,7 +25,7 @@ import { computeEffectiveStats } from '../../game/stats/effectiveStats'
 import { BattleUnitTooltip } from './BattleUnitTooltip'
 import { UnitToken } from './UnitToken'
 import { HeroProfileModal } from '../profile/HeroProfileModal'
-import type { BattlePlayerCard, CampaignState, Unit } from '../../game/types'
+import type { BattlePlayerCard, CampaignState, ItemInstance, Unit } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
 import { getUnitDisplay } from '../../game/character/display'
 import { turnBadgeLabel } from '../../game/battle/turnBadge'
@@ -61,15 +59,30 @@ type ActionMode = 'move' | 'melee' | 'ranged' | 'card'
 const CELL_PX = 58
 const HERO_AI_DELAY_MS = 2000
 
-function cardDetailLines(card: BattlePlayerCard, gearCardLevelBonus: number): string[] {
-  const desc = describeCardCombatStats(card, gearCardLevelBonus)
+function cardDetailLines(
+  card: BattlePlayerCard,
+  gearDamageMult: number,
+  gearStrikeDamageMult: number,
+  equippedWeapon: ItemInstance | null,
+): string[] {
+  const desc = describeCardCombatStats(
+    card,
+    gearDamageMult,
+    gearStrikeDamageMult,
+    equippedWeapon,
+  )
   const modSummary = describeCardModSummary(card.modSlots)
   if (!modSummary) return desc.lines
   return [...desc.lines, `Моды: ${modSummary}`]
 }
 
-function cardTooltipTitle(card: BattlePlayerCard, gearCardLevelBonus: number): string {
-  return cardDetailLines(card, gearCardLevelBonus).join('\n')
+function cardTooltipTitle(
+  card: BattlePlayerCard,
+  gearDamageMult: number,
+  gearStrikeDamageMult: number,
+  equippedWeapon: ItemInstance | null,
+): string {
+  return cardDetailLines(card, gearDamageMult, gearStrikeDamageMult, equippedWeapon).join('\n')
 }
 
 function BattleUnitCell({
@@ -410,6 +423,13 @@ export function BattleScreen() {
   }, [battle])
 
   if (!battle) return null
+
+  const hero = getPrimaryCharacter(campaign)
+  const equippedWeaponId = hero.equipment.weapon
+  const equippedWeapon =
+    equippedWeaponId !== null
+      ? (hero.items.find((i) => i.id === equippedWeaponId) ?? null)
+      : null
 
   const walls = new Set(battle.walls)
   const unitAt = (x: number, y: number) =>
@@ -911,13 +931,13 @@ export function BattleScreen() {
                 >
                   {actorCards.map((c) => {
                     const tmpl = getCardAttackTemplate(c.templateId)
-                    const level = c.global_level + battle.gearCardLevelBonus
-                    const effect =
-                      tmpl?.kind === 'heal'
-                        ? computeCardHealAmount(tmpl, level)
-                        : tmpl !== undefined
-                          ? computeCardAttackDamage(tmpl, level)
-                          : null
+                    const cardStats = describeCardCombatStats(
+                      c,
+                      battle.gearDamageMult,
+                      battle.gearStrikeDamageMult,
+                      equippedWeapon,
+                    )
+                    const effect = cardStats.expectedDamage
                     const effectUi = tmpl?.kind === 'heal' ? UI_HEART : UI_DAMAGE
                     const onCd = c.cooldownRemaining > 0
                     const aoeHint =
@@ -928,7 +948,12 @@ export function BattleScreen() {
                     return (
                       <Tooltip
                         key={c.id}
-                        title={cardTooltipTitle(c, battle.gearCardLevelBonus)}
+                        title={cardTooltipTitle(
+                          c,
+                          battle.gearDamageMult,
+                          battle.gearStrikeDamageMult,
+                          equippedWeapon,
+                        )}
                         mouseEnterDelay={0.3}
                       >
                         <Radio.Button
@@ -946,14 +971,13 @@ export function BattleScreen() {
                   })}
                 </Radio.Group>
                 {actorCards.map((c) => {
-                  const tmpl = getCardAttackTemplate(c.templateId)
-                  const dmg =
-                    tmpl !== undefined
-                      ? computeCardAttackDamage(
-                          tmpl,
-                          c.global_level + battle.gearCardLevelBonus,
-                        )
-                      : null
+                  const cardStats = describeCardCombatStats(
+                    c,
+                    battle.gearDamageMult,
+                    battle.gearStrikeDamageMult,
+                    equippedWeapon,
+                  )
+                  const dmg = cardStats.expectedDamage
                   return (
                     <Typography.Text key={c.id} type="secondary" style={{ fontSize: 12 }}>
                       {getCardDisplayLabel(c.templateId)} {UI_LEVEL}
@@ -980,15 +1004,19 @@ export function BattleScreen() {
             <Collapse
               size="small"
               items={actorCards.map((c) => {
-                const lines = cardDetailLines(c, battle.gearCardLevelBonus)
-                const tmpl = getCardAttackTemplate(c.templateId)
-                const dmg =
-                  tmpl !== undefined
-                    ? computeCardAttackDamage(
-                        tmpl,
-                        c.global_level + battle.gearCardLevelBonus,
-                      )
-                    : null
+                const lines = cardDetailLines(
+                  c,
+                  battle.gearDamageMult,
+                  battle.gearStrikeDamageMult,
+                  equippedWeapon,
+                )
+                const cardStats = describeCardCombatStats(
+                  c,
+                  battle.gearDamageMult,
+                  battle.gearStrikeDamageMult,
+                  equippedWeapon,
+                )
+                const dmg = cardStats.expectedDamage
                 return {
                   key: c.id,
                   label: (

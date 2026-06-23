@@ -439,7 +439,8 @@ export function EquipmentInventoryView({
     if (activeTmpl.slot !== slot) return undefined
     const delta = previewEquipDelta(campaign, characterId, activeStashItem.id, slot, getItemTemplate)
     if (!delta) return undefined
-    return `Δ${UI_HEART} ${delta.deltaHp >= 0 ? '+' : ''}${delta.deltaHp} · Δ${UI_DAMAGE} ${delta.deltaCardLevel >= 0 ? '+' : ''}${delta.deltaCardLevel}`
+    const multSign = delta.deltaDamageMult >= 0 ? '+' : ''
+    return `Δ${UI_HEART} ${delta.deltaMaxHp >= 0 ? '+' : ''}${delta.deltaMaxHp} · Δ${UI_DAMAGE} ×${multSign}${delta.deltaDamageMult.toFixed(2)}`
   }
 
   function handleDragStart(event: DragStartEvent) {
