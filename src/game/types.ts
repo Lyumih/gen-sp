@@ -241,6 +241,8 @@ export type BattleState = {
   activePlayerCardUnitId?: string
   /** Пропустить тик CD в конце текущего хода героя (ход применения карты с CD). */
   skipHeroCooldownTick?: boolean
+  /** Пропустить тик CD в конце текущего хода врага (ход применения карты с CD). */
+  skipEnemyCooldownTick?: boolean
   /** События текущего боя; не влияют на геймплей, только отображение. */
   battleLog: readonly BattleLogEntry[]
   /** @deprecated removed in save v9 — gear affects stats only */

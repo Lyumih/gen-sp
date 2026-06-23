@@ -669,6 +669,71 @@ describe('item L triggers', () => {
     })
     expect(hero(s).items.find((i) => i.id === 'a1')!.itemLevel).toBe(2)
   })
+
+  it('BATTLE_DISPATCH keeps enemy fireball CD at 6 after use (no same-turn tick)', () => {
+    const b = makeBattle({
+      width: 6,
+      height: 4,
+      units: [
+        unit({
+          id: HERO_ID,
+          side: 'player',
+          x: 2,
+          y: 0,
+          hp: 20,
+          maxHp: 20,
+          unitLevel: 1,
+        }),
+        unit({
+          id: 'e1',
+          side: 'enemy',
+          x: 0,
+          y: 0,
+          hp: 10,
+          maxHp: 10,
+          unitLevel: 1,
+          baseStats: {
+            health: 10,
+            defense: 1,
+            attack: 2,
+            magicPower: 5,
+            mana: 0,
+            healPower: 0,
+            speed: 2,
+            initiative: 6,
+            critChance: 2,
+          },
+        }),
+      ],
+      turnOrder: ['e1', HERO_ID],
+      currentTurnIndex: 0,
+      enemyCardsByUnitId: {
+        e1: [
+          {
+            id: 'fb',
+            templateId: 'fireball',
+            global_level: 5,
+            uses_count: 0,
+            modSlots: [],
+            cooldownRemaining: 0,
+          },
+        ],
+      },
+    })
+    const s = campaignWithBattle(b)
+    const next = applyRunAction(s, {
+      type: 'BATTLE_DISPATCH',
+      battleAction: {
+        type: 'card_attack',
+        attackerId: 'e1',
+        cardId: 'fb',
+        targetX: 2,
+        targetY: 0,
+      },
+    })
+    expect(next.battle!.enemyCardsByUnitId?.e1?.[0]?.cooldownRemaining).toBe(6)
+    expect(next.battle!.skipEnemyCooldownTick).toBeUndefined()
+  })
 })
 
 describe('USE_CARD_AOE', () => {

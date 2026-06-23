@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { LEGACY_HERO_CHARACTER_ID } from '../character/constants'
 import type { BattlePlayerCard, BattleState } from '../types'
-import { tickHeroCardCooldowns } from './cardCooldown'
+import { tickEnemyCardCooldowns, tickHeroCardCooldowns } from './cardCooldown'
 
 const HERO_ID = LEGACY_HERO_CHARACTER_ID
 
@@ -16,7 +16,11 @@ function card(partial: Partial<BattlePlayerCard> & Pick<BattlePlayerCard, 'id'>)
   }
 }
 
-function baseState(unitId: string, playerCards: BattlePlayerCard[]): BattleState {
+function baseState(
+  unitId: string,
+  playerCards: BattlePlayerCard[],
+  enemyCards?: BattlePlayerCard[],
+): BattleState {
   return {
     width: 4,
     height: 4,
@@ -28,6 +32,7 @@ function baseState(unitId: string, playerCards: BattlePlayerCard[]): BattleState
     phase: 'ongoing',
     worldPower: 0,
     playerCardsByUnitId: { [unitId]: playerCards },
+    ...(enemyCards !== undefined ? { enemyCardsByUnitId: { [unitId]: enemyCards } } : {}),
     battleLog: [],
     gearDamageMult: 1,
     gearStrikeDamageMult: 1,
@@ -46,5 +51,17 @@ describe('tickHeroCardCooldowns', () => {
     const next = tickHeroCardCooldowns(state, HERO_ID)
     expect(next.playerCardsByUnitId[HERO_ID]![0]!.cooldownRemaining).toBe(3)
     expect(next.skipHeroCooldownTick).toBeUndefined()
+  })
+})
+
+describe('tickEnemyCardCooldowns', () => {
+  it('skips tick when skipEnemyCooldownTick is set', () => {
+    const state = {
+      ...baseState(HERO_ID, [], [card({ id: 'fb', cooldownRemaining: 6 })]),
+      skipEnemyCooldownTick: true,
+    }
+    const next = tickEnemyCardCooldowns(state, HERO_ID)
+    expect(next.enemyCardsByUnitId?.[HERO_ID]?.[0]?.cooldownRemaining).toBe(6)
+    expect(next.skipEnemyCooldownTick).toBeUndefined()
   })
 })

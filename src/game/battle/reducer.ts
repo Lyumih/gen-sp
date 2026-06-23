@@ -964,6 +964,9 @@ function tryCardAttack(
   const fromCard = { cardId: card.id, templateId: card.templateId }
   const cd = tmpl.cooldownTurns ?? 0
   let next = setEnemyCardCooldown(state, action.attackerId, card, cd)
+  if (cd > 0) {
+    next = { ...next, skipEnemyCooldownTick: true }
+  }
 
   if (isBossSkillHandledInMechanics(card.templateId)) {
     const effectPower = resolveEnemySkillEffectPower(attacker, card, tmpl, next.worldPower) ?? 0

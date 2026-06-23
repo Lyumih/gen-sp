@@ -53,6 +53,10 @@ export function tickActorCardCooldowns(
     const { skipHeroCooldownTick: _, ...rest } = state
     return rest
   }
+  if (cardsKey === 'enemyCardsByUnitId' && state.skipEnemyCooldownTick) {
+    const { skipEnemyCooldownTick: _, ...rest } = state
+    return rest
+  }
   if (state.phase !== 'ongoing') return state
   const cards =
     cardsKey === 'playerCardsByUnitId'
