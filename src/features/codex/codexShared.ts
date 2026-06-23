@@ -4,6 +4,7 @@ export type { CodexCategory }
 
 export const CODEX_CATEGORY_ORDER: CodexCategory[] = [
   'class',
+  'affinity',
   'item',
   'card',
   'passive',
@@ -13,6 +14,7 @@ export const CODEX_CATEGORY_ORDER: CodexCategory[] = [
 
 export const CODEX_CATEGORY_LABEL: Record<CodexCategory, string> = {
   class: 'Классы',
+  affinity: 'Склонности',
   item: 'Предметы',
   card: 'Умения',
   passive: 'Навыки',
@@ -25,6 +27,7 @@ export const CODEX_SHOW_ALL_DEFAULT = true
 
 export const CODEX_EMPTY_HINT: Record<CodexCategory, string> = {
   class: 'Нанимите героя этого класса в таверне.',
+  affinity: 'Нанимите героя с этой склонностью в таверне.',
   item: 'Купите или получите предмет в кампании.',
   card: 'Используйте умение в бою.',
   passive: 'Привяжите навык к герою или наймите героя с навыком в таверне.',

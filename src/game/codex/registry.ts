@@ -4,9 +4,10 @@ import { ENEMY_ARCHETYPE_IDS, getEnemyArchetype } from '../content/enemyArchetyp
 import { ITEM_TEMPLATES } from '../content/itemTemplates'
 import { MOD_TEMPLATES } from '../content/modTemplates'
 import { PASSIVE_TEMPLATES } from '../content/passiveTemplates'
+import { SPECIALIZATION_TEMPLATES } from '../specialization/specializationTemplates'
 import { getSemanticEmoji } from '../ui/semanticEmoji'
 
-export type CodexCategory = 'class' | 'item' | 'card' | 'passive' | 'enemy' | 'mod'
+export type CodexCategory = 'class' | 'affinity' | 'item' | 'card' | 'passive' | 'enemy' | 'mod'
 
 export type CodexEntry = {
   id: string
@@ -38,6 +39,9 @@ function entryFromTemplate(
 const ALL_CODEX_ENTRIES: readonly CodexEntry[] = [
   ...Object.entries(CHARACTER_CLASSES).map(([templateId, template]) =>
     entryFromTemplate('class', templateId, template),
+  ),
+  ...Object.entries(SPECIALIZATION_TEMPLATES).map(([templateId, template]) =>
+    entryFromTemplate('affinity', templateId, template),
   ),
   ...Object.entries(ITEM_TEMPLATES).map(([templateId, template]) =>
     entryFromTemplate('item', templateId, template),

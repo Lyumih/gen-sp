@@ -14,6 +14,7 @@ import { describePassiveStats } from '../descriptions/passiveText'
 import { getCardAttackTemplate } from '../content/cardTemplates'
 import { getItemTemplate } from '../content/itemTemplates'
 import { getModTemplate } from '../content/modTemplates'
+import { getSpecializationTemplate } from '../specialization/specializationTemplates'
 import { tagLabelRu } from '../content/tagTaxonomy'
 import type { CardInstance, Character, PassiveInstance } from '../types'
 import type { CodexEntry } from './registry'
@@ -114,6 +115,21 @@ export function describeCodexEntry(
         label: d.label,
         summaryLines: [...d.lines.slice(0, 2), ...(tagLine ? [tagLine] : [])],
         detailLines: d.lines,
+      }
+    }
+    case 'affinity': {
+      const tmpl = getSpecializationTemplate(entry.templateId)
+      if (!tmpl) {
+        return {
+          label: entry.label,
+          summaryLines: [`Неизвестная склонность: ${entry.templateId}`],
+          detailLines: [],
+        }
+      }
+      return {
+        label: tmpl.label,
+        summaryLines: [tmpl.description],
+        detailLines: [tmpl.description],
       }
     }
   }
