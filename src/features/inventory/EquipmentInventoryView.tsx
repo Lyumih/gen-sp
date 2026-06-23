@@ -32,8 +32,12 @@ import {
   sortStashIdsBySlot,
   stashItemsFromCampaign,
 } from '../../game/equipment/stashOrder'
+import { getCardAttackTemplate } from '../../game/content/cardTemplates'
 import { getCharacter } from '../../game/character/selectors'
+import { canEquipPassive } from '../../game/passives/equippedPassives'
+import { maxPassiveEquipSlots, maxSkillLoadoutSlots } from '../../game/specialization/loadoutCaps'
 import type { CampaignState, EquipmentSlot, ItemInstance, ModOffer } from '../../game/types'
+import type { LoadoutFocus } from '../character/hub/types'
 import { UI_HEART, UI_DAMAGE, UI_LEVEL } from '../../game/ui/labels'
 import { SLOT_LABEL } from '../campaign/campaignHubShared'
 import { ItemPopoverActions } from './ItemPopoverActions'
@@ -94,6 +98,20 @@ type EquipmentInventoryViewProps = {
   sideContent?: ReactNode
   dndBeforeContent?: (activeDragId: string | null) => ReactNode
   dndAfterContent?: (activeDragId: string | null) => ReactNode
+  /** 3-column character hub: rail | buildColumn+equip | stash tabs */
+  characterHub?: {
+    rail: ReactNode
+    buildColumn: ReactNode
+    renderStashTabs: (itemsPanel: ReactNode) => ReactNode
+  }
+  /** Card/passive drag when characterHub merges DnD */
+  onSetBattleLoadout?: (slotIndex: 0 | 1 | 2 | 3, cardId: string | null) => void
+  onSetPassiveEquip?: (slotIndex: 0 | 1 | 2 | 3 | 4, passiveId: string | null) => void
+  onReorderCards?: (cardIds: string[]) => void
+  loadoutFocus?: LoadoutFocus
+  onToggleEquipFocus?: (slot: EquipmentSlot) => void
+  onStashItemClick?: (itemId: string) => void
+  onStashItemHover?: (itemId: string | null) => void
 }
 
 function itemModPopoverSection(
@@ -231,6 +249,8 @@ function SortableStashCell({
   onMoveToChest,
   onSell,
   sellPrice,
+  onCellClick,
+  onCellHover,
 }: {
   item: ItemInstance
   inBattle: boolean
@@ -244,6 +264,8 @@ function SortableStashCell({
   onMoveToChest?: () => void
   onSell?: () => void
   sellPrice?: number
+  onCellClick?: () => void
+  onCellHover?: () => void
 }) {
   const tmpl = getItemTemplate(item.templateId)
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -258,39 +280,42 @@ function SortableStashCell({
   }
 
   return (
-    <InventoryCell
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      emoji={resolveItemEmoji(tmpl, tmpl?.slot ?? 'weapon')}
-      levelBadge={`${UI_LEVEL}${item.itemLevel}`}
-      contextBadge={
-        sellPrice !== undefined && sellPrice > 0
-          ? `${sellPrice} 💰`
-          : tmpl
-            ? SLOT_EMOJI[tmpl.slot]
-            : undefined
-      }
-      showModPendingBadge={!modsDisabled && hasPendingModOffer(item.modSlots)}
-      slotDots={item.modSlots.length > 0 ? <ModSlotDots modSlots={item.modSlots} /> : undefined}
-      state={cellState}
-      popoverTitle={tmpl?.label}
-      popoverContent={characterStashPopover(
-        item,
-        inBattle,
-        modsDisabled,
-        modsDisabledTooltip,
-        onEquip,
-        onOpenPicker,
-        onConfirmRemove,
-        onMoveToChest,
-        onSell,
-        sellPrice,
-      )}
-      ariaLabel={tmpl ? itemSelectShortLabel(tmpl, item.itemLevel) : item.id}
-      onDoubleClick={onDoubleClick}
-    />
+    <div onMouseEnter={onCellHover} style={{ display: 'inline-block' }}>
+      <InventoryCell
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...listeners}
+        emoji={resolveItemEmoji(tmpl, tmpl?.slot ?? 'weapon')}
+        levelBadge={`${UI_LEVEL}${item.itemLevel}`}
+        contextBadge={
+          sellPrice !== undefined && sellPrice > 0
+            ? `${sellPrice} 💰`
+            : tmpl
+              ? SLOT_EMOJI[tmpl.slot]
+              : undefined
+        }
+        showModPendingBadge={!modsDisabled && hasPendingModOffer(item.modSlots)}
+        slotDots={item.modSlots.length > 0 ? <ModSlotDots modSlots={item.modSlots} /> : undefined}
+        state={cellState}
+        popoverTitle={tmpl?.label}
+        popoverContent={characterStashPopover(
+          item,
+          inBattle,
+          modsDisabled,
+          modsDisabledTooltip,
+          onEquip,
+          onOpenPicker,
+          onConfirmRemove,
+          onMoveToChest,
+          onSell,
+          sellPrice,
+        )}
+        ariaLabel={tmpl ? itemSelectShortLabel(tmpl, item.itemLevel) : item.id}
+        onDoubleClick={onDoubleClick}
+        onClick={onCellClick}
+      />
+    </div>
   )
 }
 
@@ -320,6 +345,8 @@ function EquipmentSlotCell({
   onOpenPicker,
   onConfirmRemove,
   modsDisabledTooltip,
+  focused,
+  onSlotClick,
 }: {
   slot: EquipmentSlot
   item: ItemInstance | undefined
@@ -331,6 +358,8 @@ function EquipmentSlotCell({
   onUnequip: () => void
   onOpenPicker: (slotIndex: number, offer: ModOffer) => void
   onConfirmRemove: (slotIndex: number) => void
+  focused?: boolean
+  onSlotClick?: () => void
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: slotDragId(slot), disabled: inBattle })
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
@@ -382,6 +411,7 @@ function EquipmentSlotCell({
           ) : undefined
         }
         state={state}
+        className={focused ? 'inv-cell--selected' : undefined}
         popoverTitle={item ? tmpl?.label : SLOT_LABEL[slot]}
         popoverContent={popover}
         ariaLabel={
@@ -389,6 +419,7 @@ function EquipmentSlotCell({
         }
         hintText={item ? undefined : 'перетащи'}
         style={{ opacity: isDragging ? 0.4 : undefined }}
+        onClick={onSlotClick}
       />
     </div>
   )
@@ -418,6 +449,14 @@ export function EquipmentInventoryView({
   sideContent,
   dndBeforeContent,
   dndAfterContent,
+  characterHub,
+  onSetBattleLoadout,
+  onSetPassiveEquip,
+  onReorderCards,
+  loadoutFocus,
+  onToggleEquipFocus,
+  onStashItemClick,
+  onStashItemHover,
 }: EquipmentInventoryViewProps) {
   const { modal } = App.useApp()
   const hero = getCharacter(campaign, characterId)
@@ -549,7 +588,8 @@ export function EquipmentInventoryView({
       active.kind === 'roster-drag' &&
       over.kind === 'squad-slot' &&
       onSetSquadSlot &&
-      !squadLocked
+      !squadLocked &&
+      !characterHub
     ) {
       const slotIndex = Number(over.value)
       if (Number.isNaN(slotIndex)) return
@@ -559,130 +599,210 @@ export function EquipmentInventoryView({
       } else {
         onSetSquadSlot(resolution.slotIndex, resolution.characterId)
       }
+      return
+    }
+
+    if (!characterHub || !hero) return
+
+    if (active.kind === 'passive' && onSetPassiveEquip) {
+      if (over?.kind === 'passive-equip') {
+        const slotIndex = Number(over.value) as 0 | 1 | 2 | 3 | 4
+        if (slotIndex >= 0 && slotIndex < maxPassiveEquipSlots(hero)) {
+          const check = canEquipPassive(hero.passives, hero.passiveEquip, active.value, slotIndex)
+          if (!check.ok) return
+          onSetPassiveEquip(slotIndex, active.value)
+        }
+      }
+      return
+    }
+
+    if (active.kind === 'card' && onSetBattleLoadout) {
+      if (over?.kind === 'loadout') {
+        const card = hero.cards.find((c) => c.id === active.value)
+        const tmpl = card ? getCardAttackTemplate(card.templateId) : undefined
+        if (tmpl?.enabled === false) return
+        const slotIndex = Number(over.value)
+        if (slotIndex >= 0 && slotIndex < maxSkillLoadoutSlots(hero)) {
+          onSetBattleLoadout(slotIndex as 0 | 1 | 2 | 3, active.value)
+        }
+      }
+      return
+    }
+
+    if (active.kind === 'card' && onReorderCards && over?.kind === 'card') {
+      const loadout = hero.battleLoadout
+      const loadoutIds = new Set(loadout.filter((id): id is string => id !== null))
+      const collectionCards = hero.cards.filter((c) => !loadoutIds.has(c.id))
+      const cardIds = collectionCards.map((c) => c.id)
+      const oldIndex = cardIds.indexOf(active.value)
+      const newIndex = cardIds.indexOf(over.value)
+      if (oldIndex >= 0 && newIndex >= 0 && oldIndex !== newIndex) {
+        onReorderCards(arrayMove(cardIds, oldIndex, newIndex))
+      }
     }
   }
 
   if (!hero) return null
 
-  const content = (
-    <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-      <div>
-        {!hideInnerSectionTitles ? (
-          <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
-            Экипировка
-          </Typography.Text>
-        ) : null}
-        <div className="inv-slot-row">
-          {EQUIPMENT_ROLL_ORDER.map((slot) => {
-            const equippedId = hero.equipment[slot]
-            const item =
-              equippedId !== null
-                ? hero.items.find((x) => x.id === equippedId)
-                : undefined
-            const dragOver =
-              activeTmpl?.slot === slot ||
-              (activeParsed?.kind === 'stash' &&
-                getItemTemplate(
-                  stash.find((i) => i.id === activeParsed.value)?.templateId ?? '',
-                )?.slot === slot)
+  const equipSection = (
+    <div>
+      {!hideInnerSectionTitles && !characterHub ? (
+        <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+          Экипировка
+        </Typography.Text>
+      ) : null}
+      <Typography.Text strong style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>
+        Надето
+      </Typography.Text>
+      <div className="inv-slot-row">
+        {EQUIPMENT_ROLL_ORDER.map((slot) => {
+          const equippedId = hero.equipment[slot]
+          const item =
+            equippedId !== null ? hero.items.find((x) => x.id === equippedId) : undefined
+          const dragOver =
+            activeTmpl?.slot === slot ||
+            (activeParsed?.kind === 'stash' &&
+              getItemTemplate(
+                stash.find((i) => i.id === activeParsed.value)?.templateId ?? '',
+              )?.slot === slot)
+          return (
+            <EquipmentSlotCell
+              key={slot}
+              slot={slot}
+              item={item}
+              inBattle={inBattle}
+              modsDisabled={modsDisabled}
+              modsDisabledTooltip={modsDisabledTooltip}
+              dragOver={Boolean(dragOver)}
+              compareText={compareForSlot(slot)}
+              onUnequip={() => onUnequip(slot)}
+              onOpenPicker={
+                item ? (slotIndex, offer) => openPicker(item.id, slotIndex, offer) : () => {}
+              }
+              onConfirmRemove={
+                item ? (slotIndex) => confirmRemoveMod(item, slotIndex) : () => {}
+              }
+              focused={loadoutFocus?.kind === 'equip' && loadoutFocus.slot === slot}
+              onSlotClick={
+                characterHub && onToggleEquipFocus && !inBattle
+                  ? () => onToggleEquipFocus(slot)
+                  : undefined
+              }
+            />
+          )
+        })}
+      </div>
+    </div>
+  )
+
+  const stashSection = (
+    <div>
+      <Space wrap style={{ marginBottom: 8 }}>
+        {!characterHub ? <Typography.Text strong>Инвентарь</Typography.Text> : null}
+        <Button
+          size="small"
+          disabled={inBattle || stash.length === 0}
+          onClick={() => onReorderStash(sortStashIdsBySlot(stash, getItemTemplate))}
+        >
+          По слоту
+        </Button>
+        <Button
+          size="small"
+          disabled={inBattle || stash.length === 0}
+          onClick={() => onReorderStash(sortStashIdsByLevel(stash))}
+        >
+          По уровню
+        </Button>
+      </Space>
+      <SortableContext items={stashIds.map(stashDragId)} strategy={rectSortingStrategy}>
+        <InventoryGrid
+          itemCount={stash.length}
+          renderCell={(index, isEmpty) => {
+            if (isEmpty) {
+              return <StashEmptyCell key={`empty-${index}`} index={index} inBattle={inBattle} />
+            }
+            const item = stash[index]!
+            const tmpl = getItemTemplate(item.templateId)
+            const sellPrice = tmpl ? itemSellPrice(tmpl) : 0
+            const modHandlers = bindItemModHandlers(item)
             return (
-              <EquipmentSlotCell
-                key={slot}
-                slot={slot}
+              <SortableStashCell
+                key={item.id}
                 item={item}
                 inBattle={inBattle}
                 modsDisabled={modsDisabled}
                 modsDisabledTooltip={modsDisabledTooltip}
-                dragOver={Boolean(dragOver)}
-                compareText={compareForSlot(slot)}
-                onUnequip={() => onUnequip(slot)}
-                onOpenPicker={
-                  item
-                    ? (slotIndex, offer) => openPicker(item.id, slotIndex, offer)
-                    : () => {}
+                cellState={inBattle ? 'disabled' : flashInvalid ? 'invalidDrop' : 'filled'}
+                sellPrice={onSellItem ? sellPrice : undefined}
+                onEquip={() => {
+                  if (inBattle || !tmpl) return
+                  if (characterHub && onStashItemClick) {
+                    onStashItemClick(item.id)
+                    return
+                  }
+                  onEquip(item.id, tmpl.slot)
+                }}
+                onDoubleClick={() => {
+                  if (inBattle || !tmpl) return
+                  if (characterHub && onStashItemClick) {
+                    onStashItemClick(item.id)
+                    return
+                  }
+                  onEquip(item.id, tmpl.slot)
+                }}
+                {...modHandlers}
+                onMoveToChest={
+                  onMoveCharacterItemToChest && !squadLocked
+                    ? () => onMoveCharacterItemToChest(item.id)
+                    : undefined
                 }
-                onConfirmRemove={
-                  item ? (slotIndex) => confirmRemoveMod(item, slotIndex) : () => {}
+                onSell={onSellItem ? () => onSellItem(item.id) : undefined}
+                onCellClick={
+                  characterHub && onStashItemClick && !inBattle
+                    ? () => onStashItemClick(item.id)
+                    : undefined
+                }
+                onCellHover={
+                  characterHub && onStashItemHover ? () => onStashItemHover(item.id) : undefined
                 }
               />
             )
-          })}
-        </div>
-      </div>
+          }}
+        />
+      </SortableContext>
+    </div>
+  )
 
-      <div>
-        <Space wrap style={{ marginBottom: 8 }}>
-          <Typography.Text strong>Инвентарь</Typography.Text>
-          <Button
-            size="small"
-            disabled={inBattle || stash.length === 0}
-            onClick={() => onReorderStash(sortStashIdsBySlot(stash, getItemTemplate))}
-          >
-            По слоту
-          </Button>
-          <Button
-            size="small"
-            disabled={inBattle || stash.length === 0}
-            onClick={() => onReorderStash(sortStashIdsByLevel(stash))}
-          >
-            По уровню
-          </Button>
-        </Space>
-        <SortableContext items={stashIds.map(stashDragId)} strategy={rectSortingStrategy}>
-          <InventoryGrid
-            itemCount={stash.length}
-            renderCell={(index, isEmpty) => {
-              if (isEmpty) {
-                return <StashEmptyCell key={`empty-${index}`} index={index} inBattle={inBattle} />
-              }
-              const item = stash[index]!
-              const tmpl = getItemTemplate(item.templateId)
-              const sellPrice = tmpl ? itemSellPrice(tmpl) : 0
-              const modHandlers = bindItemModHandlers(item)
-              return (
-                <SortableStashCell
-                  key={item.id}
-                  item={item}
-                  inBattle={inBattle}
-                  modsDisabled={modsDisabled}
-                  modsDisabledTooltip={modsDisabledTooltip}
-                  cellState={
-                    inBattle ? 'disabled' : flashInvalid ? 'invalidDrop' : 'filled'
-                  }
-                  sellPrice={onSellItem ? sellPrice : undefined}
-                  onEquip={() => {
-                    if (inBattle || !tmpl) return
-                    onEquip(item.id, tmpl.slot)
-                  }}
-                  onDoubleClick={() => {
-                    if (inBattle || !tmpl) return
-                    onEquip(item.id, tmpl.slot)
-                  }}
-                  {...modHandlers}
-                  onMoveToChest={
-                    onMoveCharacterItemToChest && !squadLocked
-                      ? () => onMoveCharacterItemToChest(item.id)
-                      : undefined
-                  }
-                  onSell={
-                    onSellItem ? () => onSellItem(item.id) : undefined
-                  }
-                />
-              )
-            }}
-          />
-        </SortableContext>
+  const modPicker = (
+    <ModOfferPicker
+      open={picker !== null}
+      offer={picker?.offer ?? null}
+      onCancel={() => setPicker(null)}
+      onPick={(modTemplateId) => {
+        if (!picker) return
+        onPickModOffer('item', picker.carrierId, picker.slotIndex, modTemplateId)
+        setPicker(null)
+      }}
+    />
+  )
+
+  const content = characterHub ? (
+    <div className="game-character-hub">
+      {characterHub.rail}
+      <Space orientation="vertical" size="small" style={{ width: '100%' }}>
+        {characterHub.buildColumn}
+        {equipSection}
+        {modPicker}
+      </Space>
+      <div style={{ minWidth: 0 }}>
+        {characterHub.renderStashTabs(stashSection)}
       </div>
-      <ModOfferPicker
-        open={picker !== null}
-        offer={picker?.offer ?? null}
-        onCancel={() => setPicker(null)}
-        onPick={(modTemplateId) => {
-          if (!picker) return
-          onPickModOffer('item', picker.carrierId, picker.slotIndex, modTemplateId)
-          setPicker(null)
-        }}
-      />
+    </div>
+  ) : (
+    <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+      {equipSection}
+      {stashSection}
+      {modPicker}
     </Space>
   )
 
@@ -693,8 +813,8 @@ export function EquipmentInventoryView({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      {dndBeforeContent?.(activeDragId)}
-      {sideContent !== undefined ? (
+      {!characterHub ? dndBeforeContent?.(activeDragId) : null}
+      {!characterHub && sideContent !== undefined ? (
         <GameColumns>
           <div>
             {panelTitle !== undefined ? (
@@ -709,6 +829,8 @@ export function EquipmentInventoryView({
           </div>
           <div>{sideContent}</div>
         </GameColumns>
+      ) : characterHub ? (
+        inBattle ? <Tooltip title="Доступно после боя">{content}</Tooltip> : content
       ) : panelTitle !== undefined ? (
         <GamePanel title={panelTitle}>
           {inBattle ? <Tooltip title="Доступно после боя">{content}</Tooltip> : content}
@@ -718,7 +840,7 @@ export function EquipmentInventoryView({
       ) : (
         content
       )}
-      {dndAfterContent?.(activeDragId)}
+      {characterHub ? null : dndAfterContent?.(activeDragId)}
       <DragOverlay>
         {activeStashItem || activeChestItem ? (
           <InventoryCell

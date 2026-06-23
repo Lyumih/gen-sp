@@ -79,6 +79,14 @@
   padding: 0 2px;
 }
 
+.inv-rail-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  width: 100%;
+}
+
 .inv-badge-level {
   position: absolute;
   top: 2px;

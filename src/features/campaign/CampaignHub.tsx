@@ -5,7 +5,7 @@ import { unreadCodexEntryIds } from '../../game/codex/discovery'
 import { getCardDisplayLabel } from '../../game/descriptions/cardText'
 import { getPassiveTemplate } from '../../game/content/passiveTemplates'
 import { getSpecializationTemplate } from '../../game/specialization/specializationTemplates'
-import { findFirstEmptySquadSlotIndex, findSquadSlotIndex, getCharacter } from '../../game/character/selectors'
+import { getCharacter } from '../../game/character/selectors'
 import type { EquipmentSlot } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
 import { CampaignBattleTab } from './CampaignBattleTab'
@@ -189,21 +189,6 @@ export function CampaignHub() {
     })
   }
 
-  const assignToSquad = (characterId: string) => {
-    const slotIndex = findFirstEmptySquadSlotIndex(campaign.squad)
-    if (slotIndex === null) {
-      message.warning('Все слоты отряда заняты')
-      return
-    }
-    dispatchRun({ type: 'SET_SQUAD_SLOT', slotIndex, characterId })
-  }
-
-  const removeFromSquad = (characterId: string) => {
-    const slotIndex = findSquadSlotIndex(campaign.squad, characterId)
-    if (slotIndex === null) return
-    dispatchRun({ type: 'SET_SQUAD_SLOT', slotIndex, characterId: null })
-  }
-
   const releaseCharacter = (characterId: string) => {
     const character = getCharacter(campaign, characterId)
     if (!character) return
@@ -254,6 +239,8 @@ export function CampaignHub() {
             onStartExpedition={(chainId, selectedCharacterIds) =>
               dispatchRun({ type: 'START_EXPEDITION', chainId, selectedCharacterIds })
             }
+            onSetSquadSlot={setSquadSlot}
+            onSwapSquadSlots={swapSquadSlots}
           />
         ) : null}
 
@@ -277,10 +264,6 @@ export function CampaignHub() {
             onSellChestPassive={sellChestPassive}
             onMoveChestItemToCharacter={moveChestItemToCharacter}
             onMoveCharacterItemToChest={moveCharacterItemToChest}
-            onSetSquadSlot={setSquadSlot}
-            onSwapSquadSlots={swapSquadSlots}
-            onAssignToSquad={assignToSquad}
-            onRemoveFromSquad={removeFromSquad}
             onReleaseCharacter={releaseCharacter}
             onSetPassiveEquip={setPassiveEquip}
             onPickModOffer={pickModOffer}

@@ -1810,6 +1810,21 @@ describe('tavern', () => {
     }
   })
 
+  it('HIRE_TAVERN_CANDIDATE auto-fills first empty squad slot', () => {
+    const state = refreshedState(200)
+    const candidate = state.tavernCandidates![0]!
+    const emptySlot = state.squad.findIndex((id) => id === null)
+    expect(emptySlot).toBeGreaterThanOrEqual(0)
+
+    const next = applyRunAction(state, {
+      type: 'HIRE_TAVERN_CANDIDATE',
+      candidateId: candidate.candidateId,
+    })
+
+    const hired = next.characters.find((c) => c.id !== HERO_ID)!
+    expect(next.squad[emptySlot]).toBe(hired.id)
+  })
+
   it('HIRE_TAVERN_CANDIDATE discovers class in codex', () => {
     const state = refreshedState(200)
     const candidate = state.tavernCandidates![0]!

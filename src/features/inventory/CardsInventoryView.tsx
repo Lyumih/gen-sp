@@ -75,6 +75,8 @@ type CardsInventoryViewProps = {
   ) => void
   onRemoveMod: (carrierKind: ModCarrierKind, carrierId: string, slotIndex: number) => void
   onSellCard?: (cardId: string) => void
+  hubSection?: 'all' | 'loadout' | 'collection' | 'cards' | 'passives'
+  embedded?: boolean
 }
 
 function SortableCardCell({
@@ -412,6 +414,8 @@ export function CardsInventoryView({
   onPickModOffer,
   onRemoveMod,
   onSellCard,
+  hubSection = 'all',
+  embedded = false,
 }: CardsInventoryViewProps) {
   const { modal, message } = App.useApp()
   const locked = inBattle || inventoryLocked
@@ -586,90 +590,106 @@ export function CardsInventoryView({
 
   const content = (
     <Space orientation="vertical" size="small" style={{ width: '100%' }}>
-      <Typography.Text strong style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>
-        В бой
-      </Typography.Text>
-      <div className="inventory-loadout-row" style={{ display: 'flex', gap: 4 }}>
-        {skillSlotIndices.map(renderLoadoutSlot)}
-      </div>
-      <Typography.Text strong style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>
-        Коллекция
-      </Typography.Text>
-      <SortableContext items={cardIds.map(cardDragId)} strategy={rectSortingStrategy}>
-        <InventoryGrid
-          itemCount={collectionCards.length}
-          renderCell={(index, isEmpty) => {
-            if (isEmpty) {
-              return <InventoryCell state="empty" ariaLabel="Пустой слот карт" />
-            }
-            const card = collectionCards[index]!
-            return (
-              <SortableCardCell
-                key={card.id}
-                card={card}
-                character={hero!}
-                campaign={campaign}
-                inBattle={locked}
-                modsDisabled={modsDisabled}
-                modsDisabledTooltip={modsDisabledTooltip}
-                onOpenPicker={openCardPicker}
-                onConfirmRemove={confirmRemoveCardMod}
-                {...sellPropsForCard(card)}
+      {hubSection !== 'collection' && hubSection !== 'passives' && hubSection !== 'cards' ? (
+        <>
+          <Typography.Text strong style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>
+            В бой
+          </Typography.Text>
+          <div className="inventory-loadout-row" style={{ display: 'flex', gap: 4 }}>
+            {skillSlotIndices.map(renderLoadoutSlot)}
+          </div>
+          <Divider style={{ margin: '8px 0 4px' }} />
+          <Typography.Text strong style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>
+            Навыки в бою
+          </Typography.Text>
+          <div className="inventory-passive-equip-row" style={{ display: 'flex', gap: 4 }}>
+            {passiveEquipSlotIndices.map((slotIndex) => {
+              const passiveId = passiveEquip[slotIndex]
+              const passive = passiveId !== null ? resolvePassive(passiveId) : null
+              return (
+                <PassiveEquipSlotCell
+                  key={slotIndex}
+                  slotIndex={slotIndex}
+                  passive={passive ?? null}
+                  character={hero!}
+                  campaign={campaign}
+                  locked={locked}
+                  modsDisabled={modsDisabled}
+                  modsDisabledTooltip={modsDisabledTooltip}
+                  onOpenPicker={openPassivePicker}
+                  onConfirmRemove={confirmRemovePassiveMod}
+                  dragReject={dragRejectSlot === slotIndex}
+                />
+              )
+            })}
+          </div>
+        </>
+      ) : null}
+      {hubSection !== 'loadout' ? (
+        <>
+          {hubSection !== 'passives' ? (
+            <>
+              <Typography.Text strong style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>
+                Коллекция
+              </Typography.Text>
+              <SortableContext items={cardIds.map(cardDragId)} strategy={rectSortingStrategy}>
+                <InventoryGrid
+                  itemCount={collectionCards.length}
+                  renderCell={(index, isEmpty) => {
+                    if (isEmpty) {
+                      return <InventoryCell state="empty" ariaLabel="Пустой слот карт" />
+                    }
+                    const card = collectionCards[index]!
+                    return (
+                      <SortableCardCell
+                        key={card.id}
+                        card={card}
+                        character={hero!}
+                        campaign={campaign}
+                        inBattle={locked}
+                        modsDisabled={modsDisabled}
+                        modsDisabledTooltip={modsDisabledTooltip}
+                        onOpenPicker={openCardPicker}
+                        onConfirmRemove={confirmRemoveCardMod}
+                        {...sellPropsForCard(card)}
+                      />
+                    )
+                  }}
+                />
+              </SortableContext>
+            </>
+          ) : null}
+          {hubSection !== 'cards' ? (
+            <>
+              <Typography.Text strong style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>
+                Коллекция навыков
+              </Typography.Text>
+              <InventoryGrid
+                itemCount={collectionPassives.length}
+                renderCell={(index, isEmpty) => {
+                  if (isEmpty) {
+                    return <InventoryCell state="empty" ariaLabel="Пустой слот навыков" />
+                  }
+                  const passive = collectionPassives[index]!
+                  return (
+                    <DraggablePassiveCell
+                      key={passive.id}
+                      passive={passive}
+                      character={hero!}
+                      campaign={campaign}
+                      locked={locked}
+                      modsDisabled={modsDisabled}
+                      modsDisabledTooltip={modsDisabledTooltip}
+                      onOpenPicker={openPassivePicker}
+                      onConfirmRemove={confirmRemovePassiveMod}
+                    />
+                  )
+                }}
               />
-            )
-          }}
-        />
-      </SortableContext>
-      <Divider style={{ margin: '8px 0 4px' }} />
-      <Typography.Text strong style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>
-        Навыки в бою
-      </Typography.Text>
-      <div className="inventory-passive-equip-row" style={{ display: 'flex', gap: 4 }}>
-        {passiveEquipSlotIndices.map((slotIndex) => {
-          const passiveId = passiveEquip[slotIndex]
-          const passive = passiveId !== null ? resolvePassive(passiveId) : null
-          return (
-            <PassiveEquipSlotCell
-              key={slotIndex}
-              slotIndex={slotIndex}
-              passive={passive ?? null}
-              character={hero!}
-              campaign={campaign}
-              locked={locked}
-              modsDisabled={modsDisabled}
-              modsDisabledTooltip={modsDisabledTooltip}
-              onOpenPicker={openPassivePicker}
-              onConfirmRemove={confirmRemovePassiveMod}
-              dragReject={dragRejectSlot === slotIndex}
-            />
-          )
-        })}
-      </div>
-      <Typography.Text strong style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>
-        Коллекция навыков
-      </Typography.Text>
-      <InventoryGrid
-        itemCount={collectionPassives.length}
-        renderCell={(index, isEmpty) => {
-          if (isEmpty) {
-            return <InventoryCell state="empty" ariaLabel="Пустой слот навыков" />
-          }
-          const passive = collectionPassives[index]!
-          return (
-            <DraggablePassiveCell
-              key={passive.id}
-              passive={passive}
-              character={hero!}
-              campaign={campaign}
-              locked={locked}
-              modsDisabled={modsDisabled}
-              modsDisabledTooltip={modsDisabledTooltip}
-              onOpenPicker={openPassivePicker}
-              onConfirmRemove={confirmRemovePassiveMod}
-            />
-          )
-        }}
-      />
+            </>
+          ) : null}
+        </>
+      ) : null}
       <ModOfferPicker
         open={picker !== null}
         offer={picker?.offer ?? null}
@@ -691,6 +711,10 @@ export function CardsInventoryView({
 
   if (locked && lockTooltip) {
     return <Tooltip title={lockTooltip}>{content}</Tooltip>
+  }
+
+  if (embedded) {
+    return content
   }
 
   return (

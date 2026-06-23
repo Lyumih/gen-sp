@@ -1,5 +1,5 @@
 import { PlayCircleOutlined, RocketOutlined } from '@ant-design/icons'
-import { Alert, Button, Select, Space, Typography } from 'antd'
+import { Alert, App, Button, Select, Space, Typography } from 'antd'
 import { useMemo, useState } from 'react'
 import { SCENARIOS } from '../../game/campaign/scenarios'
 import {
@@ -14,8 +14,8 @@ import {
 import type { CampaignState } from '../../game/types'
 import { GameColumns } from '../layout/GameColumns'
 import { GamePanel } from '../layout/GamePanel'
+import { SquadAssemblyDnd } from '../character/SquadAssemblyDnd'
 import { ExpeditionModeList } from './ExpeditionModeList'
-import { ExpeditionSquadStrip } from './ExpeditionSquadStrip'
 
 type CampaignBattleTabProps = {
   campaign: CampaignState
@@ -28,6 +28,8 @@ type CampaignBattleTabProps = {
   onStartOrContinue: () => void
   onStartReplay: () => void
   onStartExpedition: (chainId: string, selectedCharacterIds: string[]) => void
+  onSetSquadSlot: (slotIndex: number, characterId: string | null) => void
+  onSwapSquadSlots: (from: number, to: number) => void
 }
 
 export function CampaignBattleTab({
@@ -41,7 +43,10 @@ export function CampaignBattleTab({
   onStartOrContinue,
   onStartReplay,
   onStartExpedition,
+  onSetSquadSlot,
+  onSwapSquadSlots,
 }: CampaignBattleTabProps) {
+  const { message } = App.useApp()
   const [selectedChainId, setSelectedChainId] = useState(
     () => EXPEDITION_CHAINS[0]?.id ?? 'campaign-main',
   )
@@ -90,6 +95,12 @@ export function CampaignBattleTab({
       <GameColumns>
       <GamePanel title="Кампания">
         <Space orientation="vertical" size="small" style={{ width: '100%' }}>
+          <SquadAssemblyDnd
+            campaign={campaign}
+            disabled={inBattle || expeditionActive}
+            onSetSquadSlot={onSetSquadSlot}
+            onSwapSquadSlots={onSwapSquadSlots}
+          />
           {done ? (
             <>
               <Typography.Text type="secondary">
@@ -122,7 +133,13 @@ export function CampaignBattleTab({
               type="primary"
               disabled={inBattle}
               icon={<PlayCircleOutlined />}
-              onClick={onStartOrContinue}
+              onClick={() => {
+                if (countOccupiedSquadSlots(campaign.squad) === 0) {
+                  message.error('Добавьте хотя бы одного бойца в отряд')
+                  return
+                }
+                onStartOrContinue()
+              }}
             >
               Начать / продолжить бой
             </Button>
@@ -137,10 +154,12 @@ export function CampaignBattleTab({
 
       <GamePanel title="Экспедиция">
         <Space orientation="vertical" size="small" style={{ width: '100%' }}>
-          <ExpeditionSquadStrip
+          <SquadAssemblyDnd
             campaign={campaign}
             markedIds={markedIds}
             disabled={expeditionDisabled}
+            onSetSquadSlot={onSetSquadSlot}
+            onSwapSquadSlots={onSwapSquadSlots}
             onToggleMark={handleToggleMark}
           />
           {expeditionActive ? (

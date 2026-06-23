@@ -72,6 +72,7 @@ import { applyVictoryModRollsToPartyBattle } from './applyVictoryModRolls'
 import { goldForScenarioVictory } from './scenarioRewards'
 import { getScenarioById, getScenarioIndexById, SCENARIOS, battleStateFromScenario, resolveScenarioForCampaignSlot, type BattleScenario } from './scenarios'
 import {
+  findFirstEmptySquadSlotIndex,
   getCharacter,
   getPrimaryCharacter,
   updateCharacter,
@@ -1449,11 +1450,18 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       const pendingHubNotice =
         state.pendingHubNotice ?? { kind: 'specialization_reveal' as const, specializationId }
 
+      const emptySquadSlot = findFirstEmptySquadSlotIndex(state.squad)
+      const nextSquad =
+        emptySquadSlot !== null
+          ? state.squad.map((id, i) => (i === emptySquadSlot ? charId : id))
+          : state.squad
+
       return withCodexDiscoveries(
         {
           ...state,
           gold: state.gold - candidate.price,
           characters: [...state.characters, character],
+          squad: nextSquad,
           tavernCandidates: state.tavernCandidates.filter(
             (c) => c.candidateId !== action.candidateId,
           ),
