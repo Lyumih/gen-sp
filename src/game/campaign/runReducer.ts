@@ -1,6 +1,6 @@
 import { applyAction, getCurrentActorId } from '../battle/reducer'
 import { syncDownedAfterBattle } from '../battle/outcomes'
-import { heroTurnAdvanced, tickHeroCardCooldowns } from '../battle/cardCooldown'
+import { enemyTurnAdvanced, heroTurnAdvanced, tickEnemyCardCooldowns, tickHeroCardCooldowns } from '../battle/cardCooldown'
 import { CARD_ATTACK_TEMPLATES, getCardAttackTemplate, usesCardBuffDispatch, usesCardAoEDispatch, isHealKind, usesCardAttackDispatch } from '../content/cardTemplates'
 import {
   dispatchCardAoEUse,
@@ -586,6 +586,10 @@ function applyBattleOutcome(
   if (heroTurnAdvanced(prevBattle, nextBattle)) {
     const prevActorId = prevBattle.turnOrder[prevBattle.currentTurnIndex]
     battle = tickHeroCardCooldowns(battle, prevActorId)
+  }
+  if (enemyTurnAdvanced(prevBattle, nextBattle)) {
+    const prevActorId = prevBattle.turnOrder[prevBattle.currentTurnIndex]
+    battle = tickEnemyCardCooldowns(battle, prevActorId)
   }
 
   let rollState = applyPlayerHitItemProgressFromBattleLog(state, prevBattle, battle)

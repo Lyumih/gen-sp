@@ -1,6 +1,6 @@
 import type { EnemyArchetype } from '../content/enemyArchetypes'
 import { cloneModSlots } from '../memento/modSlotsClone'
-import type { BattlePlayerCard, PassiveInstance } from '../types'
+import type { BattlePlayerCard, BattleState, PassiveInstance } from '../types'
 
 export function enemyCardsFromArchetype(
   archetype: EnemyArchetype,
@@ -27,6 +27,28 @@ export function enemyPassivesFromArchetype(
     uses_count: 0,
     modSlots: cloneModSlots(preset.modSlots),
   }))
+}
+
+export function updateActorEnemyCards(
+  state: BattleState,
+  unitId: string,
+  cards: readonly BattlePlayerCard[],
+): BattleState {
+  return {
+    ...state,
+    enemyCardsByUnitId: {
+      ...state.enemyCardsByUnitId,
+      [unitId]: cards,
+    },
+  }
+}
+
+export function getActorEnemyCards(
+  state: BattleState,
+  unitId: string | undefined,
+): readonly BattlePlayerCard[] {
+  if (!unitId) return []
+  return state.enemyCardsByUnitId?.[unitId] ?? []
 }
 
 export function enemyCardsByUnitFromScenario(

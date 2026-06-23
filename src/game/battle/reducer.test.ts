@@ -588,3 +588,70 @@ describe('applyAction mod procs', () => {
     expect(next.battleLog.some((e) => e.type === 'mod_proc' && e.modTemplateId === 'mod-lifesteal')).toBe(true)
   })
 })
+
+describe('applyAction enemy card_attack', () => {
+  it('enemy fireball card_attack deals aoe damage and sets cooldown', () => {
+    const s = battle({
+      width: 6,
+      height: 4,
+      units: [
+        unit({
+          id: HERO_ID,
+          side: 'player',
+          x: 2,
+          y: 0,
+          hp: 20,
+          maxHp: 20,
+          unitLevel: 1,
+        }),
+        unit({
+          id: 'e1',
+          side: 'enemy',
+          x: 0,
+          y: 0,
+          hp: 10,
+          maxHp: 10,
+          unitLevel: 1,
+          baseStats: {
+            health: 10,
+            defense: 1,
+            attack: 2,
+            magicPower: 5,
+            mana: 0,
+            healPower: 0,
+            speed: 2,
+            initiative: 6,
+            critChance: 2,
+          },
+        }),
+      ],
+      turnOrder: ['e1', HERO_ID],
+      currentTurnIndex: 0,
+      enemyCardsByUnitId: {
+        e1: [
+          {
+            id: 'fb',
+            templateId: 'fireball',
+            global_level: 5,
+            uses_count: 0,
+            modSlots: [],
+            cooldownRemaining: 0,
+          },
+        ],
+      },
+    })
+    const next = applyAction(s, {
+      type: 'card_attack',
+      attackerId: 'e1',
+      cardId: 'fb',
+      targetX: 2,
+      targetY: 0,
+    })
+    expect(next.units.find((u) => u.id === HERO_ID)!.hp).toBeLessThan(20)
+    expect(next.enemyCardsByUnitId?.e1?.[0]?.cooldownRemaining).toBe(6)
+    expect(next.battleLog.some((e) => e.type === 'strike' && e.fromCard?.templateId === 'fireball')).toBe(
+      true,
+    )
+    expect(next.currentTurnIndex).toBe(1)
+  })
+})

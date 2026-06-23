@@ -1,4 +1,4 @@
-import type { BattleAction, BattleLogEntry, BattleModContext, BattleState, ModSlotState, PassiveInstance, Unit } from '../types'
+import type { BattleAction, BattleLogEntry, BattleModContext, BattlePlayerCard, BattleState, ModSlotState, PassiveInstance, Unit } from '../types'
 import { isUnitRooted } from './unitStatus'
 import { appendUnitStatus, statusForSkill } from './unitStatus'
 import { canMeleeAttack, canRangedAttack, withDamage, withHeal } from './combat'
@@ -6,7 +6,7 @@ import { cellKey, manhattan, orthoNeighbors, wallSet } from './grid'
 import { advanceTurn } from './initiative'
 import { hasLineOfSight } from './lineOfSight'
 import { isPartyWipe } from './outcomes'
-import { cellsInAoE, reachableMoveCells } from './rangeOverlay'
+import { canCastAoEAt, cellsInAoE, reachableMoveCells } from './rangeOverlay'
 import {
   applyPassiveAttackBonus,
   applyPassiveHealBonus,
@@ -34,6 +34,14 @@ import {
 } from '../passives/passiveEngine'
 import type { PassiveTrigger } from '../content/passiveTemplates'
 import { applyRaceDamageModifiers, resolveCardDamageTags } from './enemyResists'
+import { updateActorEnemyCards } from './enemyCards'
+import { resolveEnemySkillAmount, resolveEnemySkillEffectPower } from './enemySkillResolve'
+import {
+  getCardAttackTemplate,
+  usesCardAttackDispatch,
+  usesCardAoEDispatch,
+  usesCardUtilitySingleDispatch,
+} from '../content/cardTemplates'
 
 /** Приращение worldPower за смерть врага (MVP-заглушка §6). */
 export const WORLD_POWER_PER_ENEMY_KILL = 1
@@ -861,6 +869,167 @@ function tryHeal(state: BattleState, action: Extract<BattleAction, { type: 'heal
   return advanceBattleTurn(next)
 }
 
+function applyCardStatuses(
+  state: BattleState,
+  unitId: string,
+  effects: ReturnType<typeof statusForSkill>[],
+): BattleState {
+  const filtered = effects.filter((e): e is NonNullable<typeof e> => e !== null)
+  if (filtered.length === 0) return state
+  return {
+    ...state,
+    units: state.units.map((u) => {
+      if (u.id !== unitId) return u
+      let next = u
+      for (const e of filtered) next = appendUnitStatus(next, e)
+      return next
+    }),
+    battleLog: [
+      ...state.battleLog,
+      ...filtered.map((e) => ({
+        type: 'status_applied' as const,
+        unitId,
+        statusKind: e.kind,
+        sourceTemplateId: e.sourceTemplateId,
+      })),
+    ],
+  }
+}
+
+function setEnemyCardCooldown(
+  state: BattleState,
+  actorId: string,
+  card: BattlePlayerCard,
+  cooldownTurns: number,
+): BattleState {
+  const cards = state.enemyCardsByUnitId?.[actorId]
+  if (!cards) return state
+  const nextCard: BattlePlayerCard = { ...card, cooldownRemaining: cooldownTurns }
+  return updateActorEnemyCards(
+    state,
+    actorId,
+    cards.map((c) => (c.id === card.id ? nextCard : c)),
+  )
+}
+
+function tryCardAttack(
+  state: BattleState,
+  action: Extract<BattleAction, { type: 'card_attack' }>,
+): BattleState {
+  const ptr = resolveActorPointer(state)
+  const actorId = actorIdAtPointer(state, ptr)
+  if (actorId === undefined || action.attackerId !== actorId) return state
+
+  const attacker = getUnit(state, action.attackerId)
+  if (!isAliveUnit(attacker) || attacker.side !== 'enemy') return state
+
+  const cards = state.enemyCardsByUnitId?.[action.attackerId]
+  const card = cards?.find((c) => c.id === action.cardId)
+  if (!card || card.cooldownRemaining > 0) return state
+
+  const tmpl = getCardAttackTemplate(card.templateId)
+  if (!tmpl) return state
+
+  const walls = wallSet(state.walls)
+  const fromCard = { cardId: card.id, templateId: card.templateId }
+  const cd = tmpl.cooldownTurns ?? 0
+  let next = setEnemyCardCooldown(state, action.attackerId, card, cd)
+
+  if (usesCardAoEDispatch(tmpl)) {
+    const targetX = action.targetX
+    const targetY = action.targetY
+    if (targetX === undefined || targetY === undefined) return state
+    if (!canCastAoEAt(attacker, targetX, targetY, tmpl.maxRange, walls)) return state
+
+    const damage = resolveEnemySkillAmount(attacker, card, tmpl, next.worldPower) ?? 0
+    const effectPower = resolveEnemySkillEffectPower(attacker, card, tmpl, next.worldPower) ?? 0
+    next = applyAction(next, {
+      type: 'aoe_strike',
+      attackerId: action.attackerId,
+      centerX: targetX,
+      centerY: targetY,
+      damage,
+      aoeSize: tmpl.aoeSize ?? 3,
+      fromCard,
+    })
+    if (tmpl.kind === 'debuff' || tmpl.kind === 'dot') {
+      const aoe = cellsInAoE(targetX, targetY, tmpl.aoeSize ?? 3, next.width, next.height)
+      for (const u of next.units) {
+        if (u.side !== 'player' || u.hp <= 0) continue
+        if (!aoe.has(cellKey(u.x, u.y))) continue
+        const status = statusForSkill(card.templateId, effectPower)
+        next = applyCardStatuses(next, u.id, [status])
+      }
+    }
+    return next
+  }
+
+  const targetId = action.targetId
+  if (!targetId) return state
+  const target = getUnit(state, targetId)
+  if (!isAliveUnit(target) || target.side !== 'player') return state
+
+  if (usesCardUtilitySingleDispatch(tmpl)) {
+    if (!canRangedAttack(attacker, target, tmpl.maxRange, walls)) return state
+    const effectPower = resolveEnemySkillEffectPower(attacker, card, tmpl, next.worldPower) ?? 0
+    const status = statusForSkill(card.templateId, effectPower)
+    next = applyCardStatuses(next, target.id, [status])
+    next = appendLog(next, [
+      {
+        type: 'strike',
+        attackerId: action.attackerId,
+        targetId: target.id,
+        damage: 0,
+        attackKind: 'ranged',
+        targetKilled: false,
+        fromCard,
+      },
+    ])
+    next = afterHpChange(next, null)
+    if (next.phase !== 'ongoing') return next
+    return advanceBattleTurn(next)
+  }
+
+  if (!usesCardAttackDispatch(tmpl.kind) && tmpl.kind !== 'debuff') return state
+
+  const inRange =
+    tmpl.kind === 'melee' || tmpl.kind === 'dot'
+      ? canMeleeAttack(attacker, target)
+      : canRangedAttack(attacker, target, tmpl.maxRange, walls)
+  if (!inRange) return state
+
+  const damage = resolveEnemySkillAmount(attacker, card, tmpl, next.worldPower)
+  if (damage === null) return state
+
+  const battleAction: BattleAction =
+    tmpl.kind === 'melee' || tmpl.kind === 'dot'
+      ? {
+          type: 'attack',
+          attackerId: action.attackerId,
+          targetId: target.id,
+          damage,
+          kind: 'melee',
+          fromCard,
+        }
+      : {
+          type: 'attack',
+          attackerId: action.attackerId,
+          targetId: target.id,
+          damage,
+          kind: 'ranged',
+          maxRange: tmpl.maxRange,
+          fromCard,
+        }
+
+  next = applyAction(next, battleAction)
+  if (tmpl.kind === 'dot' || tmpl.kind === 'debuff') {
+    const effectPower = resolveEnemySkillEffectPower(attacker, card, tmpl, next.worldPower) ?? 0
+    const status = statusForSkill(card.templateId, effectPower)
+    next = applyCardStatuses(next, target.id, [status])
+  }
+  return next
+}
+
 export function applyAction(state: BattleState, action: BattleAction): BattleState {
   if (state.phase !== 'ongoing') return state
   switch (action.type) {
@@ -872,6 +1041,8 @@ export function applyAction(state: BattleState, action: BattleAction): BattleSta
       return tryAoEStrike(state, action)
     case 'heal':
       return tryHeal(state, action)
+    case 'card_attack':
+      return tryCardAttack(state, action)
   }
 }
 

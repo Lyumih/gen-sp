@@ -290,6 +290,14 @@ export type BattleAction =
       fromCard?: { cardId: string; templateId: string }
       modCtx?: BattleModContext
     }
+  | {
+      type: 'card_attack'
+      attackerId: string
+      cardId: string
+      targetId?: string
+      targetX?: number
+      targetY?: number
+    }
 
 export type RunPhase = 'hub' | 'battle' | 'victory' | 'defeat' | 'inter_battle'
 
