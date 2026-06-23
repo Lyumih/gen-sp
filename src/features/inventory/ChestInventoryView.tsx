@@ -2,28 +2,43 @@ import type { ReactNode } from 'react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { Space, Typography } from 'antd'
 import { getCardAttackTemplate } from '../../game/content/cardTemplates'
+import { getPassiveTemplate } from '../../game/content/passiveTemplates'
+import { STARTER_HERO_BASE_STATS } from '../../game/config/baseStats'
+import { sellPriceForPassive, sellPriceForSkill } from '../../game/config/skillAcquisition'
 import { getCardDisplayLabel } from '../../game/descriptions/cardText'
+import {
+  describePassiveStats,
+  getPassiveDisplayLabel,
+} from '../../game/descriptions/passiveText'
 import {
   itemInstanceDescriptionLinesFromInstance,
   itemPriceLine,
   itemSellPrice,
 } from '../../game/descriptions/itemText'
-import { sellPriceForSkill } from '../../game/config/skillAcquisition'
+import { getCharacter } from '../../game/character/selectors'
 import { getItemTemplate } from '../../game/content/itemTemplates'
-import type { CampaignState, ItemInstance } from '../../game/types'
+import type { CampaignState, Character, ItemInstance, PassiveInstance } from '../../game/types'
 import { UI_LEVEL } from '../../game/ui/labels'
-import { chestDropDragId, chestItemDragId, parseDragId } from './inventoryDnD'
+import {
+  chestDropDragId,
+  chestItemDragId,
+  parseDragId,
+} from './inventoryDnD'
 import { ItemPopoverActions } from './ItemPopoverActions'
 import { InventoryCell } from './InventoryCell'
 import { InventoryGrid } from './InventoryGrid'
-import { resolveCardEmoji, resolveItemEmoji } from './inventoryEmoji'
+import { resolveCardEmoji, resolveItemEmoji, resolvePassiveEmoji } from './inventoryEmoji'
 
 type ChestInventoryViewProps = {
   campaign: CampaignState
   inBattle: boolean
+  inventoryLocked?: boolean
+  bindCharacterId?: string
   onSellChestItem: (itemId: string) => void
   onSellChestCard?: (cardId: string) => void
+  onSellChestPassive?: (passiveId: string) => void
   onBindCard?: (cardId: string) => void
+  onBindPassive?: (passiveId: string) => void
   bindCharacterName?: string
   onAssignItemToCharacter?: (itemId: string) => void
   dndEnabled?: boolean
@@ -32,7 +47,7 @@ type ChestInventoryViewProps = {
 
 function DraggableChestItemCell({
   item,
-  inBattle,
+  locked,
   dndEnabled,
   sellPrice,
   lines,
@@ -41,7 +56,7 @@ function DraggableChestItemCell({
   onAssignItemToCharacter,
 }: {
   item: ItemInstance
-  inBattle: boolean
+  locked: boolean
   dndEnabled: boolean
   sellPrice: number
   lines: string[]
@@ -51,7 +66,7 @@ function DraggableChestItemCell({
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: chestItemDragId(item.id),
-    disabled: inBattle || !dndEnabled,
+    disabled: locked || !dndEnabled,
   })
 
   const popoverActions = [
@@ -77,12 +92,12 @@ function DraggableChestItemCell({
   return (
     <InventoryCell
       ref={setNodeRef}
-      {...(dndEnabled && !inBattle ? { ...attributes, ...listeners } : {})}
+      {...(dndEnabled && !locked ? { ...attributes, ...listeners } : {})}
       style={{ opacity: isDragging ? 0.4 : undefined, cursor: dndEnabled ? 'grab' : undefined }}
       emoji={resolveItemEmoji(tmpl, tmpl?.slot ?? 'weapon')}
       levelBadge={`${UI_LEVEL}${item.itemLevel}`}
       contextBadge={sellPrice > 0 ? `${sellPrice} 💰` : undefined}
-      state={inBattle ? 'disabled' : 'filled'}
+      state={locked ? 'disabled' : 'filled'}
       popoverTitle={tmpl?.label}
       popoverContent={
         <Space orientation="vertical" size="small">
@@ -96,7 +111,7 @@ function DraggableChestItemCell({
           {sellPrice > 0 ? (
             <Typography.Text style={{ fontSize: 12 }}>{itemPriceLine(sellPrice)}</Typography.Text>
           ) : null}
-          <ItemPopoverActions inBattle={inBattle} actions={popoverActions} />
+          <ItemPopoverActions inBattle={locked} actions={popoverActions} />
         </Space>
       }
       ariaLabel={tmpl?.label ?? item.templateId}
@@ -106,18 +121,18 @@ function DraggableChestItemCell({
 
 function ChestDropZone({
   children,
-  inBattle,
+  locked,
   activeDragId,
 }: {
   children: ReactNode
-  inBattle: boolean
+  locked: boolean
   activeDragId?: string | null
 }) {
   const activeParsed = activeDragId ? parseDragId(activeDragId) : null
   const stashDrag = activeParsed?.kind === 'stash'
   const { setNodeRef, isOver } = useDroppable({
     id: chestDropDragId(),
-    disabled: inBattle || !stashDrag,
+    disabled: locked || !stashDrag,
   })
 
   return (
@@ -137,16 +152,31 @@ function ChestDropZone({
 export function ChestInventoryView({
   campaign,
   inBattle,
+  inventoryLocked = false,
+  bindCharacterId,
   onSellChestItem,
   onSellChestCard,
+  onSellChestPassive,
   onBindCard,
+  onBindPassive,
   bindCharacterName,
   onAssignItemToCharacter,
   dndEnabled = false,
   activeDragId = null,
 }: ChestInventoryViewProps) {
-  const { items, unboundCards } = campaign.chest
-  const total = items.length + unboundCards.length
+  const locked = inBattle || inventoryLocked
+  const { items, unboundCards, unboundPassives } = campaign.chest
+  const total = items.length + unboundCards.length + unboundPassives.length
+  const bindHero =
+    bindCharacterId !== undefined ? getCharacter(campaign, bindCharacterId) : undefined
+  const canBindPassive =
+    bindHero !== undefined && bindHero.passives.length < 4
+  const previewCharacter = bindHero ?? {
+    baseStats: STARTER_HERO_BASE_STATS,
+    unitLevel: 1,
+    items: [],
+    equipment: { weapon: null, armor: null, accessory: null },
+  }
 
   const grid = (
     <InventoryGrid
@@ -162,7 +192,7 @@ export function ChestInventoryView({
             <DraggableChestItemCell
               key={item.id}
               item={item}
-              inBattle={inBattle}
+              locked={locked}
               dndEnabled={dndEnabled}
               sellPrice={sellPrice}
               lines={lines}
@@ -172,60 +202,77 @@ export function ChestInventoryView({
             />
           )
         }
-        const card = unboundCards[index - items.length]!
-        const tmpl = getCardAttackTemplate(card.templateId)
-        const label = getCardDisplayLabel(card.templateId)
-        const skillSellPrice = sellPriceForSkill()
-        const canSellCard = Boolean(onSellChestCard) && card.templateId !== 'strike'
-        return (
-          <InventoryCell
-            key={card.id}
-            emoji={resolveCardEmoji(tmpl)}
-            contextBadge={
-              canSellCard && skillSellPrice > 0 ? `${skillSellPrice} 💰` : '🃏'
-            }
-            levelBadge={`${UI_LEVEL}${card.global_level}`}
-            state={inBattle ? 'disabled' : 'filled'}
-            popoverTitle={label}
-            popoverContent={
-              <Space orientation="vertical" size="small">
-                <Typography.Text style={{ fontSize: 12 }}>
-                  Умение уровня {card.global_level}. Привязка к персонажу необратима.
-                </Typography.Text>
-                {canSellCard && skillSellPrice > 0 ? (
+        const cardIndex = index - items.length
+        if (cardIndex < unboundCards.length) {
+          const card = unboundCards[cardIndex]!
+          const tmpl = getCardAttackTemplate(card.templateId)
+          const label = getCardDisplayLabel(card.templateId)
+          const skillSellPrice = sellPriceForSkill()
+          const canSellCard = Boolean(onSellChestCard) && card.templateId !== 'strike'
+          return (
+            <InventoryCell
+              key={card.id}
+              emoji={resolveCardEmoji(tmpl)}
+              contextBadge={
+                canSellCard && skillSellPrice > 0 ? `${skillSellPrice} 💰` : '🃏'
+              }
+              levelBadge={`${UI_LEVEL}${card.global_level}`}
+              state={locked ? 'disabled' : 'filled'}
+              popoverTitle={label}
+              popoverContent={
+                <Space orientation="vertical" size="small">
                   <Typography.Text style={{ fontSize: 12 }}>
-                    {itemPriceLine(skillSellPrice)}
+                    Умение уровня {card.global_level}. Привязка к персонажу необратима.
                   </Typography.Text>
-                ) : null}
-                <ItemPopoverActions
-                  inBattle={inBattle}
-                  actions={[
-                    ...(onBindCard && bindCharacterName
-                      ? [
-                          {
-                            key: 'bind',
-                            label: `Назначить: ${bindCharacterName}`,
-                            type: 'primary' as const,
-                            onClick: () => onBindCard(card.id),
-                          },
-                        ]
-                      : []),
-                    ...(canSellCard
-                      ? [
-                          {
-                            key: 'sell',
-                            label: 'Продать',
-                            danger: true,
-                            disabled: skillSellPrice <= 0,
-                            onClick: () => onSellChestCard!(card.id),
-                          },
-                        ]
-                      : []),
-                  ]}
-                />
-              </Space>
-            }
-            ariaLabel={label}
+                  {canSellCard && skillSellPrice > 0 ? (
+                    <Typography.Text style={{ fontSize: 12 }}>
+                      {itemPriceLine(skillSellPrice)}
+                    </Typography.Text>
+                  ) : null}
+                  <ItemPopoverActions
+                    inBattle={locked}
+                    actions={[
+                      ...(onBindCard && bindCharacterName
+                        ? [
+                            {
+                              key: 'bind',
+                              label: `Назначить: ${bindCharacterName}`,
+                              type: 'primary' as const,
+                              onClick: () => onBindCard(card.id),
+                            },
+                          ]
+                        : []),
+                      ...(canSellCard
+                        ? [
+                            {
+                              key: 'sell',
+                              label: 'Продать',
+                              danger: true,
+                              disabled: skillSellPrice <= 0,
+                              onClick: () => onSellChestCard!(card.id),
+                            },
+                          ]
+                        : []),
+                    ]}
+                  />
+                </Space>
+              }
+              ariaLabel={label}
+            />
+          )
+        }
+        const passive = unboundPassives[index - items.length - unboundCards.length]!
+        return (
+          <ChestPassiveCell
+            key={passive.id}
+            passive={passive}
+            previewCharacter={previewCharacter}
+            locked={locked}
+            sellPrice={sellPriceForPassive()}
+            canBind={canBindPassive}
+            bindCharacterName={bindCharacterName}
+            onBindPassive={onBindPassive}
+            onSellChestPassive={onSellChestPassive}
           />
         )
       }}
@@ -235,16 +282,96 @@ export function ChestInventoryView({
   return (
     <Space orientation="vertical" size="small" style={{ width: '100%' }}>
       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        Общий сундук — предметы и непривязанные умения
+        Общий сундук — предметы, непривязанные умения и навыки
         {dndEnabled ? ' · перетащите предмет на персонажа или из инвентаря в сундук' : null}
       </Typography.Text>
       {dndEnabled ? (
-        <ChestDropZone inBattle={inBattle} activeDragId={activeDragId}>
+        <ChestDropZone locked={locked} activeDragId={activeDragId}>
           {grid}
         </ChestDropZone>
       ) : (
         grid
       )}
     </Space>
+  )
+}
+
+function ChestPassiveCell({
+  passive,
+  previewCharacter,
+  locked,
+  sellPrice,
+  canBind,
+  bindCharacterName,
+  onBindPassive,
+  onSellChestPassive,
+}: {
+  passive: PassiveInstance
+  previewCharacter: Pick<Character, 'baseStats' | 'unitLevel' | 'items' | 'equipment'>
+  locked: boolean
+  sellPrice: number
+  canBind: boolean
+  bindCharacterName?: string
+  onBindPassive?: (passiveId: string) => void
+  onSellChestPassive?: (passiveId: string) => void
+}) {
+  const tmpl = getPassiveTemplate(passive.templateId)
+  const label = getPassiveDisplayLabel(passive.templateId)
+  const stats = describePassiveStats(passive, previewCharacter, { worldPower: 0 })
+  const canSell = Boolean(onSellChestPassive)
+
+  return (
+    <InventoryCell
+      emoji={resolvePassiveEmoji(tmpl)}
+      contextBadge={canSell && sellPrice > 0 ? `${sellPrice} 💰` : '✨'}
+      levelBadge={`${UI_LEVEL}${passive.global_level}`}
+      state={locked ? 'disabled' : 'filled'}
+      popoverTitle={label}
+      popoverContent={
+        <Space orientation="vertical" size="small">
+          <ul style={{ margin: 0, paddingLeft: 16 }}>
+            {stats.lines.map((line, i) => (
+              <li key={i}>
+                <Typography.Text style={{ fontSize: 12 }}>{line}</Typography.Text>
+              </li>
+            ))}
+          </ul>
+          <Typography.Text style={{ fontSize: 12 }}>
+            Привязка к персонажу необратима (макс. 4 навыка).
+          </Typography.Text>
+          {canSell && sellPrice > 0 ? (
+            <Typography.Text style={{ fontSize: 12 }}>{itemPriceLine(sellPrice)}</Typography.Text>
+          ) : null}
+          <ItemPopoverActions
+            inBattle={locked}
+            actions={[
+              ...(onBindPassive && bindCharacterName
+                ? [
+                    {
+                      key: 'bind',
+                      label: `Назначить: ${bindCharacterName}`,
+                      type: 'primary' as const,
+                      disabled: !canBind,
+                      onClick: () => onBindPassive(passive.id),
+                    },
+                  ]
+                : []),
+              ...(canSell
+                ? [
+                    {
+                      key: 'sell',
+                      label: 'Продать',
+                      danger: true,
+                      disabled: sellPrice <= 0,
+                      onClick: () => onSellChestPassive!(passive.id),
+                    },
+                  ]
+                : []),
+            ]}
+          />
+        </Space>
+      }
+      ariaLabel={label}
+    />
   )
 }

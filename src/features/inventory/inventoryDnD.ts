@@ -42,6 +42,18 @@ export function chestCardDragId(cardId: string): string {
   return `chest-card:${cardId}`
 }
 
+export function chestPassiveDragId(passiveId: string): string {
+  return `chest-passive:${passiveId}`
+}
+
+export function passiveDragId(passiveId: string): string {
+  return `passive:${passiveId}`
+}
+
+export function passiveEquipDragId(slotIndex: number): string {
+  return `passive-equip:${slotIndex}`
+}
+
 export function chestDropDragId(): string {
   return 'chest-drop:main'
 }
@@ -53,7 +65,9 @@ const COMPOUND_PREFIXES = [
   'stash-empty:',
   'chest-item:',
   'chest-card:',
+  'chest-passive:',
   'chest-drop:',
+  'passive-equip:',
 ] as const
 
 export function parseDragId(id: string): { kind: string; value: string } | null {

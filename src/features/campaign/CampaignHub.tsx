@@ -79,8 +79,16 @@ export function CampaignHub() {
     dispatchRun({ type: 'SELL_CHEST_CARD', cardId })
   }
 
+  const sellChestPassive = (passiveId: string) => {
+    dispatchRun({ type: 'SELL_UNBOUND_PASSIVE', passiveId })
+  }
+
   const bindChestCard = (cardId: string, characterId: string) => {
     dispatchRun({ type: 'BIND_CHEST_CARD', cardId, characterId })
+  }
+
+  const bindChestPassive = (passiveId: string, characterId: string) => {
+    dispatchRun({ type: 'BIND_PASSIVE_TO_CHARACTER', passiveId, characterId })
   }
 
   const moveChestItemToCharacter = (itemId: string, characterId: string) => {
@@ -116,6 +124,19 @@ export function CampaignHub() {
     })
   }
 
+  const setPassiveEquip = (
+    characterId: string,
+    slotIndex: 0 | 1 | 2 | 3,
+    passiveId: string | null,
+  ) => {
+    dispatchRun({
+      type: 'SET_PASSIVE_EQUIP',
+      characterId,
+      slotIndex,
+      passiveId,
+    })
+  }
+
   const transferItem = (itemId: string, fromCharacterId: string, toCharacterId: string) => {
     dispatchRun({ type: 'TRANSFER_ITEM', itemId, fromCharacterId, toCharacterId })
   }
@@ -130,7 +151,7 @@ export function CampaignHub() {
 
   const pickModOffer = (
     characterId: string,
-    carrierKind: 'card' | 'item',
+    carrierKind: 'card' | 'item' | 'passive',
     carrierId: string,
     slotIndex: number,
     modTemplateId: string,
@@ -147,7 +168,7 @@ export function CampaignHub() {
 
   const removeMod = (
     characterId: string,
-    carrierKind: 'card' | 'item',
+    carrierKind: 'card' | 'item' | 'passive',
     carrierId: string,
     slotIndex: number,
   ) => {
@@ -235,12 +256,15 @@ export function CampaignHub() {
             onSellItem={sellItem}
             onSellCard={sellCard}
             onBindChestCard={bindChestCard}
+            onBindChestPassive={bindChestPassive}
+            onSellChestPassive={sellChestPassive}
             onMoveChestItemToCharacter={moveChestItemToCharacter}
             onMoveCharacterItemToChest={moveCharacterItemToChest}
             onSetSquadSlot={setSquadSlot}
             onSwapSquadSlots={swapSquadSlots}
             onAssignToSquad={assignToSquad}
             onRemoveFromSquad={removeFromSquad}
+            onSetPassiveEquip={setPassiveEquip}
             onPickModOffer={pickModOffer}
             onRemoveMod={removeMod}
             onInvalidSlot={() => message.warning('Не подходит к этому слоту')}
@@ -256,8 +280,10 @@ export function CampaignHub() {
             onInsufficientGold={() => message.warning('Недостаточно золота')}
             onSellChestItem={sellChestItem}
             onSellChestCard={sellChestCard}
+            onSellChestPassive={sellChestPassive}
             onSellItem={sellItem}
             onBindChestCard={bindChestCard}
+            onBindChestPassive={bindChestPassive}
             onMoveChestItemToCharacter={moveChestItemToCharacter}
             onUnequip={unequip}
           />

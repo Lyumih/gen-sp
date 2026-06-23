@@ -1,5 +1,7 @@
 import type { CardAttackTemplate } from '../../game/content/cardTemplates'
 import type { ItemTemplate } from '../../game/content/itemTemplates'
+import type { PassiveTemplate } from '../../game/content/passiveTemplates'
+import { getSemanticEmoji } from '../../game/ui/semanticEmoji'
 import type { EquipmentSlot } from '../../game/types'
 
 export const SLOT_EMOJI: Record<EquipmentSlot, string> = {
@@ -9,6 +11,7 @@ export const SLOT_EMOJI: Record<EquipmentSlot, string> = {
 }
 
 const CARD_DEFAULT_EMOJI = '🃏'
+const PASSIVE_DEFAULT_EMOJI = '✨'
 
 export function resolveItemEmoji(
   template: ItemTemplate | undefined,
@@ -19,4 +22,10 @@ export function resolveItemEmoji(
 
 export function resolveCardEmoji(template: CardAttackTemplate | undefined): string {
   return template?.emoji ?? CARD_DEFAULT_EMOJI
+}
+
+export function resolvePassiveEmoji(template: PassiveTemplate | undefined): string {
+  if (!template) return PASSIVE_DEFAULT_EMOJI
+  const sem = getSemanticEmoji(template.semanticEmojiId)
+  return sem?.base ?? PASSIVE_DEFAULT_EMOJI
 }

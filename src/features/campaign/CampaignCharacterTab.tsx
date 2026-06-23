@@ -20,12 +20,19 @@ type CampaignCharacterTabProps = {
   onReorderStash: (characterId: string, itemIds: string[]) => void
   onReorderCards: (characterId: string, cardIds: string[]) => void
   onSetBattleLoadout: (characterId: string, slotIndex: 0 | 1 | 2, cardId: string | null) => void
+  onSetPassiveEquip: (
+    characterId: string,
+    slotIndex: 0 | 1 | 2 | 3,
+    passiveId: string | null,
+  ) => void
   onTransferItem: (itemId: string, fromCharacterId: string, toCharacterId: string) => void
   onSellChestItem: (itemId: string) => void
   onSellChestCard: (cardId: string) => void
   onSellItem: (characterId: string, itemId: string) => void
   onSellCard: (characterId: string, cardId: string) => void
   onBindChestCard: (cardId: string, characterId: string) => void
+  onBindChestPassive: (passiveId: string, characterId: string) => void
+  onSellChestPassive: (passiveId: string) => void
   onMoveChestItemToCharacter: (itemId: string, characterId: string) => void
   onMoveCharacterItemToChest: (itemId: string, characterId: string) => void
   onSetSquadSlot: (slotIndex: number, characterId: string | null) => void
@@ -34,14 +41,14 @@ type CampaignCharacterTabProps = {
   onRemoveFromSquad: (characterId: string) => void
   onPickModOffer: (
     characterId: string,
-    carrierKind: 'card' | 'item',
+    carrierKind: 'card' | 'item' | 'passive',
     carrierId: string,
     slotIndex: number,
     modTemplateId: string,
   ) => void
   onRemoveMod: (
     characterId: string,
-    carrierKind: 'card' | 'item',
+    carrierKind: 'card' | 'item' | 'passive',
     carrierId: string,
     slotIndex: number,
   ) => void
@@ -57,12 +64,15 @@ export function CampaignCharacterTab({
   onReorderStash,
   onReorderCards,
   onSetBattleLoadout,
+  onSetPassiveEquip,
   onTransferItem,
   onSellChestItem,
   onSellChestCard,
   onSellItem,
   onSellCard,
   onBindChestCard,
+  onBindChestPassive,
+  onSellChestPassive,
   onMoveChestItemToCharacter,
   onMoveCharacterItemToChest,
   onSetSquadSlot,
@@ -183,23 +193,27 @@ export function CampaignCharacterTab({
                 campaign={campaign}
                 characterId={selectedCharacterId}
                 inBattle={inBattle}
+                inventoryLocked={expeditionActive}
                 modsDisabled={modsDisabled}
                 modsDisabledTooltip={modsDisabledTooltip}
                 onReorderCards={(cardIds) => onReorderCards(selectedCharacterId, cardIds)}
                 onSetBattleLoadout={(slotIndex, cardId) =>
                   onSetBattleLoadout(selectedCharacterId, slotIndex, cardId)
                 }
-                onPickModOffer={(_kind, carrierId, slotIndex, modTemplateId) =>
+                onSetPassiveEquip={(slotIndex, passiveId) =>
+                  onSetPassiveEquip(selectedCharacterId, slotIndex, passiveId)
+                }
+                onPickModOffer={(carrierKind, carrierId, slotIndex, modTemplateId) =>
                   onPickModOffer(
                     selectedCharacterId,
-                    'card',
+                    carrierKind,
                     carrierId,
                     slotIndex,
                     modTemplateId,
                   )
                 }
-                onRemoveMod={(_kind, carrierId, slotIndex) =>
-                  onRemoveMod(selectedCharacterId, 'card', carrierId, slotIndex)
+                onRemoveMod={(carrierKind, carrierId, slotIndex) =>
+                  onRemoveMod(selectedCharacterId, carrierKind, carrierId, slotIndex)
                 }
                 onSellCard={(cardId) => onSellCard(selectedCharacterId, cardId)}
               />
@@ -211,10 +225,16 @@ export function CampaignCharacterTab({
               <ChestInventoryView
                 campaign={campaign}
                 inBattle={inBattle}
+                inventoryLocked={expeditionActive}
+                bindCharacterId={selectedCharacterId}
                 onSellChestItem={onSellChestItem}
                 onSellChestCard={onSellChestCard}
+                onSellChestPassive={onSellChestPassive}
                 bindCharacterName={selectedCharacter.name}
                 onBindCard={(cardId) => onBindChestCard(cardId, selectedCharacterId)}
+                onBindPassive={(passiveId) =>
+                  onBindChestPassive(passiveId, selectedCharacterId)
+                }
                 onAssignItemToCharacter={(itemId) =>
                   onMoveChestItemToCharacter(itemId, selectedCharacterId)
                 }
