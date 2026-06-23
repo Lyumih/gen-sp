@@ -18,10 +18,11 @@ describe('enemy archetype content', () => {
     }
   })
 
-  it('has exactly 16 regular, 8 boss, 3 chaotic', () => {
+  it('has exactly 16 regular, 8 boss, 3 chaotic, 4 hero', () => {
     const all = ENEMY_ARCHETYPE_IDS.map((id) => getEnemyArchetype(id)!)
     expect(all.filter((a) => a.isBoss).length).toBe(8)
     expect(all.filter((a) => a.isChaotic).length).toBe(3)
-    expect(all.filter((a) => !a.isBoss).length).toBe(19) // 16 + 3 mutants
+    expect(all.filter((a) => a.threatTags.includes('hero')).length).toBe(4)
+    expect(all.filter((a) => !a.isBoss).length).toBe(23) // 16 + 3 mutants + 4 hero
   })
 })

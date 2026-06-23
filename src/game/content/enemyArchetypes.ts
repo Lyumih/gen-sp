@@ -657,7 +657,89 @@ const ENEMY_ARCHETYPES: Readonly<Record<string, EnemyArchetype>> = {
     descriptionRu: 'Зеркальная ярость, вихрь — гибридный антипод берсерка.',
   },
 
-  // --- §8 Хаотичные мутанты ---
+  // --- §8 Героические NPC (экспедиция «Туннель») ---
+  hero_knight: {
+    id: 'hero_knight',
+    label: 'Рыцарь',
+    emoji: '⚔️',
+    raceId: 'human',
+    classId: 'warrior',
+    threatTags: ['hero', 'arena'],
+    counterClass: 'warrior',
+    baseStats: { ...REGULAR_STATS, health: 14, defense: 4, attack: 4, speed: 2, initiative: 7 },
+    baseAttack: 'strike',
+    skillPresets: [skill('shield_bash', 2), skill('cleave', 2), skill('battle_cry', 2)],
+    passivePresets: [passive('warrior_fortitude', 2)],
+    skillPriorities: [
+      { skillId: 'shield_bash', baseScore: 8 },
+      { skillId: 'cleave', baseScore: 6 },
+      { skillId: 'battle_cry', baseScore: 4 },
+    ],
+    spawnWeight: 0,
+    descriptionRu: 'Героический рыцарь — NPC в экспедиции «Туннель».',
+  },
+  hero_paladin: {
+    id: 'hero_paladin',
+    label: 'Паладин',
+    emoji: '✝️',
+    raceId: 'human',
+    classId: 'paladin',
+    threatTags: ['hero', 'arena'],
+    counterClass: 'warlock',
+    baseStats: { ...REGULAR_STATS, health: 14, defense: 3, attack: 4, healPower: 2, mana: 6 },
+    baseAttack: 'strike',
+    skillPresets: [skill('holy_strike', 2), skill('divine_shield', 2), skill('lay_on_hands', 2)],
+    passivePresets: [passive('enemy_holy_ward', 2)],
+    skillPriorities: [
+      { skillId: 'holy_strike', baseScore: 8 },
+      { skillId: 'divine_shield', baseScore: 6 },
+      { skillId: 'lay_on_hands', baseScore: 4 },
+    ],
+    spawnWeight: 0,
+    descriptionRu: 'Героический паладин — NPC в экспедиции «Туннель».',
+  },
+  hero_ranger: {
+    id: 'hero_ranger',
+    label: 'Следопыт',
+    emoji: '🏹',
+    raceId: 'elf',
+    classId: 'ranger',
+    threatTags: ['hero', 'arena'],
+    counterClass: 'ranger',
+    baseStats: { ...REGULAR_STATS, health: 11, defense: 2, attack: 4, speed: 3, initiative: 9, critChance: 5 },
+    baseAttack: 'shot',
+    skillPresets: [skill('power_shot', 2), skill('multishot', 2), skill('smoke_bomb', 2)],
+    passivePresets: [passive('rogue_precision', 2)],
+    skillPriorities: [
+      { skillId: 'power_shot', baseScore: 8, preferLowHpTarget: true },
+      { skillId: 'multishot', baseScore: 6 },
+      { skillId: 'smoke_bomb', baseScore: 5, minRange: 2 },
+    ],
+    spawnWeight: 0,
+    descriptionRu: 'Героический следопыт — NPC в экспедиции «Туннель».',
+  },
+  hero_battle_mage: {
+    id: 'hero_battle_mage',
+    label: 'Боевой маг',
+    emoji: '🔮',
+    raceId: 'elf',
+    classId: 'mage',
+    threatTags: ['hero', 'arena'],
+    counterClass: 'mage',
+    baseStats: { ...REGULAR_STATS, health: 10, defense: 1, magicPower: 5, mana: 10, initiative: 8 },
+    baseAttack: 'magic_bolt',
+    skillPresets: [skill('fireball', 2), skill('arcane_bolt', 2), skill('frost_nova', 2)],
+    passivePresets: [passive('mage_ignite', 2)],
+    skillPriorities: [
+      { skillId: 'fireball', baseScore: 8 },
+      { skillId: 'arcane_bolt', baseScore: 6 },
+      { skillId: 'frost_nova', baseScore: 5 },
+    ],
+    spawnWeight: 0,
+    descriptionRu: 'Героический боевой маг — NPC в экспедиции «Туннель».',
+  },
+
+  // --- §9 Хаотичные мутанты ---
   enemy_chaos_aberration: {
     id: 'enemy_chaos_aberration',
     label: 'Аберрация хаоса',
@@ -721,6 +803,13 @@ const ENEMY_ARCHETYPES: Readonly<Record<string, EnemyArchetype>> = {
 }
 
 const LEGACY_ARCHETYPE_IDS = new Set(['grunt', 'boss'])
+
+export const HERO_ARCHETYPE_IDS = [
+  'hero_knight',
+  'hero_paladin',
+  'hero_ranger',
+  'hero_battle_mage',
+] as const
 
 export const ENEMY_ARCHETYPE_IDS: readonly string[] = Object.keys(ENEMY_ARCHETYPES).filter(
   (id) => !LEGACY_ARCHETYPE_IDS.has(id),

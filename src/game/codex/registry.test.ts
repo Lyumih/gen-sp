@@ -49,9 +49,9 @@ describe('codex registry', () => {
     expect(enemyIdx).toBeGreaterThan(passiveIdx)
   })
 
-  it('includes 27 enemy archetype entries', () => {
+  it('includes 31 enemy archetype entries', () => {
     const enemies = codexEntriesByCategory('enemy')
-    expect(enemies).toHaveLength(27)
+    expect(enemies).toHaveLength(31)
     expect(enemies).toHaveLength(ENEMY_ARCHETYPE_IDS.length)
     expect(new Set(enemies.map((e) => e.id)).size).toBe(enemies.length)
   })
