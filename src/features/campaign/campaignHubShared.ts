@@ -43,4 +43,4 @@ export function isBattleContextActive(campaign: CampaignState): boolean {
   )
 }
 
-export type CampaignHubTab = 'character' | 'battle' | 'shop' | 'codex' | 'tavern'
+export type CampaignHubTab = 'character' | 'battle' | 'shop' | 'codex' | 'tavern' | 'help'

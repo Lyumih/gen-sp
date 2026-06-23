@@ -70,4 +70,37 @@ describe('CampaignHubNav', () => {
     const disabledCount = html.match(/disabled/g)?.length ?? 0
     expect(disabledCount).toBeGreaterThanOrEqual(2)
   })
+
+  it('renders help tab label and icon', () => {
+    const html = renderToStaticMarkup(
+      createElement(CampaignHubNav, {
+        activeTab: 'help',
+        onTabChange: () => {},
+        unreadCodexCount: 0,
+        codexDisabled: false,
+        shopDisabled: false,
+        tavernDisabled: false,
+      }),
+    )
+
+    expect(html).toContain('Справка')
+  })
+
+  it('keeps help tab enabled when tabsDisabled is true', () => {
+    const html = renderToStaticMarkup(
+      createElement(CampaignHubNav, {
+        activeTab: 'battle',
+        onTabChange: () => {},
+        unreadCodexCount: 0,
+        codexDisabled: true,
+        shopDisabled: true,
+        tavernDisabled: true,
+        tabsDisabled: true,
+      }),
+    )
+
+    const helpPos = html.indexOf('Справка')
+    const helpSlice = html.slice(helpPos, helpPos + 200)
+    expect(helpSlice).not.toContain('disabled')
+  })
 })

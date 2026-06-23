@@ -11,6 +11,7 @@ import { useGameStore } from '../../store/gameStore'
 import { CampaignBattleTab } from './CampaignBattleTab'
 import { CampaignCharacterTab } from './CampaignCharacterTab'
 import { CampaignCodexTab } from '../codex/CampaignCodexTab'
+import { CampaignHelpTab } from '../help/CampaignHelpTab'
 import type { CampaignHubTab } from './campaignHubShared'
 import { isBattleContextActive } from './campaignHubShared'
 import { CampaignHubHud } from './CampaignHubHud'
@@ -231,6 +232,8 @@ export function CampaignHub() {
         ) : null}
 
         {activeTab === 'codex' ? <CampaignCodexTab campaign={campaign} /> : null}
+
+        {activeTab === 'help' ? <CampaignHelpTab /> : null}
       </Space>
     </Card>
   )

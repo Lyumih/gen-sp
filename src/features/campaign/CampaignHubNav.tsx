@@ -3,6 +3,7 @@ import {
   BookOutlined,
   CoffeeOutlined,
   PlayCircleOutlined,
+  QuestionCircleOutlined,
   ShoppingOutlined,
   UserOutlined,
 } from '@ant-design/icons'
@@ -20,7 +21,7 @@ type CampaignHubNavProps = {
   tabsDisabled?: boolean
 }
 
-const TAB_ORDER: CampaignHubTab[] = ['character', 'battle', 'shop', 'tavern', 'codex']
+const TAB_ORDER: CampaignHubTab[] = ['character', 'battle', 'shop', 'tavern', 'codex', 'help']
 
 const TAB_LABEL: Record<CampaignHubTab, string> = {
   character: 'Персонаж',
@@ -28,6 +29,7 @@ const TAB_LABEL: Record<CampaignHubTab, string> = {
   shop: 'Магазин',
   codex: 'Кодекс',
   tavern: 'Таверна',
+  help: 'Справка',
 }
 
 const TAB_ICON: Record<CampaignHubTab, ReactNode> = {
@@ -36,6 +38,7 @@ const TAB_ICON: Record<CampaignHubTab, ReactNode> = {
   shop: <ShoppingOutlined aria-hidden />,
   codex: <BookOutlined aria-hidden />,
   tavern: <CoffeeOutlined aria-hidden />,
+  help: <QuestionCircleOutlined aria-hidden />,
 }
 
 function isTabDisabled(
@@ -43,7 +46,10 @@ function isTabDisabled(
   codexDisabled: boolean,
   shopDisabled: boolean,
   tavernDisabled: boolean,
+  tabsDisabled: boolean,
 ): boolean {
+  if (tab === 'help') return false
+  if (tabsDisabled) return true
   if (tab === 'codex') return codexDisabled
   if (tab === 'shop') return shopDisabled
   if (tab === 'tavern') return tavernDisabled
@@ -88,8 +94,13 @@ export function CampaignHubNav({
             type={tabButtonType(tab, activeTab, battleTabHighlighted)}
             icon={TAB_ICON[tab]}
             disabled={
-              tabsDisabled ||
-              isTabDisabled(tab, codexDisabled, shopDisabled, tavernDisabled)
+              isTabDisabled(
+                tab,
+                codexDisabled,
+                shopDisabled,
+                tavernDisabled,
+                tabsDisabled,
+              )
             }
             onClick={() => onTabChange(tab)}
           >
