@@ -33,14 +33,24 @@ import { generateOffer } from '../memento/modOffers'
 import { MOD_OFFER_POOL } from '../content/modTemplates'
 import { resolveCarrierTags } from '../mods/carrierTags'
 import { milestoneThreshold, rollbackCarrierLevel } from '../memento/modSlots'
-import { softRollbackCarrierLevel } from '../specialization/resolve'
+import {
+  partyMetaBonusFraction,
+  partyMetaMultiplier,
+  softRollbackCarrierLevel,
+} from '../specialization/resolve'
 import { modOfferSeed } from '../memento/carrierLevelChange'
 import { victoryModRollRng } from './applyVictoryModRolls'
 import { MOD_SLOT_MILESTONES } from '../config/modSlotMilestones'
 import { SKILL_ACQUISITION } from '../config/skillAcquisition'
 import { createPassiveInstance } from '../passives/passiveFactory'
 import { PASSIVE_MOD_OFFER_POOL } from '../content/passiveModTemplates'
-import { pickRandomSkillTemplateId, rollBattlePassiveDrop, rollBattleSkillDrop } from '../config/skillAcquisition'
+import {
+  pickRandomSkillTemplateId,
+  rollBattlePassiveDrop,
+  rollBattleSkillDrop,
+  sellPriceForPassive,
+  sellPriceForSkill,
+} from '../config/skillAcquisition'
 import { seededRng } from '../tavern/generateCandidates'
 import type { ModOffer, ModSlotState } from '../types'
 
@@ -2502,5 +2512,148 @@ describe('passive drops and tavern', () => {
     expect(hired.passives).toHaveLength(1)
     expect(hired.passiveEquip[0]).toBe(hired.passives[0]!.id)
     expect(next.codexDiscovered).toContain(`passive:${hired.passives[0]!.templateId}`)
+  })
+})
+
+describe('party meta — drop, shop, sell', () => {
+  function findAttemptIdWhereSkillDropInMetaBand(): number {
+    const base = SKILL_ACQUISITION.battleDropChance
+    const effective = Math.min(1, base * 1.5)
+    for (let id = 1; id < 5000; id++) {
+      const roll = seededRng(id * 9973 + 13)()
+      if (roll >= base && roll < effective) return id
+    }
+    throw new Error('no skill drop meta-band seed found')
+  }
+
+  function victoryState(battleAttemptId: number, s: CampaignState): CampaignState {
+    const b = makeBattle({ phase: 'victory' })
+    return {
+      ...s,
+      phase: 'victory',
+      battle: b,
+      battleAttemptId,
+      battleAttemptSnapshot: battleSnapshotFromHero(s),
+    }
+  }
+
+  it('meta_drop_skill increases effective drop chance with squad member', () => {
+    const base = SKILL_ACQUISITION.battleDropChance
+    const s = withHero(initialCampaignState(), { specializationId: 'meta_drop_skill' })
+    const effective = Math.min(1, base * partyMetaMultiplier(s, 'meta_drop_skill'))
+    expect(effective).toBeGreaterThan(base)
+    expect(
+      rollBattleSkillDrop(effective - 0.0001, {
+        ...SKILL_ACQUISITION,
+        battleDropChance: effective,
+      }),
+    ).toBe(true)
+    expect(rollBattleSkillDrop(base + 0.0001, SKILL_ACQUISITION)).toBe(false)
+  })
+
+  it('FINALIZE_VICTORY applies meta_drop_skill multiplier to skill drop', () => {
+    const attemptId = findAttemptIdWhereSkillDropInMetaBand()
+    const init = initialCampaignState()
+    const withoutMeta = victoryState(attemptId, init)
+    const withMeta = victoryState(attemptId, withHero(init, { specializationId: 'meta_drop_skill' }))
+
+    const noDrop = applyRunAction(withoutMeta, {
+      type: 'FINALIZE_VICTORY',
+      itemLevelRolls: [],
+      playerUnitLevelRoll: 100,
+    })
+    expect(noDrop.chest.unboundCards).toHaveLength(0)
+
+    const withDrop = applyRunAction(withMeta, {
+      type: 'FINALIZE_VICTORY',
+      itemLevelRolls: [],
+      playerUnitLevelRoll: 100,
+    })
+    expect(withDrop.chest.unboundCards.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('FINALIZE_VICTORY applies meta_drop_passive multiplier to passive drop', () => {
+    const base = SKILL_ACQUISITION.battleDropChance
+    const effective = Math.min(1, base * 1.5)
+    let attemptId = -1
+    for (let id = 1; id < 5000; id++) {
+      const dropRng = seededRng(id * 9973 + 13)
+      const skillRoll = dropRng()
+      if (skillRoll < base) pickRandomSkillTemplateId(dropRng)
+      const passiveRoll = dropRng()
+      if (passiveRoll >= base && passiveRoll < effective) {
+        attemptId = id
+        break
+      }
+    }
+    expect(attemptId).toBeGreaterThan(0)
+
+    const init = initialCampaignState()
+    const withoutMeta = victoryState(attemptId, init)
+    const withMeta = victoryState(attemptId, withHero(init, { specializationId: 'meta_drop_passive' }))
+
+    const noDrop = applyRunAction(withoutMeta, {
+      type: 'FINALIZE_VICTORY',
+      itemLevelRolls: [],
+      playerUnitLevelRoll: 100,
+    })
+    expect(noDrop.chest.unboundPassives).toHaveLength(0)
+
+    const withDrop = applyRunAction(withMeta, {
+      type: 'FINALIZE_VICTORY',
+      itemLevelRolls: [],
+      playerUnitLevelRoll: 100,
+    })
+    expect(withDrop.chest.unboundPassives.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('REFRESH_SHOP applies meta_shop_refresh discount when not free', () => {
+    const baseCost = SKILL_ACQUISITION.shopRefreshCost
+    let s: CampaignState = {
+      ...withHero(initialCampaignState(), { specializationId: 'meta_shop_refresh' }),
+      gold: baseCost + 5,
+      shopOffers: [{ kind: 'item' as const, templateId: 'wooden_sword' }],
+    }
+    const expectedCost = Math.floor(
+      baseCost * (1 - partyMetaBonusFraction(s, 'meta_shop_refresh')),
+    )
+    s = applyRunAction(s, { type: 'REFRESH_SHOP', seed: 99 })
+    expect(s.gold).toBe(baseCost + 5 - expectedCost)
+  })
+
+  it('REFRESH_SHOP free refresh ignores discount', () => {
+    let s: CampaignState = {
+      ...withHero(initialCampaignState(), { specializationId: 'meta_shop_refresh' }),
+      gold: 50,
+      shopOffers: null,
+    }
+    s = applyRunAction(s, { type: 'REFRESH_SHOP', seed: 42, free: true })
+    expect(s.gold).toBe(50)
+  })
+
+  it('SELL_CHEST_CARD applies meta_sell_bonus', () => {
+    const card = createCardInstance('fireball', 'chest-fb')
+    const basePrice = sellPriceForSkill()
+    let s: CampaignState = {
+      ...withHero(initialCampaignState(), { specializationId: 'meta_sell_bonus' }),
+      gold: 0,
+      chest: { items: [], unboundCards: [card], unboundPassives: [] },
+    }
+    const fraction = partyMetaBonusFraction(s, 'meta_sell_bonus')
+    s = applyRunAction(s, { type: 'SELL_CHEST_CARD', cardId: 'chest-fb' })
+    expect(s.gold).toBe(Math.floor(basePrice * (1 + fraction)))
+  })
+
+  it('SELL_UNBOUND_PASSIVE applies meta_sell_bonus', () => {
+    const passive = createPassiveInstance('warrior_fortitude', 'sell-p1')
+    const basePrice = sellPriceForPassive()
+    let s: CampaignState = {
+      ...withHero(initialCampaignState(), { specializationId: 'meta_sell_bonus' }),
+      gold: 0,
+      chest: { items: [], unboundCards: [], unboundPassives: [passive] },
+    }
+    const fraction = partyMetaBonusFraction(s, 'meta_sell_bonus')
+    s = applyRunAction(s, { type: 'SELL_UNBOUND_PASSIVE', passiveId: 'sell-p1' })
+    expect(s.gold).toBe(Math.floor(basePrice * (1 + fraction)))
   })
 })

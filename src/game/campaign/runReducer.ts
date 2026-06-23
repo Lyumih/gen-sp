@@ -32,7 +32,7 @@ import { milestoneThreshold, rollbackCarrierLevel } from '../memento/modSlots'
 import { resolveCarrierTags } from '../mods/carrierTags'
 import { MOD_OFFER_POOL, getModTemplate } from '../content/modTemplates'
 import { getPassiveModTemplate, PASSIVE_MOD_OFFER_POOL } from '../content/passiveModTemplates'
-import { characterHasEffect, rollWithLuckyRetry, softRollbackCarrierLevel } from '../specialization/resolve'
+import { characterHasEffect, partyMetaBonusFraction, partyMetaMultiplier, rollWithLuckyRetry, softRollbackCarrierLevel } from '../specialization/resolve'
 import { rollMementoLevelUp } from '../memento/rollMementoLevelUp'
 import {
   pickRandomPassiveTemplateId,
@@ -499,7 +499,14 @@ function finalizeVictory(
   let pendingHubNotice = state.pendingHubNotice
   const codexDiscoveries: string[] = []
 
-  const skillDropped = rollBattleSkillDrop(dropRng())
+  const skillDropChance = Math.min(
+    1,
+    SKILL_ACQUISITION.battleDropChance * partyMetaMultiplier(state, 'meta_drop_skill'),
+  )
+  const skillDropped = rollBattleSkillDrop(dropRng(), {
+    ...SKILL_ACQUISITION,
+    battleDropChance: skillDropChance,
+  })
   let skillTemplateId: string | undefined
   if (skillDropped) {
     skillTemplateId = pickRandomSkillTemplateId(dropRng)
@@ -508,7 +515,14 @@ function finalizeVictory(
     codexDiscoveries.push(codexEntryId('card', skillTemplateId))
   }
 
-  const passiveDropped = rollBattlePassiveDrop(dropRng())
+  const passiveDropChance = Math.min(
+    1,
+    SKILL_ACQUISITION.battleDropChance * partyMetaMultiplier(state, 'meta_drop_passive'),
+  )
+  const passiveDropped = rollBattlePassiveDrop(dropRng(), {
+    ...SKILL_ACQUISITION,
+    battleDropChance: passiveDropChance,
+  })
   let passiveTemplateId: string | undefined
   if (passiveDropped) {
     passiveTemplateId = pickRandomPassiveTemplateId(dropRng)
@@ -1359,11 +1373,17 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
     case 'REFRESH_SHOP': {
       if (!assertHubActionAllowed(state, 'shop')) return state
       const free = action.free === true && state.shopOffers === null
-      if (!free && state.gold < SKILL_ACQUISITION.shopRefreshCost) return state
+      const refreshCost = free
+        ? 0
+        : Math.floor(
+            SKILL_ACQUISITION.shopRefreshCost *
+              (1 - partyMetaBonusFraction(state, 'meta_shop_refresh')),
+          )
+      if (!free && state.gold < refreshCost) return state
       const rng = action.seed !== undefined ? seededRng(action.seed) : () => Math.random()
       return {
         ...state,
-        gold: free ? state.gold : state.gold - SKILL_ACQUISITION.shopRefreshCost,
+        gold: free ? state.gold : state.gold - refreshCost,
         shopOffers: generateShopOffers(rng),
         shopRefreshSeed: action.seed ?? state.shopRefreshSeed + 1,
       }
@@ -1544,8 +1564,10 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       if (!assertHubActionAllowed(state, 'shop')) return state
       const passive = state.chest.unboundPassives.find((p) => p.id === action.passiveId)
       if (!passive) return state
-      const price = sellPriceForPassive()
-      if (price <= 0) return state
+      const basePrice = sellPriceForPassive()
+      if (basePrice <= 0) return state
+      const sellFraction = partyMetaBonusFraction(state, 'meta_sell_bonus')
+      const price = Math.floor(basePrice * (1 + sellFraction))
       return {
         ...state,
         gold: state.gold + price,
@@ -1578,8 +1600,10 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       if (!assertHubActionAllowed(state, 'shop')) return state
       const card = state.chest.unboundCards.find((c) => c.id === action.cardId)
       if (!card || card.templateId === 'strike') return state
-      const price = sellPriceForSkill()
-      if (price <= 0) return state
+      const basePrice = sellPriceForSkill()
+      if (basePrice <= 0) return state
+      const sellFraction = partyMetaBonusFraction(state, 'meta_sell_bonus')
+      const price = Math.floor(basePrice * (1 + sellFraction))
       return {
         ...state,
         gold: state.gold + price,
