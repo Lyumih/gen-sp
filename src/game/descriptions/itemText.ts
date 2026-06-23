@@ -12,29 +12,31 @@ export function equipmentSlotLabelRu(slot: EquipmentSlot): string {
   return SLOT_LABEL_RU[slot]
 }
 
+export function itemGearHpMult(t: ItemTemplate, itemLevel: number): number {
+  return 1 + (t.hpPctPerLevel * itemLevel) / 100
+}
+
+export function itemGearDamageMult(t: ItemTemplate, itemLevel: number): number {
+  return 1 + (t.damagePctPerLevel * itemLevel) / 100
+}
+
+function formatGearMult(m: number): string {
+  return m.toFixed(2).replace(/\.?0+$/, '')
+}
+
 /** Строки про бонус за один уровень предмета (нулевые коэффициенты пропускаются). */
 export function itemPerLevelBonusesLines(t: ItemTemplate): string[] {
   const out: string[] = []
-  if (t.hpBonusPerItemLevel > 0) {
-    out.push(`+${t.hpBonusPerItemLevel} к max ${UI_HEART} за уровень предмета`)
+  if (t.hpPctPerLevel > 0) {
+    out.push(`+${t.hpPctPerLevel}% к max ${UI_HEART} за уровень предмета`)
   }
-  if (t.cardLevelBonusPerItemLevel > 0) {
-    out.push(
-      `+${t.cardLevelBonusPerItemLevel} к ${UI_LEVEL} для ${UI_DAMAGE} карт за уровень предмета`,
-    )
+  if (t.damagePctPerLevel > 0) {
+    out.push(`+${t.damagePctPerLevel}% к ${UI_DAMAGE} за уровень предмета`)
   }
   if (out.length === 0) {
     out.push('Нет бонусов за уровень предмета')
   }
   return out
-}
-
-export function itemTotalHpBonus(t: ItemTemplate, itemLevel: number): number {
-  return t.hpBonusPerItemLevel * itemLevel
-}
-
-export function itemTotalCardLevelBonus(t: ItemTemplate, itemLevel: number): number {
-  return t.cardLevelBonusPerItemLevel * itemLevel
 }
 
 export function itemPriceLine(amount: number): string {
@@ -46,14 +48,14 @@ export function itemSellPrice(t: ItemTemplate): number {
   return Math.floor(t.shopPrice * 0.5)
 }
 
-/** Сводка вкладов экземпляра (числа). */
+/** Сводка вкладов экземпляра (множители от уровня предмета). */
 export function itemTotalBonusesAtLevel(
   t: ItemTemplate,
   itemLevel: number,
-): { hp: number; cardLevel: number } {
+): { hpMult: number; damageMult: number } {
   return {
-    hp: itemTotalHpBonus(t, itemLevel),
-    cardLevel: itemTotalCardLevelBonus(t, itemLevel),
+    hpMult: itemGearHpMult(t, itemLevel),
+    damageMult: itemGearDamageMult(t, itemLevel),
   }
 }
 
@@ -68,10 +70,10 @@ export function itemShopSummaryLine(t: ItemTemplate): string {
  * Короткая подпись для Select / списков: название, уровень, суммарные бонусы.
  */
 export function itemSelectShortLabel(inst: ItemTemplate, itemLevel: number): string {
-  const { hp, cardLevel } = itemTotalBonusesAtLevel(inst, itemLevel)
+  const { hpMult, damageMult } = itemTotalBonusesAtLevel(inst, itemLevel)
   const parts: string[] = [`${inst.label} · ${UI_LEVEL}${itemLevel}`]
-  if (hp > 0) parts.push(`${UI_HEART} +${hp}`)
-  if (cardLevel > 0) parts.push(`${UI_LEVEL}→${UI_DAMAGE} +${cardLevel}`)
+  if (hpMult > 1) parts.push(`${UI_HEART} ×${formatGearMult(hpMult)}`)
+  if (damageMult > 1) parts.push(`${UI_DAMAGE} ×${formatGearMult(damageMult)}`)
   return parts.join(' · ')
 }
 
@@ -80,19 +82,19 @@ export function itemInstanceDescriptionLines(
   t: ItemTemplate,
   itemLevel: number,
 ): string[] {
-  const { hp, cardLevel } = itemTotalBonusesAtLevel(t, itemLevel)
+  const { hpMult, damageMult } = itemTotalBonusesAtLevel(t, itemLevel)
   const lines: string[] = [
     `${t.label} (${equipmentSlotLabelRu(t.slot)}), ${UI_LEVEL} предмета ${itemLevel}`,
   ]
-  if (hp > 0) {
-    lines.push(`Сейчас: +${hp} к max ${UI_HEART}`)
+  if (hpMult > 1) {
+    lines.push(`Сейчас: max ${UI_HEART} ×${formatGearMult(hpMult)}`)
   } else {
     lines.push(`Сейчас: нет бонуса к max ${UI_HEART}`)
   }
-  if (cardLevel > 0) {
-    lines.push(`Сейчас: +${cardLevel} к ${UI_LEVEL} для ${UI_DAMAGE} карт`)
+  if (damageMult > 1) {
+    lines.push(`Сейчас: ${UI_DAMAGE} ×${formatGearMult(damageMult)}`)
   } else {
-    lines.push(`Сейчас: нет бонуса к ${UI_LEVEL} для ${UI_DAMAGE} карт`)
+    lines.push(`Сейчас: нет бонуса к ${UI_DAMAGE}`)
   }
   lines.push(...itemPerLevelBonusesLines(t).map((s) => `За уровень: ${s}`))
   return lines

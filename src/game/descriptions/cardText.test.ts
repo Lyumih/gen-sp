@@ -15,7 +15,7 @@ describe('getCardDisplayLabel', () => {
 })
 
 describe('describeCardCombatStats', () => {
-  it('strike fists damage uses itemLevel 0 plus gear bonus', () => {
+  it('strike fists damage uses weapon level 0 and gear strike mult', () => {
     const card: CardInstance = {
       id: 'c1',
       templateId: 'strike',
@@ -23,14 +23,17 @@ describe('describeCardCombatStats', () => {
       uses_count: 0,
       modSlots: [],
     }
-    const gear = 3
+    const gearStrikeDamageMult = 1.03
     const tmpl = getCardAttackTemplate('strike')!
-    expect(computeCardAttackDamage(tmpl, gear)).toBe(computeCardAttackDamage(tmpl, 3))
+    const base = computeCardAttackDamage(tmpl, 0)
+    const afterGear = Math.round(base * gearStrikeDamageMult)
 
-    const d = describeCardCombatStats(card, gear)
-    expect(d.expectedDamage).toBe(computeCardAttackDamage(tmpl, 3))
+    const d = describeCardCombatStats(card, 1, gearStrikeDamageMult)
+    expect(d.expectedDamage).toBe(afterGear)
     expect(d.displayLabel).toBe('Удар')
     expect(d.lines.some((l) => l.includes('кулаки'))).toBe(true)
+    expect(d.lines.some((l) => l.includes('Экипировка: ×1.03'))).toBe(true)
+    expect(d.lines.some((l) => l.includes(`💥 база (⭐0): ${base}`))).toBe(true)
   })
 
   it('strike with equipped weapon uses weapon itemLevel and mods', () => {
@@ -49,8 +52,10 @@ describe('describeCardCombatStats', () => {
     }
     const tmpl = getCardAttackTemplate('strike')!
     const base = computeCardAttackDamage(tmpl, 50)
-    const d = describeCardCombatStats(card, 0, weapon)
-    expect(d.expectedDamage).toBe(Math.round(base * 1.4))
+    const afterGear = Math.round(base * 1)
+    const d = describeCardCombatStats(card, 1, 1, weapon)
+    expect(d.expectedDamage).toBe(Math.round(afterGear * 1.4))
+    expect(d.lines.some((l) => l.includes('Моды: ×1.4'))).toBe(true)
   })
 
   it('missing template: no damage', () => {
@@ -61,7 +66,7 @@ describe('describeCardCombatStats', () => {
       uses_count: 0,
       modSlots: [],
     }
-    const d = describeCardCombatStats(card, 0)
+    const d = describeCardCombatStats(card, 1, 1)
     expect(d.expectedDamage).toBeNull()
     expect(d.lines[0]).toContain('не найден')
   })
@@ -76,7 +81,11 @@ describe('describeCardCombatStats', () => {
     }
     const tmpl = getCardAttackTemplate('fireball')!
     const base = computeCardAttackDamage(tmpl, 10)
-    const d = describeCardCombatStats(card, 0)
-    expect(d.expectedDamage).toBe(Math.round(base * 1.5))
+    const afterGear = Math.round(base * 1.05)
+    const d = describeCardCombatStats(card, 1.05, 1)
+    expect(d.expectedDamage).toBe(Math.round(afterGear * 1.5))
+    expect(d.lines.some((l) => l.includes('Экипировка: ×1.05'))).toBe(true)
+    expect(d.lines.some((l) => l.includes('Моды: ×1.5'))).toBe(true)
+    expect(d.lines.some((l) => l.includes('Итого:'))).toBe(true)
   })
 })

@@ -9,6 +9,7 @@ import {
   applyDamageMods,
   applyHealMods,
   applyRangeMods,
+  type ModCombatContext,
 } from '../mods/modPipeline'
 import type { CardInstance, ItemInstance } from '../types'
 import { UI_CELL, UI_DAMAGE, UI_HEART, UI_LEVEL } from '../ui/labels'
@@ -33,9 +34,59 @@ function modContextForCard(card: CardInstance) {
   }
 }
 
+function formatMult(m: number): string {
+  return m.toFixed(2).replace(/\.?0+$/, '')
+}
+
+function modDamageMultFromCtx(ctx: ModCombatContext): number {
+  return applyDamageMods(100, ctx) / 100
+}
+
+function modHealMultFromCtx(ctx: ModCombatContext): number {
+  return applyHealMods(100, ctx) / 100
+}
+
+function damageChainLines(
+  levelForEffect: number,
+  baseAmount: number,
+  gearMult: number,
+  modCtx: ModCombatContext,
+  resourceEmoji: string,
+): { lines: string[]; expected: number } {
+  const afterGear = Math.round(baseAmount * gearMult)
+  const modMult = modDamageMultFromCtx(modCtx)
+  const expected = applyDamageMods(afterGear, modCtx)
+  const lines = [
+    `${resourceEmoji} база (${UI_LEVEL}${levelForEffect}): ${baseAmount}`,
+    `Экипировка: ×${formatMult(gearMult)}`,
+    `Моды: ×${formatMult(modMult)}`,
+    `Итого: ${expected}`,
+  ]
+  return { lines, expected }
+}
+
+function healChainLines(
+  levelForEffect: number,
+  baseHeal: number,
+  gearMult: number,
+  modCtx: ModCombatContext,
+): { lines: string[]; expected: number } {
+  const afterGear = Math.round(baseHeal * gearMult)
+  const modMult = modHealMultFromCtx(modCtx)
+  const expected = applyHealMods(afterGear, modCtx)
+  const lines = [
+    `${UI_HEART} база (${UI_LEVEL}${levelForEffect}): ${baseHeal}`,
+    `Экипировка: ×${formatMult(gearMult)}`,
+    `Моды: ×${formatMult(modMult)}`,
+    `Итого: ${expected}`,
+  ]
+  return { lines, expected }
+}
+
 export function describeCardCombatStats(
   card: CardInstance,
-  gearCardLevelBonus: number,
+  gearDamageMult: number,
+  gearStrikeDamageMult: number,
   equippedWeapon: ItemInstance | null = null,
 ): CardCombatStatsDescription {
   const displayLabel = getCardDisplayLabel(card.templateId)
@@ -53,9 +104,8 @@ export function describeCardCombatStats(
     ? resolveStrikeWeaponChannel(equippedWeapon?.id ?? null, equippedWeapon ? [equippedWeapon] : [])
     : null
   const levelForEffect =
-    weaponChannel !== null
-      ? weaponChannel.itemLevel + gearCardLevelBonus
-      : card.global_level + gearCardLevelBonus
+    weaponChannel !== null ? weaponChannel.itemLevel : card.global_level
+  const gearMult = weaponChannel !== null ? gearStrikeDamageMult : gearDamageMult
   const modCtx =
     weaponChannel !== null
       ? {
@@ -69,7 +119,12 @@ export function describeCardCombatStats(
 
   if (tmpl.kind === 'heal') {
     const baseHeal = computeCardHealAmount(tmpl, levelForEffect)
-    const expectedHeal = applyHealMods(baseHeal, modCtx)
+    const { lines: chainLines, expected } = healChainLines(
+      levelForEffect,
+      baseHeal,
+      gearDamageMult,
+      modCtx,
+    )
     const tokenLine =
       tmpl.healToken !== undefined
         ? `Токен ${UI_HEART}: ${tmpl.healToken}`
@@ -79,15 +134,21 @@ export function describeCardCombatStats(
     const lines = [
       `Лечение, дальность ${effectiveRange} ${UI_CELL}`,
       tokenLine,
-      `${UI_LEVEL} карты: ${card.global_level}, бонус экипировки: +${gearCardLevelBonus}`,
-      `Ожидаемое ${UI_HEART} сейчас: ${expectedHeal}`,
+      `${UI_LEVEL} карты: ${card.global_level}`,
+      ...chainLines,
       ...(cdLine !== null ? [cdLine] : []),
     ]
-    return { displayLabel, lines, expectedDamage: expectedHeal }
+    return { displayLabel, lines, expectedDamage: expected }
   }
 
   const baseDamage = computeCardAttackDamage(tmpl, levelForEffect)
-  const expectedDamage = applyDamageMods(baseDamage, modCtx)
+  const { lines: chainLines, expected } = damageChainLines(
+    levelForEffect,
+    baseDamage,
+    gearMult,
+    modCtx,
+    UI_DAMAGE,
+  )
   const kindRu =
     tmpl.kind === 'melee'
       ? 'Ближний бой'
@@ -115,15 +176,12 @@ export function describeCardCombatStats(
     ...(isStrikeChannel
       ? [
           `Канал оружия: ${weaponChannel!.itemId === null ? 'кулаки' : weaponChannel!.templateId}`,
-          `${UI_LEVEL} оружия: ${weaponChannel!.itemLevel}, бонус экипировки к ${UI_DAMAGE}: +${gearCardLevelBonus}`,
+          `${UI_LEVEL} оружия: ${weaponChannel!.itemLevel}`,
         ]
-      : [
-          `${UI_LEVEL} карты: ${card.global_level}, бонус экипировки к ${UI_DAMAGE}: +${gearCardLevelBonus}`,
-        ]),
-    `Эффективный ${UI_LEVEL} для ${UI_DAMAGE}: ${levelForEffect}`,
-    `Ожидаемый ${UI_DAMAGE} сейчас: ${expectedDamage}`,
+      : [`${UI_LEVEL} карты: ${card.global_level}`]),
+    ...chainLines,
     ...(cdLine !== null ? [cdLine] : []),
   ]
 
-  return { displayLabel, lines, expectedDamage }
+  return { displayLabel, lines, expectedDamage: expected }
 }
