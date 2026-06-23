@@ -1,4 +1,4 @@
-import type { CardAttackTemplate } from './cardTemplates'
+import type { CardAttackTemplate } from './cardTemplateTypes'
 
 export const MONSTER_SKILL_TEMPLATES: Readonly<Record<string, CardAttackTemplate>> = {
   monster_bite: {

@@ -5,19 +5,21 @@ import { makeRng } from './placement'
 import type { ExpeditionGeneratorContext } from './types'
 
 const TUNNEL_LENGTH = 10
+const TUNNEL_MAX_PARTY = 2
 
 function pickUniform<T>(items: readonly T[], rng: () => number): T {
   return items[Math.floor(rng() * items.length)]!
 }
 
 export function generateTunnel(ctx: ExpeditionGeneratorContext): BattleScenario {
-  const { seed, battleIndex } = ctx
+  const { seed, battleIndex, expeditionPartySize } = ctx
   const width = TUNNEL_LENGTH
-  const height = 1
+  const height = Math.min(TUNNEL_MAX_PARTY, Math.max(1, expeditionPartySize))
   const enemyX = width - 1
-  const enemyY = 0
-  const enemyZone = { xMin: enemyX, xMax: enemyX, yMin: enemyY, yMax: enemyY }
-  const playerSpawnZone = { xMin: 0, xMax: 0, yMin: 0, yMax: 0 }
+  const enemyYRng = makeRng(seed, `tunnel:${battleIndex}:enemy-y`)
+  const enemyY = height === 1 ? 0 : Math.floor(enemyYRng() * height)
+  const enemyZone = { xMin: enemyX, xMax: enemyX, yMin: 0, yMax: height - 1 }
+  const playerSpawnZone = { xMin: 0, xMax: 0, yMin: 0, yMax: height - 1 }
 
   const enemySpawns: BattleScenario['enemySpawns'] =
     battleIndex === 0

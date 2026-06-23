@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { canMeleeAttack, canRangedAttack } from '../battle/combat'
 import { wallSet } from '../battle/grid'
 import { reachableMoveCells } from '../battle/rangeOverlay'
@@ -1454,6 +1454,27 @@ describe('expedition state machine', () => {
     expect(next.expedition!.scenarioChainId).toBe('small-skirmish')
     expect(next.battle).not.toBeNull()
     expect(next.phase).toBe('battle')
+  })
+
+  it('START_EXPEDITION tunnel places both fighters when party size rolls 2', () => {
+    const ally = testCreateCharacter({ id: 'ally-tunnel', name: 'Союзник', classId: 'rogue' })
+    const base = hubState()
+    const state: CampaignState = {
+      ...base,
+      characters: [...base.characters, ally],
+      squad: [HERO_ID, ally.id, null, null],
+    }
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.99)
+    const next = applyRunAction(state, {
+      type: 'START_EXPEDITION',
+      chainId: 'tunnel',
+      selectedCharacterIds: [HERO_ID, ally.id],
+    })
+    randomSpy.mockRestore()
+
+    expect(next.expedition!.partySize).toBe(2)
+    expect(next.battle!.height).toBe(2)
+    expect(next.battle!.units.filter((u) => u.side === 'player')).toHaveLength(2)
   })
 
   it('START_EXPEDITION freezes squad and starts first battle', () => {

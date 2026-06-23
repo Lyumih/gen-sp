@@ -250,7 +250,7 @@ function withCodexDiscoveries(state: CampaignState, ids: readonly string[]): Cam
 }
 
 function expeditionRng(): () => number {
-  return () => 0
+  return () => Math.random()
 }
 
 function mementoDeathRoll(): number {

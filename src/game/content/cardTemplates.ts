@@ -1,33 +1,11 @@
-import type { StatId } from '../config/baseStats'
-import { MONSTER_SKILL_TEMPLATES } from './monsterSkillTemplates'
+import type { CardAttackTemplate, CardKind } from './cardTemplateTypes'
 
-export type CardKind =
-  | 'melee'
-  | 'ranged'
-  | 'aoe'
-  | 'heal'
-  | 'regen'
-  | 'resurrect'
-  | 'buff'
-  | 'debuff'
-  | 'dot'
-  | 'lifesteal_spell'
-  | 'utility'
-
-export type CardAttackTemplate = {
-  label: string
-  kind: CardKind
-  maxRange: number
-  aoeSize?: number
-  statSource: StatId
-  skillFlat: number
-  scaleToken: string
-  cooldownTurns?: number
-  tags: readonly string[]
-  semanticEmojiId: string
-  enabled?: boolean
-  emoji?: string
-}
+export type { CardAttackTemplate, CardKind } from './cardTemplateTypes'
+export {
+  getCardAttackTemplate,
+  getTemplateCooldownTurns,
+  isCardTemplateEnabled,
+} from './cardTemplateLookup'
 
 export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>> = {
   strike: {
@@ -314,20 +292,6 @@ export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>>
     tags: ['skill', 'attack', 'ranged', 'aoe'],
     semanticEmojiId: 'axe-red',
   },
-}
-
-export function getCardAttackTemplate(templateId: string): CardAttackTemplate | undefined {
-  return CARD_ATTACK_TEMPLATES[templateId] ?? MONSTER_SKILL_TEMPLATES[templateId]
-}
-
-export function getTemplateCooldownTurns(templateId: string): number {
-  return getCardAttackTemplate(templateId)?.cooldownTurns ?? 0
-}
-
-export function isCardTemplateEnabled(templateId: string): boolean {
-  const t = getCardAttackTemplate(templateId)
-  if (!t) return false
-  return t.enabled !== false
 }
 
 export function isHealKind(kind: CardKind): boolean {
