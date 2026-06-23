@@ -4,10 +4,10 @@ import { HELP_ARTICLE_ORDER, HELP_ARTICLES, helpArticleById } from './articles'
 describe('help articles', () => {
   it('has unique ids in fixed order starting with about', () => {
     expect(HELP_ARTICLE_ORDER[0]).toBe('about')
-    expect(HELP_ARTICLE_ORDER).toHaveLength(9)
+    expect(HELP_ARTICLE_ORDER).toHaveLength(10)
     const ids = HELP_ARTICLES.map((a) => a.id)
     expect(ids).toEqual([...HELP_ARTICLE_ORDER])
-    expect(new Set(ids).size).toBe(9)
+    expect(new Set(ids).size).toBe(10)
   })
 
   it('every article has non-empty title and content', () => {
