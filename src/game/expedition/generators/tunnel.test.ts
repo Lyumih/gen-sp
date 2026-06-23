@@ -12,7 +12,7 @@ describe('generateTunnel', () => {
     expect(b1.enemySpawns).toHaveLength(1)
     const archId =
       b1.enemySpawns[0]?.kind === 'fixed' ? b1.enemySpawns[0].archetypeId : ''
-    const allowed = new Set([...HERO_ARCHETYPE_IDS, ...BOSS_ARCHETYPE_IDS])
+    const allowed = new Set<string>([...HERO_ARCHETYPE_IDS, ...BOSS_ARCHETYPE_IDS])
     expect(allowed.has(archId)).toBe(true)
   })
 })
