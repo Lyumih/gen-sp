@@ -132,7 +132,8 @@ describe('mergeBattleCardsToParty', () => {
         ],
       },
       battleLog: [],
-      gearCardLevelBonus: 0,
+      gearDamageMult: 1,
+      gearStrikeDamageMult: 1,
     }
 
     const merged = mergeBattleCardsToParty([hero, ally], battle)

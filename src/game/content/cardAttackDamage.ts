@@ -3,7 +3,7 @@ import type { CardAttackTemplate } from './cardTemplates'
 
 /**
  * Урон с карты для удара.
- * `levelForDamage` в бою = `card.global_level + battle.gearCardLevelBonus` (бонус экипировки не меняет `global_level` карты).
+ * `levelForDamage` в бою = `card.global_level` (strike: `weapon.itemLevel`); множитель экипировки применяется отдельно в runReducer.
  */
 export function computeCardAttackDamage(
   template: CardAttackTemplate,

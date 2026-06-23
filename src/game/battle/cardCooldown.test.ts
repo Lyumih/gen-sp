@@ -29,7 +29,8 @@ function baseState(unitId: string, playerCards: BattlePlayerCard[]): BattleState
     worldPower: 0,
     playerCardsByUnitId: { [unitId]: playerCards },
     battleLog: [],
-    gearCardLevelBonus: 0,
+    gearDamageMult: 1,
+    gearStrikeDamageMult: 1,
   }
 }
 

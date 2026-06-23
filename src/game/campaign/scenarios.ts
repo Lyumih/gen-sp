@@ -5,7 +5,10 @@ import { buildRoundTurnOrder } from '../battle/initiative'
 import { computeCharacterMaxHpForScenario } from './heroMaxHp'
 import { playerCardsByUnitFromParty } from '../battle/playerCards'
 import { playerGearModSlotsByUnitFromParty } from './playerGearFromParty'
-import { aggregateGearCardLevelBonus } from '../equipment/aggregates'
+import {
+  aggregateGearDamageMult,
+  aggregateGearStrikeDamageMult,
+} from '../equipment/aggregates'
 import { getItemTemplate } from '../content/itemTemplates'
 import { computeUnitStat } from '../balance'
 import { assignPlayerSpawnPositions, buildSpawnSeed } from '../battle/spawnPlacement'
@@ -223,9 +226,12 @@ export function battleStateFromScenario(
     playerCardsByUnitId: playerCardsByUnitFromParty(snapshot.party),
     playerGearModSlotsByUnitId: playerGearModSlotsByUnitFromParty(snapshot.party),
     battleLog: [],
-    gearCardLevelBonus: primary
-      ? aggregateGearCardLevelBonus(primary.items, primary.equipment, getItemTemplate)
-      : 0,
+    gearDamageMult: primary
+      ? aggregateGearDamageMult(primary.items, primary.equipment, getItemTemplate)
+      : 1,
+    gearStrikeDamageMult: primary
+      ? aggregateGearStrikeDamageMult(primary.items, primary.equipment, getItemTemplate)
+      : 1,
     excludedCharacterIds:
       excludedCharacterIds.length > 0 ? excludedCharacterIds : undefined,
   }

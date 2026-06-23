@@ -1,7 +1,7 @@
 import { resolvePercentValue } from '../memento/resolvePercentToken'
 import type { CardAttackTemplate } from './cardTemplates'
 
-/** Лечение с карты; levelForDamage = global_level + gearCardLevelBonus. */
+/** Лечение с карты; levelForDamage = global_level; gearDamageMult применяется в runReducer. */
 export function computeCardHealAmount(
   template: CardAttackTemplate,
   levelForDamage: number,

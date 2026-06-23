@@ -93,7 +93,8 @@ describe('advanceTurn', () => {
       worldPower: 0,
       playerCardsByUnitId: {},
       battleLog: [],
-      gearCardLevelBonus: 0,
+      gearDamageMult: 1,
+      gearStrikeDamageMult: 1,
       ...overrides,
     }
   }

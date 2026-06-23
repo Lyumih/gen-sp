@@ -759,11 +759,11 @@ function tryUseCardAttack(
     cooldownRemaining: cd,
   }
   const levelForDamage =
-    isStrike && weaponChannel
-      ? weaponChannel.itemLevel + b.gearCardLevelBonus
-      : card.global_level + b.gearCardLevelBonus
+    isStrike && weaponChannel ? weaponChannel.itemLevel : card.global_level
+  const gearMult =
+    isStrike && weaponChannel ? b.gearStrikeDamageMult : b.gearDamageMult
   const baseDamage = computeCardAttackDamage(tmpl, levelForDamage)
-  const damage = applyDamageMods(baseDamage, modCtx)
+  const damage = applyDamageMods(Math.round(baseDamage * gearMult), modCtx)
   const bWithCards = updateActorPlayerCards(
     b,
     actorId!,
@@ -843,9 +843,11 @@ function tryUseCardAoE(
     modSlots: used.modSlots,
     cooldownRemaining: cd,
   }
-  const levelForDamage = card.global_level + b.gearCardLevelBonus
-  const baseDamage = computeCardAttackDamage(tmpl, levelForDamage)
-  const damage = applyDamageMods(baseDamage, modCtx)
+  const baseDamage = computeCardAttackDamage(tmpl, card.global_level)
+  const damage = applyDamageMods(
+    Math.round(baseDamage * b.gearDamageMult),
+    modCtx,
+  )
   const aoeSize = applyAoeSizeMods(tmpl.aoeSize, modCtx)
   const bWithCards = updateActorPlayerCards(
     b,
@@ -909,9 +911,8 @@ function tryUseCardHeal(
     modSlots: used.modSlots,
     cooldownRemaining: cd,
   }
-  const levelForHeal = card.global_level + b.gearCardLevelBonus
-  const baseHeal = computeCardHealAmount(tmpl, levelForHeal)
-  const amount = applyHealMods(baseHeal, modCtx)
+  const baseHeal = computeCardHealAmount(tmpl, card.global_level)
+  const amount = applyHealMods(Math.round(baseHeal * b.gearDamageMult), modCtx)
   const bWithCards = updateActorPlayerCards(
     b,
     actorId!,

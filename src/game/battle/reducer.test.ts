@@ -42,7 +42,8 @@ function battle(overrides: Partial<BattleState> = {}): BattleState {
     worldPower: 0,
     playerCardsByUnitId: {},
     battleLog: [],
-    gearCardLevelBonus: 0,
+    gearDamageMult: 1,
+    gearStrikeDamageMult: 1,
   }
   return { ...base, ...overrides, units: overrides.units ?? base.units }
 }

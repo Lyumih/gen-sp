@@ -319,11 +319,16 @@ function normalizeCampaignEconomy(c: CampaignState): CampaignState {
             typeof c.battle.roundNumber === 'number' && Number.isFinite(c.battle.roundNumber)
               ? c.battle.roundNumber
               : 1,
-          gearCardLevelBonus:
-            typeof c.battle.gearCardLevelBonus === 'number' &&
-            Number.isFinite(c.battle.gearCardLevelBonus)
-              ? c.battle.gearCardLevelBonus
-              : 0,
+          gearDamageMult:
+            typeof c.battle.gearDamageMult === 'number' &&
+            Number.isFinite(c.battle.gearDamageMult)
+              ? c.battle.gearDamageMult
+              : 1,
+          gearStrikeDamageMult:
+            typeof c.battle.gearStrikeDamageMult === 'number' &&
+            Number.isFinite(c.battle.gearStrikeDamageMult)
+              ? c.battle.gearStrikeDamageMult
+              : 1,
         }
       : null
 

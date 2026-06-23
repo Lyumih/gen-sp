@@ -51,7 +51,8 @@ function cardReady(c: BattlePlayerCard): boolean {
 function cardDamage(card: BattlePlayerCard, state: BattleState): number {
   const tmpl = getCardAttackTemplate(card.templateId)
   if (!tmpl) return 0
-  return computeCardAttackDamage(tmpl, card.global_level + state.gearCardLevelBonus)
+  const base = computeCardAttackDamage(tmpl, card.global_level)
+  return Math.round(base * state.gearDamageMult)
 }
 
 function actorCards(state: BattleState, actor: Unit): readonly BattlePlayerCard[] {

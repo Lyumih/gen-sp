@@ -119,7 +119,8 @@ function makeBattle(
       [HERO_ID]: playerCards ?? defaultCards,
     },
     battleLog: [],
-    gearCardLevelBonus: 0,
+    gearDamageMult: 1,
+    gearStrikeDamageMult: 1,
   }
   return { ...base, ...rest, units: rest.units ?? base.units }
 }
@@ -444,16 +445,30 @@ describe('USE_CARD_ATTACK', () => {
     expect(heroBattleCards(s.battle!)[0]!.uses_count).toBe(before)
   })
 
-  it('applies gearCardLevelBonus to card damage', () => {
-    const b = makeBattle({ gearCardLevelBonus: 5 })
+  it('applies gearDamageMult to skill card damage', () => {
+    const b = makeBattle({
+      gearDamageMult: 1.05,
+      gearStrikeDamageMult: 1,
+      playerCards: [
+        {
+          id: 'c2',
+          templateId: 'fireball',
+          global_level: 0,
+          uses_count: 0,
+          modSlots: [],
+          cooldownRemaining: 0,
+        },
+      ],
+    })
     let s = campaignWithBattle(b)
     s = applyRunAction(s, {
-      type: 'USE_CARD_ATTACK',
-      cardId: 'c1',
-      targetId: 'e1',
+      type: 'USE_CARD_AOE',
+      cardId: 'c2',
+      targetX: 4,
+      targetY: 2,
       randomInt1to100: 48,
     })
-    expect(s.battle!.units.find((u) => u.id === 'e1')!.hp).toBe(458)
+    expect(s.battle!.units.find((u) => u.id === 'e1')!.hp).toBe(447)
   })
 
   it('does not level strike card — channel only increments uses_count', () => {
@@ -1523,7 +1538,8 @@ describe('expedition state machine', () => {
       worldPower: 0,
       playerCardsByUnitId: {},
       battleLog: [],
-      gearCardLevelBonus: 0,
+      gearDamageMult: 1,
+    gearStrikeDamageMult: 1,
     }
     const next = applyMementoDeathRollsForDowned(s, battle, () => 50)
     expect(hero(next).unitLevel).toBe(2)

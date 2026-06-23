@@ -43,7 +43,8 @@ function battle(
     worldPower: 0,
     playerCardsByUnitId: playerCardsByUnit ?? (playerCards ? { [HERO_ID]: playerCards } : {}),
     battleLog: [],
-    gearCardLevelBonus: 0,
+    gearDamageMult: 1,
+    gearStrikeDamageMult: 1,
   }
   return { ...base, ...rest, units: rest.units ?? base.units }
 }

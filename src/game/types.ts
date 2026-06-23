@@ -189,8 +189,9 @@ export type BattleState = {
   skipHeroCooldownTick?: boolean
   /** События текущего боя; не влияют на геймплей, только отображение. */
   battleLog: readonly BattleLogEntry[]
-  /** Суммарный бонус уровня карт от экипировки на старт боя (снимок). */
-  gearCardLevelBonus: number
+  /** Множители урона/heal от экипировки на старт боя (снимок). */
+  gearDamageMult: number
+  gearStrikeDamageMult: number
   /** Герои без клетки спавна — не участвуют в этом бою. */
   excludedCharacterIds?: readonly string[]
 }
