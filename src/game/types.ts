@@ -78,7 +78,7 @@ export type CardProgressSlice = Pick<CardInstance, 'global_level' | 'uses_count'
 /** Карта в бою: прогресс + перезарядка (не сохраняется в кампании). */
 export type BattlePlayerCard = CardInstance & { cooldownRemaining: number }
 
-export type BattleLoadout = [string | null, string | null]
+export type BattleLoadout = [string | null, string | null, string | null]
 
 export type ShopOffer =
   | { kind: 'item'; templateId: string }

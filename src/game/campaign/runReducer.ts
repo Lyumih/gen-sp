@@ -117,7 +117,7 @@ export type RunAction =
       targetId: string
       randomInt1to100: number
     }
-  | { type: 'SET_BATTLE_LOADOUT'; characterId: string; slotIndex: 0 | 1; cardId: string | null }
+  | { type: 'SET_BATTLE_LOADOUT'; characterId: string; slotIndex: 0 | 1 | 2; cardId: string | null }
   | { type: 'RETRY_CURRENT_BATTLE' }
   | { type: 'ABANDON_BATTLE' }
   | { type: 'FINALIZE_VICTORY'; itemLevelRolls: number[]; playerUnitLevelRoll: number }
@@ -879,7 +879,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       if (!inHub(state)) return state
       if (!assertHubActionAllowed(state, 'equip')) return state
       const { characterId, slotIndex, cardId } = action
-      if (slotIndex !== 0 && slotIndex !== 1) return state
+      if (slotIndex !== 0 && slotIndex !== 1 && slotIndex !== 2) return state
       const hero = getCharacter(state, characterId)
       if (!hero) return state
       return updateCharacter(state, characterId, (c) => {
@@ -891,7 +891,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         }
         const next: BattleLoadout = [...c.battleLoadout]
         if (cardId !== null) {
-          for (let i = 0; i < 2; i++) {
+          for (let i = 0; i < 3; i++) {
             if (i !== slotIndex && next[i] === cardId) next[i] = null
           }
         }
@@ -1207,7 +1207,7 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         items,
         equipment,
         cards: [skillCard],
-        battleLoadout: [skillCard.id, null],
+        battleLoadout: [skillCard.id, null, null],
       }
 
       return withCodexDiscoveries(
@@ -1421,7 +1421,7 @@ export function initialCampaignState(): CampaignState {
   })
   const strike = createStrikeCardForHero(hero.id)
   hero.cards = [strike]
-  hero.battleLoadout = [strike.id, null]
+  hero.battleLoadout = [strike.id, null, null]
   const squad: (string | null)[] = [LEGACY_HERO_CHARACTER_ID]
   while (squad.length < DEFAULT_SQUAD_SLOTS) squad.push(null)
 

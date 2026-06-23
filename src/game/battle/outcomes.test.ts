@@ -71,13 +71,13 @@ function expeditionWithHero(): Expedition {
       {
         characterId: HERO_ID,
         equipment: { weapon: null, armor: null, accessory: null },
-        battleLoadout: ['c1', 'c2'],
+        battleLoadout: ['c1', 'c2', null],
         metaStatus: 'active',
       },
       {
         characterId: ALLY_ID,
         equipment: { weapon: null, armor: null, accessory: null },
-        battleLoadout: ['c1', null],
+        battleLoadout: ['c1', null, null],
         metaStatus: 'active',
       },
     ],

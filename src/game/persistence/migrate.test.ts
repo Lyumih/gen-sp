@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { applyRunAction, initialCampaignState } from '../campaign/runReducer'
-import type { BattleState } from '../types'
+import type { BattleState, BattleLoadout } from '../types'
 import { getPrimaryCharacter } from '../campaign/selectors'
 import { codexEntryId } from '../codex/discovery'
 import type { CampaignState } from '../types'
@@ -96,7 +96,7 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
       battleAttemptSnapshot: {
         worldPower: 0,
         cards: hero(initialCampaignState()).cards,
-        battleLoadout: ['c1', 'c2'] as [string | null, string | null],
+        battleLoadout: ['c1', 'c2', null] as [string | null, string | null, string | null],
         playerUnitLevel: 1,
         modKillTargetCardId: 'c1',
         scenarioSlotIndex: 2,
@@ -156,7 +156,7 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
     } as unknown as CampaignState
     const out = normalizeLoadedCampaign(legacy)
     const strikeId = hero(out).cards[0]!.id
-    expect(hero(out).battleLoadout).toEqual([strikeId, null])
+    expect(hero(out).battleLoadout).toEqual([strikeId, null, null])
   })
 })
 
@@ -296,7 +296,7 @@ describe('migrateV6CampaignToV7', () => {
         {
           ...hero(init),
           cards: [strike, extra],
-          battleLoadout: [strike.id, extra.id] as [string, string],
+          battleLoadout: [strike.id, extra.id] as unknown as BattleLoadout,
         },
       ],
     }
@@ -394,6 +394,6 @@ function withClassicLegacyCards(c: CampaignState): CampaignState {
   }
   return {
     ...c,
-    characters: [{ ...hero(c), cards: [strike, fireball], battleLoadout: [strike.id, fireball.id] }],
+    characters: [{ ...hero(c), cards: [strike, fireball], battleLoadout: [strike.id, fireball.id] as unknown as BattleLoadout }],
   }
 }

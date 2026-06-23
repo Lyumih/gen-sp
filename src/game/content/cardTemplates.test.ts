@@ -21,6 +21,10 @@ describe('CARD_ATTACK_TEMPLATES', () => {
     }
   })
 
+  it('fireball cooldown is doubled', () => {
+    expect(getCardAttackTemplate('fireball')?.cooldownTurns).toBe(6)
+  })
+
   it('phase-2 kinds are enabled', () => {
     expect(CARD_ATTACK_TEMPLATES.regeneration.enabled).not.toBe(false)
     expect(CARD_ATTACK_TEMPLATES.battle_cry.enabled).not.toBe(false)

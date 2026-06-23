@@ -25,7 +25,7 @@ export function createCharacter(input: CreateCharacterInput): Character {
     cards: [],
     passives: [],
     passiveEquip: [null, null, null, null],
-    battleLoadout: [null, null],
+    battleLoadout: [null, null, null],
     iconEmoji: defaultIconEmojiForClass(input.classId),
     iconAccent: 'default',
     iconSkinTone: 'default',

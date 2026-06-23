@@ -169,15 +169,24 @@ function normalizeEquipmentRecord(
 
 function normalizeBattleLoadout(
   raw: unknown,
-  fallback: BattleLoadout = ['c1', 'c2'],
+  fallback: BattleLoadout = ['c1', 'c2', null],
 ): BattleLoadout {
-  if (
-    Array.isArray(raw) &&
-    raw.length === 2 &&
-    (raw[0] === null || typeof raw[0] === 'string') &&
-    (raw[1] === null || typeof raw[1] === 'string')
-  ) {
-    return [raw[0], raw[1]]
+  if (Array.isArray(raw)) {
+    if (
+      raw.length === 3 &&
+      (raw[0] === null || typeof raw[0] === 'string') &&
+      (raw[1] === null || typeof raw[1] === 'string') &&
+      (raw[2] === null || typeof raw[2] === 'string')
+    ) {
+      return [raw[0], raw[1], raw[2]]
+    }
+    if (
+      raw.length === 2 &&
+      (raw[0] === null || typeof raw[0] === 'string') &&
+      (raw[1] === null || typeof raw[1] === 'string')
+    ) {
+      return [raw[0], raw[1], null]
+    }
   }
   return fallback
 }
@@ -191,6 +200,7 @@ function normalizeCharacter(char: Character): Character {
   const battleLoadout = normalizeBattleLoadout(char.battleLoadout, [
     cards[0]?.id ?? null,
     cards[1]?.id ?? null,
+    cards[2]?.id ?? null,
   ])
   const unitLevel =
     typeof char.unitLevel === 'number' && Number.isFinite(char.unitLevel) ? char.unitLevel : 1
@@ -241,6 +251,7 @@ function normalizePartyMember(
   const battleLoadout = normalizeBattleLoadout(member.battleLoadout, [
     cards[0]?.id ?? null,
     cards[1]?.id ?? null,
+    cards[2]?.id ?? null,
   ])
   const unitLevel =
     typeof member.unitLevel === 'number' && Number.isFinite(member.unitLevel) ? member.unitLevel : 1
@@ -289,6 +300,7 @@ function normalizeBattleAttemptSnapshot(
   const battleLoadout = normalizeBattleLoadout(raw.battleLoadout, [
     cards[0]?.id ?? null,
     cards[1]?.id ?? null,
+    cards[2]?.id ?? null,
   ])
   const unitLevel =
     typeof raw.playerUnitLevel === 'number' && Number.isFinite(raw.playerUnitLevel)
@@ -389,7 +401,7 @@ function withDefaultScenarioSlotIndex(c: CampaignState): CampaignState {
 }
 
 function rebuildBattleLoadoutFromCards(cards: readonly CardInstance[]): BattleLoadout {
-  return [cards[0]?.id ?? null, cards[1]?.id ?? null]
+  return [cards[0]?.id ?? null, cards[1]?.id ?? null, cards[2]?.id ?? null]
 }
 
 export function migrateV6CampaignToV7(c: CampaignState): CampaignState {
@@ -437,6 +449,7 @@ function withDefaultBattleLoadout(c: CampaignState): CampaignState {
     battleLoadout: normalizeBattleLoadout(char.battleLoadout, [
       char.cards[0]?.id ?? null,
       char.cards[1]?.id ?? null,
+      char.cards[2]?.id ?? null,
     ]),
   }))
   const changed = characters.some((char, i) => char !== c.characters[i])
@@ -545,17 +558,17 @@ function withSnapshotBattleLoadout(c: CampaignState): CampaignState {
   if (!snap) return c
   let changed = false
   const party = snap.party.map((member) => {
-    const raw = member.battleLoadout as unknown
+    const normalized = normalizeBattleLoadout(member.battleLoadout, ['c1', 'c2', null])
+    const current = member.battleLoadout
     if (
-      Array.isArray(raw) &&
-      raw.length === 2 &&
-      (raw[0] === null || typeof raw[0] === 'string') &&
-      (raw[1] === null || typeof raw[1] === 'string')
+      normalized[0] === current[0] &&
+      normalized[1] === current[1] &&
+      normalized[2] === current[2]
     ) {
       return member
     }
     changed = true
-    return { ...member, battleLoadout: ['c1', 'c2'] as BattleLoadout }
+    return { ...member, battleLoadout: normalized }
   })
   if (!changed) return c
   return {
@@ -713,6 +726,7 @@ export function migrateV2CampaignToV3(c: LegacyCampaignStateV2): CampaignState {
   hero.battleLoadout = normalizeBattleLoadout(raw.battleLoadout, [
     hero.cards[0]?.id ?? null,
     hero.cards[1]?.id ?? null,
+    hero.cards[2]?.id ?? null,
   ])
 
   const {

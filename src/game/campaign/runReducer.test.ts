@@ -8,6 +8,7 @@ import type {
   BattleAttemptSnapshot,
   BattlePlayerCard,
   BattleState,
+  BattleLoadout,
   CampaignState,
   PartyMemberBattleSnapshot,
   Unit,
@@ -41,7 +42,7 @@ function withClassicTestCards(s: CampaignState): CampaignState {
   const heal = createCardInstance('heal', 'c3')
   return withHero(s, {
     cards: [strike, fireball, heal],
-    battleLoadout: ['c1', 'c2'],
+    battleLoadout: ['c1', 'c2', null],
   })
 }
 
@@ -136,7 +137,7 @@ function partyMemberFromHero(
     items: cloneItems(h.items),
     equipment: { ...h.equipment },
     cards: cloneCards(h.cards),
-    battleLoadout: [...h.battleLoadout] as [string | null, string | null],
+    battleLoadout: [...h.battleLoadout] as BattleLoadout,
     metaStatus: 'active',
     spawnIndex: 0,
     ...over,
@@ -169,7 +170,7 @@ function campaignWithBattle(b: BattleState): CampaignState {
       party: [
         partyMemberFromHero(h, {
           cards: cloneCards(heroBattleCards(b)),
-          battleLoadout: ['c1', 'c2'],
+          battleLoadout: ['c1', 'c2', null],
         }),
       ],
     }),
@@ -1389,7 +1390,7 @@ describe('expedition state machine', () => {
           {
             characterId: HERO_ID,
             equipment: { weapon: null, armor: null, accessory: null },
-            battleLoadout: ['c1', 'c2'],
+            battleLoadout: ['c1', 'c2', null],
             metaStatus: 'downed',
           },
         ],
@@ -1416,7 +1417,7 @@ describe('expedition state machine', () => {
           {
             characterId: HERO_ID,
             equipment: { weapon: null, armor: null, accessory: null },
-            battleLoadout: ['c1', 'c2'],
+            battleLoadout: ['c1', 'c2', null],
             metaStatus: 'downed',
           },
         ],
@@ -1572,7 +1573,7 @@ describe('expedition state machine', () => {
           {
             characterId: HERO_ID,
             equipment: { weapon: null, armor: null, accessory: null },
-            battleLoadout: ['c1', 'c2'],
+            battleLoadout: ['c1', 'c2', null],
             metaStatus: 'active',
           },
         ],

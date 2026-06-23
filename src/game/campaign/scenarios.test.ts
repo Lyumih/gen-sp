@@ -23,7 +23,7 @@ function member(
     items: [],
     equipment: { ...EMPTY_EQUIPMENT },
     cards: [],
-    battleLoadout: ['c1', 'c2'],
+    battleLoadout: ['c1', 'c2', null],
     metaStatus: 'active',
     spawnIndex: 0,
     ...over,

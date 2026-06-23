@@ -55,7 +55,7 @@ type CardsInventoryViewProps = {
   modsDisabled?: boolean
   modsDisabledTooltip?: string
   onReorderCards: (cardIds: string[]) => void
-  onSetBattleLoadout: (slotIndex: 0 | 1, cardId: string | null) => void
+  onSetBattleLoadout: (slotIndex: 0 | 1 | 2, cardId: string | null) => void
   onPickModOffer: (
     carrierKind: 'card',
     carrierId: string,
@@ -194,7 +194,7 @@ function LoadoutSlotCell({
   onConfirmRemove,
   modsDisabledTooltip,
 }: {
-  slotIndex: 0 | 1
+  slotIndex: 0 | 1 | 2
   card: CardInstance | null
   character: NonNullable<ReturnType<typeof getCharacter>>
   campaign: CampaignState
@@ -251,7 +251,7 @@ export function CardsInventoryView({
 }: CardsInventoryViewProps) {
   const { modal } = App.useApp()
   const hero = getCharacter(campaign, characterId)
-  const loadout = hero?.battleLoadout ?? [null, null]
+  const loadout = hero?.battleLoadout ?? [null, null, null]
   const loadoutIds = new Set(loadout.filter((id): id is string => id !== null))
   const collectionCards = hero?.cards.filter((c) => !loadoutIds.has(c.id)) ?? []
   const cardIds = collectionCards.map((c) => c.id)
@@ -299,7 +299,7 @@ export function CardsInventoryView({
       const tmpl = card ? getCardAttackTemplate(card.templateId) : undefined
       if (tmpl?.enabled === false) return
       const slotIndex = Number(over.value)
-      if (slotIndex === 0 || slotIndex === 1) {
+      if (slotIndex === 0 || slotIndex === 1 || slotIndex === 2) {
         onSetBattleLoadout(slotIndex, active.value)
       }
       return
@@ -307,7 +307,7 @@ export function CardsInventoryView({
 
     const fromLoadoutSlot = loadout.indexOf(active.value)
     if (fromLoadoutSlot >= 0 && over?.kind !== 'loadout') {
-      onSetBattleLoadout(fromLoadoutSlot as 0 | 1, null)
+      onSetBattleLoadout(fromLoadoutSlot as 0 | 1 | 2, null)
       return
     }
 
@@ -330,7 +330,7 @@ export function CardsInventoryView({
     }
   }
 
-  function renderLoadoutSlot(slotIndex: 0 | 1) {
+  function renderLoadoutSlot(slotIndex: 0 | 1 | 2) {
     const cardId = loadout[slotIndex]
     const card = cardId !== null ? resolveCard(cardId) : null
     return (
@@ -352,11 +352,12 @@ export function CardsInventoryView({
   const content = (
     <Space orientation="vertical" size="small" style={{ width: '100%' }}>
       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        В бой (2 слота) — перетащите карту из коллекции
+        В бой (3 слота) — перетащите карту из коллекции
       </Typography.Text>
       <div className="inventory-loadout-row" style={{ display: 'flex', gap: 4 }}>
         {renderLoadoutSlot(0)}
         {renderLoadoutSlot(1)}
+        {renderLoadoutSlot(2)}
       </div>
       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
         Коллекция

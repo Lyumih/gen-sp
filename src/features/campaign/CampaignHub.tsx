@@ -102,7 +102,7 @@ export function CampaignHub() {
     dispatchRun({ type: 'REORDER_CARDS', characterId, cardIds })
   }
 
-  const setBattleLoadout = (characterId: string, slotIndex: 0 | 1, cardId: string | null) => {
+  const setBattleLoadout = (characterId: string, slotIndex: 0 | 1 | 2, cardId: string | null) => {
     dispatchRun({
       type: 'SET_BATTLE_LOADOUT',
       characterId,
