@@ -138,7 +138,7 @@ export type CharacterBattleSnapshot = {
 
 export type Expedition = {
   scenarioChainId: string
-  generationSeed?: number
+  generationSeed: number
   partySize: number
   squadSnapshot: (CharacterBattleSnapshot | null)[]
   battleIndex: number

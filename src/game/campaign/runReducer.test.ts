@@ -1208,6 +1208,7 @@ describe('squad and transfer actions', () => {
       ...twoCharacterCampaign(),
       expedition: {
         scenarioChainId: 'test',
+        generationSeed: 1,
         partySize: 1,
         squadSnapshot: [],
         battleIndex: 0,
@@ -1505,6 +1506,7 @@ describe('expedition state machine', () => {
       phase: 'inter_battle',
       expedition: {
         scenarioChainId: 'campaign-main',
+        generationSeed: 1,
         partySize: 1,
         squadSnapshot: [
           {
@@ -1532,6 +1534,7 @@ describe('expedition state machine', () => {
       phase: 'inter_battle',
       expedition: {
         scenarioChainId: 'campaign-main',
+        generationSeed: 1,
         partySize: 1,
         squadSnapshot: [
           {
@@ -1688,6 +1691,7 @@ describe('expedition state machine', () => {
       phase: 'inter_battle',
       expedition: {
         scenarioChainId: 'campaign-main',
+        generationSeed: 1,
         partySize: 1,
         squadSnapshot: [
           {

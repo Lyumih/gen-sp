@@ -66,6 +66,7 @@ function battle(overrides: Partial<BattleState> = {}): BattleState {
 function expeditionWithHero(): Expedition {
   return {
     scenarioChainId: 'campaign-main',
+    generationSeed: 1,
     partySize: 2,
     squadSnapshot: [
       {

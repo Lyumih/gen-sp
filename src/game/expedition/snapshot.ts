@@ -1,5 +1,6 @@
 import { getCharacter } from '../character/selectors'
 import type { CampaignState, CharacterBattleSnapshot, Expedition } from '../types'
+import { hashSeed } from '../stats/rollBaseStats'
 import { resolveBattleCount, resolvePartySize, type ExpeditionChainConfig } from './config'
 
 function snapshotCharacter(
@@ -35,6 +36,7 @@ export function buildExpeditionSnapshot(
 
   return {
     scenarioChainId: chain.id,
+    generationSeed: hashSeed(`${chain.id}:${rng()}`),
     partySize,
     squadSnapshot,
     battleIndex: 0,
