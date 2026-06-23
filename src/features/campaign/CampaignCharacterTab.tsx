@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Modal, Space } from 'antd'
+import { Divider, Modal, Space } from 'antd'
 import { getActiveCharacter, getCharacter } from '../../game/character/selectors'
 import type { CampaignState, EquipmentSlot } from '../../game/types'
 import { CharacterRosterView } from '../character/CharacterRosterView'
 import { SquadSlotRow } from '../character/SquadSlotRow'
 import { GamePanel } from '../layout/GamePanel'
+import { SectionHelp } from '../layout/SectionHelp'
+import {
+  CHARACTERS_SECTION_HELP,
+  CHEST_SECTION_HELP,
+  EQUIPMENT_SECTION_HELP,
+  SKILLS_SECTION_HELP,
+} from './sectionTooltips'
 import { HeroAppearanceEditor } from '../profile/HeroAppearanceEditor'
 import { HeroProfileContent } from '../profile/HeroProfileContent'
 import { CardsInventoryView } from '../inventory/CardsInventoryView'
@@ -122,45 +129,60 @@ export function CampaignCharacterTab({
         modsDisabled={modsDisabled}
         modsDisabledTooltip={modsDisabledTooltip}
         squadLocked={squadLocked}
-        panelTitle="Экипировка"
+        panelTitle={
+          <>
+            Экипировка <SectionHelp content={EQUIPMENT_SECTION_HELP} />
+          </>
+        }
+        hideInnerSectionTitles
         dndBeforeContent={(activeDragId) => (
-          <Space orientation="vertical" size="small" style={{ width: '100%', marginBottom: 8 }}>
-            <GamePanel title="Отряд">
-              <SquadSlotRow
-                campaign={campaign}
-                selectedCharacterId={selectedCharacterId}
-                squadLocked={squadLocked || inBattle}
-                activeDragId={activeDragId}
-                onSelectCharacter={setSelectedCharacterId}
-                onRemoveFromSquad={onRemoveFromSquad}
-              />
-            </GamePanel>
-            <GamePanel title={`Состав (${campaign.characters.length})`}>
-              <CharacterRosterView
-                campaign={campaign}
-                selectedCharacterId={selectedCharacterId}
-                inventoryCharacterId={selectedCharacterId}
-                transferDisabled={transferDisabled}
-                squadLocked={squadLocked || inBattle}
-                activeDragId={activeDragId}
-                onSelectCharacter={setSelectedCharacterId}
-                onAssignToSquad={onAssignToSquad}
-                onRemoveFromSquad={onRemoveFromSquad}
-                onReleaseCharacter={onReleaseCharacter}
-                canReleaseCharacter={canReleaseCharacter}
-                onEditAppearance={setAppearanceCharacterId}
-              />
-            </GamePanel>
+          <GamePanel
+            title={
+              <>
+                Персонажи ({campaign.characters.length}){' '}
+                <SectionHelp content={CHARACTERS_SECTION_HELP} />
+              </>
+            }
+          >
+            <SquadSlotRow
+              campaign={campaign}
+              selectedCharacterId={selectedCharacterId}
+              squadLocked={squadLocked || inBattle}
+              activeDragId={activeDragId}
+              onSelectCharacter={setSelectedCharacterId}
+              onRemoveFromSquad={onRemoveFromSquad}
+            />
+            <Divider style={{ margin: '8px 0' }} />
+            <CharacterRosterView
+              campaign={campaign}
+              selectedCharacterId={selectedCharacterId}
+              inventoryCharacterId={selectedCharacterId}
+              transferDisabled={transferDisabled}
+              squadLocked={squadLocked || inBattle}
+              activeDragId={activeDragId}
+              onSelectCharacter={setSelectedCharacterId}
+              onAssignToSquad={onAssignToSquad}
+              onRemoveFromSquad={onRemoveFromSquad}
+              onReleaseCharacter={onReleaseCharacter}
+              canReleaseCharacter={canReleaseCharacter}
+              onEditAppearance={setAppearanceCharacterId}
+              variant="compact"
+              showHeading={false}
+            />
+            <Divider plain style={{ margin: '8px 0 4px' }}>
+              выбранный
+            </Divider>
             <HeroProfileContent
               mode="hub"
               campaign={campaign}
               battle={null}
               characterId={selectedCharacterId}
+              hubCharacterSummary
               includeResourceStats={false}
               includeEquipmentReadout={false}
               includeCardsCollapse={false}
             />
-          </Space>
+          </GamePanel>
         )}
         onEquip={(itemId, slot) => onEquip(selectedCharacterId, itemId, slot)}
         onUnequip={(slot) => onUnequip(selectedCharacterId, slot)}
@@ -189,7 +211,13 @@ export function CampaignCharacterTab({
           onRemoveMod(selectedCharacterId, 'item', carrierId, slotIndex)
         }
         sideContent={
-          <GamePanel title="Умения и навыки">
+          <GamePanel
+            title={
+              <>
+                Умения <SectionHelp content={SKILLS_SECTION_HELP} />
+              </>
+            }
+          >
             <CardsInventoryView
               campaign={campaign}
               characterId={selectedCharacterId}
@@ -221,7 +249,13 @@ export function CampaignCharacterTab({
           </GamePanel>
         }
         dndAfterContent={(activeDragId) => (
-          <GamePanel title="Сундук">
+          <GamePanel
+            title={
+              <>
+                Сундук <SectionHelp content={CHEST_SECTION_HELP} />
+              </>
+            }
+          >
             <ChestInventoryView
               campaign={campaign}
               inBattle={inBattle}
@@ -240,6 +274,7 @@ export function CampaignCharacterTab({
               }
               dndEnabled
               activeDragId={activeDragId}
+              showIntro={false}
             />
           </GamePanel>
         )}

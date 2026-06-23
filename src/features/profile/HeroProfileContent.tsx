@@ -37,6 +37,8 @@ export type HeroProfileContentProps = {
   includeCardsCollapse?: boolean
   /** Inline редактор облика (в хабе — только в модалке состава). */
   includeAppearance?: boolean
+  /** Только StatStrip + SpecializationLine (вкладка Персонаж). */
+  hubCharacterSummary?: boolean
 }
 
 export function HeroProfileContent({
@@ -48,6 +50,7 @@ export function HeroProfileContent({
   includeEquipmentReadout = true,
   includeCardsCollapse = true,
   includeAppearance = false,
+  hubCharacterSummary = false,
 }: HeroProfileContentProps) {
   const hero =
     (characterId !== undefined ? getCharacter(campaign, characterId) : undefined) ??
@@ -113,11 +116,11 @@ export function HeroProfileContent({
 
       <SpecializationLine campaign={campaign} character={hero} />
 
-      {mode === 'hub' && includeAppearance ? (
+      {mode === 'hub' && includeAppearance && !hubCharacterSummary ? (
         <HeroAppearanceEditor hero={hero} expeditionLocked={campaign.expedition !== null} />
       ) : null}
 
-      {includeResourceStats ? (
+      {includeResourceStats && !hubCharacterSummary ? (
         <Typography.Paragraph style={{ marginBottom: 8 }}>
           Герой: {UI_LEVEL}
           <strong>{hero.unitLevel}</strong>
@@ -128,10 +131,12 @@ export function HeroProfileContent({
         </Typography.Paragraph>
       ) : null}
 
-      <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
-        Экипировка: {UI_HEART} ×{gearHpMultHub.toFixed(2)}, ⚔ ×{gearAttackMultHub.toFixed(2)}, ✨ ×
-        {gearMagicMultHub.toFixed(2)}, 💚 ×{gearHealMultHub.toFixed(2)}
-      </Typography.Paragraph>
+      {!hubCharacterSummary ? (
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
+          Экипировка: {UI_HEART} ×{gearHpMultHub.toFixed(2)}, ⚔ ×{gearAttackMultHub.toFixed(2)}, ✨ ×
+          {gearMagicMultHub.toFixed(2)}, 💚 ×{gearHealMultHub.toFixed(2)}
+        </Typography.Paragraph>
+      ) : null}
 
       {mode === 'battle' && heroUnit ? (
         <Typography.Paragraph>
@@ -142,19 +147,19 @@ export function HeroProfileContent({
         </Typography.Paragraph>
       ) : null}
 
-      {mode === 'hub' && expectedMaxHpHub !== null ? (
+      {!hubCharacterSummary && mode === 'hub' && expectedMaxHpHub !== null ? (
         <Typography.Paragraph>
           Ожидаемый max {UI_HEART} в следующем бою: <strong>{expectedMaxHpHub}</strong>
         </Typography.Paragraph>
       ) : null}
 
-      {mode === 'hub' && hubScenario === undefined ? (
+      {!hubCharacterSummary && mode === 'hub' && hubScenario === undefined ? (
         <Typography.Paragraph type="secondary">
           Сценариев для отображения ожидаемого {UI_HEART} нет.
         </Typography.Paragraph>
       ) : null}
 
-      {includeEquipmentReadout ? (
+      {includeEquipmentReadout && !hubCharacterSummary ? (
         <>
           <Divider plain>Экипировка</Divider>
           <ul style={{ margin: '0 0 12px', paddingLeft: 20 }}>
@@ -194,7 +199,7 @@ export function HeroProfileContent({
         </>
       ) : null}
 
-      {includeCardsCollapse ? (
+      {includeCardsCollapse && !hubCharacterSummary ? (
         <>
           <Divider plain>Карты</Divider>
           <Collapse

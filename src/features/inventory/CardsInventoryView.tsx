@@ -586,13 +586,13 @@ export function CardsInventoryView({
 
   const content = (
     <Space orientation="vertical" size="small" style={{ width: '100%' }}>
-      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        В бой ({skillSlotCount} {skillSlotCount === 1 ? 'слот' : skillSlotCount < 5 ? 'слота' : 'слотов'}) — перетащите карту из коллекции
+      <Typography.Text strong style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>
+        В бой
       </Typography.Text>
       <div className="inventory-loadout-row" style={{ display: 'flex', gap: 4 }}>
         {skillSlotIndices.map(renderLoadoutSlot)}
       </div>
-      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+      <Typography.Text strong style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>
         Коллекция
       </Typography.Text>
       <SortableContext items={cardIds.map(cardDragId)} strategy={rectSortingStrategy}>
@@ -621,10 +621,8 @@ export function CardsInventoryView({
         />
       </SortableContext>
       <Divider style={{ margin: '8px 0 4px' }} />
-      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        Навыки в бою ({passiveEquipSlotCount}{' '}
-        {passiveEquipSlotCount === 1 ? 'слот' : passiveEquipSlotCount < 5 ? 'слота' : 'слотов'}) —
-        перетащите из коллекции
+      <Typography.Text strong style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>
+        Навыки в бою
       </Typography.Text>
       <div className="inventory-passive-equip-row" style={{ display: 'flex', gap: 4 }}>
         {passiveEquipSlotIndices.map((slotIndex) => {
@@ -647,7 +645,7 @@ export function CardsInventoryView({
           )
         })}
       </div>
-      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+      <Typography.Text strong style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>
         Коллекция навыков
       </Typography.Text>
       <InventoryGrid

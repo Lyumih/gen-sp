@@ -29,6 +29,8 @@ type CharacterRosterViewProps = {
   canReleaseCharacter?: boolean
   onEditAppearance?: (characterId: string) => void
   showSquadActions?: boolean
+  variant?: 'full' | 'compact'
+  showHeading?: boolean
 }
 
 function editAppearanceButton(
@@ -87,6 +89,7 @@ function RosterRow({
   onEditAppearance,
   showSquadActions,
   squadHasEmptySlot,
+  variant,
 }: {
   character: Character
   campaign: CampaignState
@@ -103,6 +106,7 @@ function RosterRow({
   onEditAppearance?: (characterId: string) => void
   showSquadActions: boolean
   squadHasEmptySlot: boolean
+  variant: 'full' | 'compact'
 }) {
   const inSquad = campaign.squad.includes(character.id)
   const isSelected = character.id === selectedCharacterId
@@ -130,7 +134,7 @@ function RosterRow({
     (activeParsed?.kind === 'stash' || activeParsed?.kind === 'chest-item')
   const cls = getCharacterClass(character.classId)
   const display = getCharacterDisplay(character)
-  const stashCount = character.items.length
+  const isCompact = variant === 'compact'
 
   const releaseBtn = releaseCharacterButton(
     character.id,
@@ -187,7 +191,7 @@ function RosterRow({
       actions={rowActions}
       style={{
         cursor: 'pointer',
-        padding: '8px 12px',
+        padding: isCompact ? '4px 8px' : '8px 12px',
         borderRadius: 6,
         background: isSelected ? '#e6f4ff' : itemDragOver ? '#f6ffed' : undefined,
         outline: itemDragOver ? '2px dashed #52c41a' : undefined,
@@ -198,7 +202,14 @@ function RosterRow({
       <List.Item.Meta
         title={
           <span>
-            {display.emoji} {character.name}{' '}
+            {display.emoji} {character.name}
+            {isCompact ? (
+              <>
+                {' '}
+                · {cls?.label ?? character.classId} {UI_LEVEL}
+                {character.unitLevel}
+              </>
+            ) : null}{' '}
             {inSquad ? (
               <Tag color="blue" style={{ marginInlineStart: 4 }}>
                 отряд
@@ -206,7 +217,7 @@ function RosterRow({
             ) : (
               <Tag style={{ marginInlineStart: 4 }}>резерв</Tag>
             )}
-            {canReceiveItem ? (
+            {!isCompact && canReceiveItem ? (
               <Typography.Text type="secondary" style={{ fontSize: 11, marginInlineStart: 8 }}>
                 ← перетащи предмет
               </Typography.Text>
@@ -214,18 +225,20 @@ function RosterRow({
           </span>
         }
         description={
-          <>
-            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-              {cls?.label ?? character.classId} · {UI_LEVEL}
-              {character.unitLevel} · предметов: {stashCount}
-            </Typography.Text>
-            <SpecializationLine campaign={campaign} character={character} />
-            <StatStrip
-              baseStats={character.baseStats}
-              baseStatRating={character.baseStatRating}
-              showRating
-            />
-          </>
+          isCompact ? undefined : (
+            <>
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                {cls?.label ?? character.classId} · {UI_LEVEL}
+                {character.unitLevel} · предметов: {character.items.length}
+              </Typography.Text>
+              <SpecializationLine campaign={campaign} character={character} />
+              <StatStrip
+                baseStats={character.baseStats}
+                baseStatRating={character.baseStatRating}
+                showRating
+              />
+            </>
+          )
         }
       />
     </List.Item>
@@ -246,6 +259,8 @@ export function CharacterRosterView({
   canReleaseCharacter = false,
   onEditAppearance,
   showSquadActions = true,
+  variant = 'full',
+  showHeading = true,
 }: CharacterRosterViewProps) {
   const reserve = getReserveCharacters(campaign)
   const squadIds = campaign.squad.filter((id): id is string => id !== null)
@@ -257,9 +272,11 @@ export function CharacterRosterView({
 
   return (
     <div>
-      <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
-        Состав ({roster.length})
-      </Typography.Text>
+      {showHeading ? (
+        <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+          Состав ({roster.length})
+        </Typography.Text>
+      ) : null}
       {roster.length === 0 ? (
         <Typography.Text type="secondary">Нет персонажей</Typography.Text>
       ) : (
@@ -285,6 +302,7 @@ export function CharacterRosterView({
               onEditAppearance={onEditAppearance}
               showSquadActions={showSquadActions}
               squadHasEmptySlot={squadHasEmptySlot}
+              variant={variant}
             />
           )}
         />

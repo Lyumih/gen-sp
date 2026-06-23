@@ -89,7 +89,8 @@ type EquipmentInventoryViewProps = {
   ) => void
   onRemoveMod: (carrierKind: 'item', carrierId: string, slotIndex: number) => void
   squadLocked?: boolean
-  panelTitle?: string
+  panelTitle?: ReactNode
+  hideInnerSectionTitles?: boolean
   sideContent?: ReactNode
   dndBeforeContent?: (activeDragId: string | null) => ReactNode
   dndAfterContent?: (activeDragId: string | null) => ReactNode
@@ -413,6 +414,7 @@ export function EquipmentInventoryView({
   onRemoveMod,
   squadLocked = false,
   panelTitle,
+  hideInnerSectionTitles = false,
   sideContent,
   dndBeforeContent,
   dndAfterContent,
@@ -565,9 +567,11 @@ export function EquipmentInventoryView({
   const content = (
     <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
       <div>
-        <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
-          Экипировка
-        </Typography.Text>
+        {!hideInnerSectionTitles ? (
+          <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+            Экипировка
+          </Typography.Text>
+        ) : null}
         <div className="inv-slot-row">
           {EQUIPMENT_ROLL_ORDER.map((slot) => {
             const equippedId = hero.equipment[slot]

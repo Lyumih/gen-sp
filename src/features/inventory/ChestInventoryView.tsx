@@ -44,6 +44,7 @@ type ChestInventoryViewProps = {
   onAssignItemToCharacter?: (itemId: string) => void
   dndEnabled?: boolean
   activeDragId?: string | null
+  showIntro?: boolean
 }
 
 function DraggableChestItemCell({
@@ -164,6 +165,7 @@ export function ChestInventoryView({
   onAssignItemToCharacter,
   dndEnabled = false,
   activeDragId = null,
+  showIntro = true,
 }: ChestInventoryViewProps) {
   const locked = inBattle || inventoryLocked
   const { items, unboundCards, unboundPassives } = campaign.chest
@@ -283,10 +285,12 @@ export function ChestInventoryView({
 
   return (
     <Space orientation="vertical" size="small" style={{ width: '100%' }}>
-      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        Общий сундук — предметы, непривязанные умения и навыки
-        {dndEnabled ? ' · перетащите предмет на персонажа или из инвентаря в сундук' : null}
-      </Typography.Text>
+      {showIntro ? (
+        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+          Общий сундук — предметы, непривязанные умения и навыки
+          {dndEnabled ? ' · перетащите предмет на персонажа или из инвентаря в сундук' : null}
+        </Typography.Text>
+      ) : null}
       {dndEnabled ? (
         <ChestDropZone locked={locked} activeDragId={activeDragId}>
           {grid}
