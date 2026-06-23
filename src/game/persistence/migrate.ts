@@ -19,7 +19,7 @@ import { playerCardsFromLoadout } from '../campaign/playerCardsFromLoadout'
 import { getPrimaryCharacter } from '../campaign/selectors'
 import { discoverCodexEntry } from '../codex/discovery'
 import { codexEntryId } from '../codex/registry'
-import { withDefaultChestFields } from '../campaign/chestDefaults'
+import { EMPTY_CHEST, withDefaultChestFields } from '../campaign/chestDefaults'
 import { createCardInstance, createStrikeCardForHero } from '../campaign/cardFactory'
 import { pickRandomSkillTemplateId } from '../config/skillAcquisition'
 import { seededRng } from '../tavern/generateCandidates'
@@ -873,6 +873,47 @@ export function migrateV7CampaignToV8(c: CampaignState): CampaignState {
   return normalizeBattleGearMults(normalizeLoadedCampaign(c))
 }
 
+const DEFAULT_PASSIVE_EQUIP: Character['passiveEquip'] = [null, null, null, null]
+
+function migrateCharacterToV9(char: Character): Character {
+  const cards = Array.isArray(char.cards) ? char.cards : []
+  return {
+    ...char,
+    passives: Array.isArray(char.passives) ? char.passives : [],
+    passiveEquip:
+      Array.isArray(char.passiveEquip) && char.passiveEquip.length === 4
+        ? [
+            typeof char.passiveEquip[0] === 'string' ? char.passiveEquip[0] : null,
+            typeof char.passiveEquip[1] === 'string' ? char.passiveEquip[1] : null,
+            typeof char.passiveEquip[2] === 'string' ? char.passiveEquip[2] : null,
+            typeof char.passiveEquip[3] === 'string' ? char.passiveEquip[3] : null,
+          ]
+        : DEFAULT_PASSIVE_EQUIP,
+    battleLoadout: normalizeBattleLoadout(char.battleLoadout, [
+      cards[0]?.id ?? null,
+      cards[1]?.id ?? null,
+      cards[2]?.id ?? null,
+    ]),
+  }
+}
+
+function migrateChestToV9(c: CampaignState): CampaignState['chest'] {
+  const chest = c.chest ?? EMPTY_CHEST
+  return {
+    items: Array.isArray(chest.items) ? chest.items : [],
+    unboundCards: Array.isArray(chest.unboundCards) ? chest.unboundCards : [],
+    unboundPassives: Array.isArray(chest.unboundPassives) ? chest.unboundPassives : [],
+  }
+}
+
+export function migrateV8CampaignToV9(c: CampaignState): CampaignState {
+  return normalizeLoadedCampaign({
+    ...c,
+    characters: c.characters.map(migrateCharacterToV9),
+    chest: migrateChestToV9(c),
+  })
+}
+
 function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null && !Array.isArray(x)
 }
@@ -918,10 +959,11 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
     version !== 5 &&
     version !== 6 &&
     version !== 7 &&
-    version !== 8
+    version !== 8 &&
+    version !== 9
   ) {
     console.warn(
-      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, 4, 5, 6, 7, or 8`,
+      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, 4, 5, 6, 7, 8, or 9`,
     )
     return null
   }
@@ -943,6 +985,9 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
   }
   if (version <= 7) {
     campaign = migrateV7CampaignToV8(campaign)
+  }
+  if (version <= 8) {
+    campaign = migrateV8CampaignToV9(campaign)
   }
   return campaign
 }

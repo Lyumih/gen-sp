@@ -6,7 +6,14 @@ import { codexEntryId } from '../codex/discovery'
 import type { CampaignState } from '../types'
 import { SCENARIOS } from '../campaign/scenarios'
 import { testCreateCharacter } from '../stats/testFixtures'
-import { migrateFromUnknown, migrateV5CampaignToV6, migrateV6CampaignToV7, normalizeLoadedCampaign } from './migrate'
+import {
+  migrateFromUnknown,
+  migrateV5CampaignToV6,
+  migrateV6CampaignToV7,
+  migrateV8CampaignToV9,
+  normalizeLoadedCampaign,
+} from './migrate'
+import { SAVE_VERSION } from './schema'
 import { MOD_SLOT_MILESTONES } from '../config/modSlotMilestones'
 import { EMPTY_EQUIPMENT } from '../equipment/equipmentOrder'
 
@@ -380,6 +387,70 @@ describe('migrate v7 → v8 gear damage mult', () => {
     })
     expect(loaded?.battle?.gearDamageMult).toBeCloseTo(1.25, 5)
     expect(loaded?.battle?.gearStrikeDamageMult).toBeCloseTo(1.25, 5)
+  })
+})
+
+describe('migrate v8 → v9 passives and loadout', () => {
+  function v8CampaignWithoutPassives(c: CampaignState): CampaignState {
+    const strike = hero(c).cards[0]!
+    const fireball = {
+      id: 'c2',
+      templateId: 'fireball',
+      global_level: 1,
+      uses_count: 0,
+      modSlots: [],
+    }
+    const { passives: _p, passiveEquip: _pe, ...charWithoutPassives } = hero(c)
+    return {
+      ...c,
+      characters: [
+        {
+          ...charWithoutPassives,
+          cards: [strike, fireball],
+          battleLoadout: [strike.id, fireball.id] as unknown as BattleLoadout,
+        },
+      ],
+      chest: { items: [], unboundCards: [] },
+    }
+  }
+
+  it('v8→v9 adds passives and extends loadout to 3', () => {
+    const v8 = { version: 8 as const, campaign: v8CampaignWithoutPassives(initialCampaignState()) }
+    const out = migrateFromUnknown(v8)
+    expect(out).not.toBeNull()
+    expect(SAVE_VERSION).toBe(9)
+    expect(hero(out!).passives).toEqual([])
+    expect(hero(out!).passiveEquip).toEqual([null, null, null, null])
+    expect(hero(out!).battleLoadout).toHaveLength(3)
+    expect(hero(out!).battleLoadout[2]).toBeNull()
+    expect(out!.chest.unboundPassives).toEqual([])
+  })
+
+  it('migrateV8CampaignToV9 completes partially padded loadout from v8 normalize', () => {
+    const init = initialCampaignState()
+    const strike = hero(init).cards[0]!
+    const { passives: _p, passiveEquip: _pe, ...charWithoutPassives } = hero(init)
+    const legacy = {
+      ...init,
+      characters: [
+        {
+          ...charWithoutPassives,
+          battleLoadout: [strike.id, null] as unknown as BattleLoadout,
+        },
+      ],
+      chest: { items: [], unboundCards: [], unboundPassives: undefined as unknown as [] },
+    } as unknown as CampaignState
+    const out = migrateV8CampaignToV9(legacy)
+    expect(hero(out).passives).toEqual([])
+    expect(hero(out).passiveEquip).toEqual([null, null, null, null])
+    expect(hero(out).battleLoadout).toEqual([strike.id, null, null])
+    expect(out.chest.unboundPassives).toEqual([])
+  })
+
+  it('migrateFromUnknown accepts version 9 saves', () => {
+    const out = migrateFromUnknown({ version: 9, campaign: initialCampaignState() })
+    expect(out).not.toBeNull()
+    expect(hero(out!).passives).toEqual([])
   })
 })
 
