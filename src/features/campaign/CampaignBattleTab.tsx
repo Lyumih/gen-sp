@@ -1,16 +1,19 @@
 import { PlayCircleOutlined, RocketOutlined } from '@ant-design/icons'
-import { Button, Divider, Select, Space, Typography } from 'antd'
-import { useEffect, useMemo, useState } from 'react'
+import { Alert, Button, Divider, Select, Space, Typography } from 'antd'
+import { useMemo, useState } from 'react'
 import { SCENARIOS } from '../../game/campaign/scenarios'
 import {
   EXPEDITION_CHAINS,
-  formatConfigPreview,
+  getChainMaxParty,
   getExpeditionChainById,
-  getPartySizeRequiredCount,
-  getPartySizeSlotCount,
 } from '../../game/expedition/config'
+import {
+  countOccupiedSquadSlots,
+  resolveExpeditionParty,
+} from '../../game/expedition/resolveExpeditionParty'
 import type { CampaignState } from '../../game/types'
-import { SquadPicker } from './SquadPicker'
+import { ExpeditionModeList } from './ExpeditionModeList'
+import { ExpeditionSquadStrip } from './ExpeditionSquadStrip'
 
 type CampaignBattleTabProps = {
   campaign: CampaignState
@@ -23,10 +26,6 @@ type CampaignBattleTabProps = {
   onStartOrContinue: () => void
   onStartReplay: () => void
   onStartExpedition: (chainId: string, selectedCharacterIds: string[]) => void
-}
-
-function emptySlots(count: number): (string | null)[] {
-  return Array.from({ length: count }, () => null)
 }
 
 export function CampaignBattleTab({
@@ -44,28 +43,45 @@ export function CampaignBattleTab({
   const [selectedChainId, setSelectedChainId] = useState(
     () => EXPEDITION_CHAINS[0]?.id ?? 'campaign-main',
   )
+  const [markedIds, setMarkedIds] = useState<string[]>([])
+
   const selectedChain = getExpeditionChainById(selectedChainId) ?? EXPEDITION_CHAINS[0]!
-  const slotCount = getPartySizeSlotCount(selectedChain.partySize)
-  const requiredCount = getPartySizeRequiredCount(selectedChain.partySize)
-
-  const [pickedIds, setPickedIds] = useState<(string | null)[]>(() => emptySlots(slotCount))
-
-  useEffect(() => {
-    setPickedIds(emptySlots(getPartySizeSlotCount(selectedChain.partySize)))
-  }, [selectedChainId, selectedChain.partySize])
 
   const selectedCharacterIds = useMemo(
-    () => pickedIds.filter((id): id is string => id !== null),
-    [pickedIds],
+    () =>
+      resolveExpeditionParty({
+        squad: campaign.squad,
+        markedIds,
+        maxParty: getChainMaxParty(selectedChain),
+      }),
+    [campaign.squad, markedIds, selectedChain],
   )
 
   const expeditionActive = campaign.expedition !== null
-  const rosterOk = campaign.characters.length >= requiredCount
-  const squadReady =
-    rosterOk &&
-    selectedCharacterIds.length === requiredCount &&
-    new Set(selectedCharacterIds).size === selectedCharacterIds.length
-  const canStartExpedition = !inBattle && !expeditionActive && squadReady
+  const expeditionDisabled = inBattle || expeditionActive
+  const occupied = countOccupiedSquadSlots(campaign.squad)
+  const squadOk = occupied >= selectedChain.partyMin
+  const hasFighters = selectedCharacterIds.length >= 1
+  const canStartExpedition = !expeditionDisabled && squadOk && hasFighters
+
+  const handleToggleMark = (characterId: string) => {
+    setMarkedIds((prev) =>
+      prev.includes(characterId)
+        ? prev.filter((id) => id !== characterId)
+        : [...prev, characterId],
+    )
+  }
+
+  const handleStartExpedition = () => {
+    const chain = getExpeditionChainById(selectedChainId) ?? EXPEDITION_CHAINS[0]!
+    const maxParty = getChainMaxParty(chain)
+    const party = resolveExpeditionParty({
+      squad: campaign.squad,
+      markedIds,
+      maxParty,
+    })
+    onStartExpedition(selectedChainId, party)
+  }
 
   return (
     <Space orientation="vertical" size="middle" style={{ width: '100%' }} role="tabpanel">
@@ -114,53 +130,48 @@ export function CampaignBattleTab({
 
       <Divider style={{ margin: '8px 0' }} />
 
+      <ExpeditionSquadStrip
+        campaign={campaign}
+        markedIds={markedIds}
+        disabled={expeditionDisabled}
+        onToggleMark={handleToggleMark}
+      />
+
+      <Divider style={{ margin: '8px 0' }} />
+
       <Typography.Title level={5} style={{ marginTop: 0, marginBottom: 0 }}>
-        Expedition
+        Экспедиция
       </Typography.Title>
 
       {expeditionActive ? (
-        <Typography.Text type="secondary">
-          Expedition активна: {campaign.expedition!.scenarioChainId}, бой{' '}
-          {campaign.expedition!.battleIndex + 1} / {campaign.expedition!.battleCount}
-        </Typography.Text>
-      ) : (
         <>
-          <Space wrap style={{ width: '100%' }}>
-            <Select
-              aria-label="Цепочка expedition"
-              style={{ minWidth: 220 }}
-              value={selectedChainId}
-              onChange={setSelectedChainId}
-              options={EXPEDITION_CHAINS.map((chain) => ({
-                value: chain.id,
-                label: chain.id,
-              }))}
-            />
-            <Typography.Text type="secondary">
-              Бойцов: {formatConfigPreview(selectedChain.partySize)} · Боёв:{' '}
-              {formatConfigPreview(selectedChain.battleCount)}
-            </Typography.Text>
-          </Space>
-
-          <SquadPicker
-            campaign={campaign}
-            slotCount={slotCount}
-            requiredCount={requiredCount}
-            selectedIds={pickedIds}
-            disabled={inBattle}
-            onChange={setPickedIds}
+          <Alert
+            type="info"
+            showIcon
+            message="Недоступно во время экспедиции"
           />
-
-          <Button
-            type="primary"
-            disabled={!canStartExpedition}
-            icon={<RocketOutlined />}
-            onClick={() => onStartExpedition(selectedChainId, selectedCharacterIds)}
-          >
-            Начать expedition
-          </Button>
+          <Typography.Text type="secondary">
+            Экспедиция активна: {campaign.expedition!.scenarioChainId}, бой{' '}
+            {campaign.expedition!.battleIndex + 1} / {campaign.expedition!.battleCount}
+          </Typography.Text>
         </>
-      )}
+      ) : null}
+
+      <ExpeditionModeList
+        chains={EXPEDITION_CHAINS}
+        selectedChainId={selectedChainId}
+        disabled={expeditionDisabled}
+        onSelect={setSelectedChainId}
+      />
+
+      <Button
+        type="primary"
+        disabled={!canStartExpedition}
+        icon={<RocketOutlined />}
+        onClick={handleStartExpedition}
+      >
+        Начать экспедицию
+      </Button>
     </Space>
   )
 }
