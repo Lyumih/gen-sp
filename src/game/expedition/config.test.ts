@@ -28,12 +28,20 @@ describe('resolveBattleCount', () => {
 })
 
 describe('EXPEDITION_CHAINS', () => {
-  it('includes campaign-main chain over tutorial scenarios', () => {
+  it('includes campaign-main as static chain', () => {
     const chain = EXPEDITION_CHAINS.find((c) => c.id === 'campaign-main')
     expect(chain).toBeDefined()
-    expect(chain?.battleScenarioIds).toEqual(['tutorial', 'two-front', 'boss-lite'])
-    expect(chain?.partySize).toBe(1)
-    expect(chain?.battleCount).toBe(3)
-    expect(chain?.interBattleReviveAllDowned).toBe(true)
+    expect(chain?.kind).toBe('static')
+    if (chain?.kind === 'static') {
+      expect(chain.battleScenarioIds).toEqual(['tutorial', 'two-front', 'boss-lite'])
+    }
+    expect(chain?.label).toBeTruthy()
+    expect(chain?.partyMin).toBe(1)
+  })
+
+  it('has unique ids and procedural entries', () => {
+    const ids = EXPEDITION_CHAINS.map((c) => c.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(EXPEDITION_CHAINS.some((c) => c.id === 'chaotic-map' && c.kind === 'procedural')).toBe(true)
   })
 })
