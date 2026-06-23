@@ -1,55 +1,34 @@
-import type { BaseStats } from '../config/baseStats'
 import type { IconAccentId } from '../types'
+import { ENEMY_ARCHETYPE_IDS, getEnemyArchetype, type EnemyArchetype } from './enemyArchetypes'
 
-export type EnemyTemplate = {
-  id: string
-  label: string
+export type EnemyTemplate = Pick<EnemyArchetype, 'id' | 'label' | 'baseStats'> & {
   emoji?: string
   iconAccent?: IconAccentId
-  /** Legacy single-stat HP base. */
   baseHpStat: number
-  baseStats: BaseStats
 }
 
-export const ENEMY_TEMPLATES: Readonly<Record<string, EnemyTemplate>> = {
-  grunt: {
-    id: 'grunt',
-    label: 'Рядовой',
-    emoji: '👹',
-    iconAccent: 'red',
-    baseHpStat: 8,
-    baseStats: {
-      health: 8,
-      defense: 1,
-      attack: 2,
-      magicPower: 0,
-      mana: 0,
-      healPower: 0,
-      speed: 2,
-      initiative: 6,
-      critChance: 2,
-    },
-  },
-  boss: {
-    id: 'boss',
-    label: 'Босс',
-    emoji: '💀',
-    iconAccent: 'purple',
-    baseHpStat: 18,
-    baseStats: {
-      health: 18,
-      defense: 3,
-      attack: 4,
-      magicPower: 2,
-      mana: 10,
-      healPower: 0,
-      speed: 2,
-      initiative: 8,
-      critChance: 5,
-    },
-  },
+function toEnemyTemplate(a: EnemyArchetype): EnemyTemplate {
+  return {
+    id: a.id,
+    label: a.label,
+    emoji: a.emoji,
+    iconAccent: a.iconAccent,
+    baseHpStat: a.baseStats.health,
+    baseStats: a.baseStats,
+  }
 }
+
+export const ENEMY_TEMPLATES: Readonly<Record<string, EnemyTemplate>> = Object.fromEntries(
+  ENEMY_ARCHETYPE_IDS.map((id) => {
+    const a = getEnemyArchetype(id)!
+    return [id, toEnemyTemplate(a)]
+  }),
+)
 
 export function getEnemyTemplate(id: string): EnemyTemplate | undefined {
-  return ENEMY_TEMPLATES[id]
+  const a = getEnemyArchetype(id)
+  if (!a) return undefined
+  return toEnemyTemplate(a)
 }
+
+export { getEnemyArchetype, type EnemyArchetype } from './enemyArchetypes'

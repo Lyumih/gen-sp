@@ -1,6 +1,7 @@
 import type { TavernCandidate } from './tavern/generateCandidates'
 import type { BaseStats } from './config/baseStats'
 import type { UnitStatusEffect } from './battle/unitStatus'
+import type { RaceId } from './content/enemyRaces'
 
 export type { BaseStats, StatId } from './config/baseStats'
 
@@ -42,6 +43,7 @@ export type Unit = {
   maxHp: number
   unitLevel: number
   archetypeId?: string
+  raceId?: RaceId
   /** Effective initiative at spawn (base stat scaled + gear). */
   initiativeBase?: number
   /** Base stats snapshot for UI tooltips. */
