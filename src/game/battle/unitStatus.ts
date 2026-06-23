@@ -11,6 +11,12 @@ export type UnitStatusKind =
   | 'dot'
   | 'regen'
   | 'damage_reduction'
+  | 'soul_mark'
+  | 'grave_silence'
+  | 'spell_eaten'
+  | 'silence_dark'
+  | 'decay_aura'
+  | 'stealth'
 
 export type UnitStatusEffect = {
   id: string
@@ -38,6 +44,15 @@ const EMPTY_MODS: StatusCombatModifiers = {
 
 export function unitStatuses(unit: Unit): readonly UnitStatusEffect[] {
   return unit.statusEffects ?? []
+}
+
+export function hasUnitStatus(unit: Unit, kind: UnitStatusKind): boolean {
+  return unitStatuses(unit).some((s) => s.kind === kind && s.remainingTurns > 0)
+}
+
+export function removeUnitStatusByKind(unit: Unit, kind: UnitStatusKind): Unit {
+  const next = unitStatuses(unit).filter((s) => s.kind !== kind)
+  return { ...unit, statusEffects: next.length > 0 ? next : undefined }
 }
 
 export function isUnitRooted(unit: Unit): boolean {

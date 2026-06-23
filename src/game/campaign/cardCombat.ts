@@ -1,4 +1,5 @@
 import { applyAction, advanceBattleTurn } from '../battle/reducer'
+import { isDarkCardBlocked, isResurrectBlocked, weakenHolyBuffIfNeeded } from '../battle/bossMechanics'
 import { canMeleeAttack, canRangedAttack } from '../battle/combat'
 import { cellKey, inBounds, manhattan, wallSet } from '../battle/grid'
 import { hasLineOfSight } from '../battle/lineOfSight'
@@ -99,7 +100,7 @@ function withStatuses(battle: BattleState, unitId: string, effects: ReturnType<t
     units: battle.units.map((u) => {
       if (u.id !== unitId) return u
       let next = u
-      for (const e of filtered) next = appendUnitStatus(next, e)
+      for (const e of filtered) next = appendUnitStatus(next, weakenHolyBuffIfNeeded(e, next))
       return next
     }),
     battleLog: [
@@ -172,6 +173,7 @@ export function dispatchCardAttackUse(input: CardAttackUseInput): CampaignState 
   const { state, battle, actorId, actor, card, target, roll } = input
   const tmpl = getCardAttackTemplate(card.templateId)
   if (!tmpl) return null
+  if (isDarkCardBlocked(actor, card.templateId)) return null
 
   const modCtx = cardModCombatContext(state, actorId, card, roll)
   const effectiveRange = applyRangeMods(tmpl.maxRange, modCtx)
@@ -266,6 +268,7 @@ export function dispatchCardAoEUse(input: CardAoEUseInput): CampaignState | null
   const { state, battle, actorId, actor, card, targetX, targetY, roll } = input
   const tmpl = getCardAttackTemplate(card.templateId)
   if (!tmpl || tmpl.aoeSize === undefined) return null
+  if (isDarkCardBlocked(actor, card.templateId)) return null
   if (!inBounds(targetX, targetY, battle.width, battle.height)) return null
 
   const walls = wallSet(battle.walls)
@@ -351,6 +354,7 @@ export function dispatchCardHealUse(input: CardHealUseInput): CampaignState | nu
   const { state, battle, actorId, actor, card, target, roll } = input
   const tmpl = getCardAttackTemplate(card.templateId)
   if (!tmpl || !isHealKind(tmpl.kind)) return null
+  if (tmpl.kind === 'resurrect' && isResurrectBlocked(target)) return null
 
   const walls = wallSet(battle.walls)
   const modCtx = cardModCombatContext(state, actorId, card, roll)

@@ -37,6 +37,14 @@ import { applyRaceDamageModifiers, resolveCardDamageTags } from './enemyResists'
 import { updateActorEnemyCards } from './enemyCards'
 import { resolveEnemySkillAmount, resolveEnemySkillEffectPower } from './enemySkillResolve'
 import {
+  applyBossSkillUse,
+  isBossSkillHandledInMechanics,
+  modifyHealReceived,
+  stripStealthInAoE,
+  tryNegateSpellDamage,
+  weakenHolyBuffIfNeeded,
+} from './bossMechanics'
+import {
   getCardAttackTemplate,
   usesCardAttackDispatch,
   usesCardAoEDispatch,
@@ -580,8 +588,25 @@ function applySingleStrike(
     : [params.attackKind]
   damage = applyRaceDamageModifiers(damage, damageTags, target.raceId)
 
-  const updated = withDamage(target, damage)
-  const wasKill = updated.hp <= 0 && target.hp > 0
+  const currentTarget = getUnit(next, params.targetId)
+  if (!isAliveUnit(currentTarget)) return { state: next, killed: null }
+
+  const negated = tryNegateSpellDamage(
+    damage,
+    damageTags,
+    currentTarget,
+    params.fromCard?.templateId,
+  )
+  damage = negated.damage
+  if (negated.unit !== currentTarget) {
+    next = updateUnit(next, params.targetId, negated.unit)
+  }
+
+  const strikeTarget = getUnit(next, params.targetId)
+  if (!isAliveUnit(strikeTarget)) return { state: next, killed: null }
+
+  const updated = withDamage(strikeTarget, damage)
+  const wasKill = updated.hp <= 0 && strikeTarget.hp > 0
   next = updateUnit(next, params.targetId, updated)
   const log: BattleLogEntry[] = [
     {
@@ -819,7 +844,10 @@ function tryHeal(state: BattleState, action: Extract<BattleAction, { type: 'heal
   if (d > 2) return state
   if (d > 0 && !hasLineOfSight(healer.x, healer.y, target.x, target.y, walls)) return state
 
-  const healAmount = applyPassiveHealBonus(state, healer, action.amount)
+  const healAmount = modifyHealReceived(
+    applyPassiveHealBonus(state, healer, action.amount),
+    target,
+  )
   const updated = withHeal(target, healAmount)
   let next = updateUnit(state, action.targetId, updated)
   const log: BattleLogEntry[] = [
@@ -838,7 +866,7 @@ function tryHeal(state: BattleState, action: Extract<BattleAction, { type: 'heal
     if (splashAmount > 0) {
       log.push(modProcLog('mod-ally-heal-splash', 'Окружение светом', action.healerId))
       for (const ally of findHealSplashTargets(next, target)) {
-        const splashed = withHeal(ally, splashAmount)
+        const splashed = withHeal(ally, modifyHealReceived(splashAmount, ally))
         next = updateUnit(next, ally.id, splashed)
         log.push({
           type: 'heal',
@@ -881,7 +909,9 @@ function applyCardStatuses(
     units: state.units.map((u) => {
       if (u.id !== unitId) return u
       let next = u
-      for (const e of filtered) next = appendUnitStatus(next, e)
+      for (const e of filtered) {
+        next = appendUnitStatus(next, weakenHolyBuffIfNeeded(e, next))
+      }
       return next
     }),
     battleLog: [
@@ -935,6 +965,22 @@ function tryCardAttack(
   const cd = tmpl.cooldownTurns ?? 0
   let next = setEnemyCardCooldown(state, action.attackerId, card, cd)
 
+  if (isBossSkillHandledInMechanics(card.templateId)) {
+    const effectPower = resolveEnemySkillEffectPower(attacker, card, tmpl, next.worldPower) ?? 0
+    next = applyBossSkillUse(next, {
+      attackerId: action.attackerId,
+      targetId: action.targetId,
+      targetX: action.targetX,
+      targetY: action.targetY,
+      card,
+      effectPower,
+      rng: () => ((next.battleLog.length * 13 + 7) % 100) / 100,
+    })
+    next = afterHpChange(next, null)
+    if (next.phase !== 'ongoing') return next
+    return advanceBattleTurn(next)
+  }
+
   if (usesCardAoEDispatch(tmpl)) {
     const targetX = action.targetX
     const targetY = action.targetY
@@ -952,6 +998,9 @@ function tryCardAttack(
       aoeSize: tmpl.aoeSize ?? 3,
       fromCard,
     })
+    if (card.templateId === 'boss_ward_pulse') {
+      next = stripStealthInAoE(next, targetX, targetY, tmpl.aoeSize ?? 5)
+    }
     if (tmpl.kind === 'debuff' || tmpl.kind === 'dot') {
       const aoe = cellsInAoE(targetX, targetY, tmpl.aoeSize ?? 3, next.width, next.height)
       for (const u of next.units) {
