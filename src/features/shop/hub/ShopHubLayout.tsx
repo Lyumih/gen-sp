@@ -9,6 +9,8 @@ import { SHOP_OFFERS_SECTION_HELP } from '../../campaign/sectionTooltips'
 import { ChestInventoryView } from '../../inventory/ChestInventoryView'
 import { ShopOffersGrid } from '../../inventory/ShopOffersGrid'
 import { SectionHelp } from '../../layout/SectionHelp'
+import { shopTabAriaLabel, shopTabLabel } from '../../layout/tabLabels'
+import { useNarrowViewport } from '../../layout/useNarrowViewport'
 import { ShopBuildPanel } from './ShopBuildPanel'
 import { ShopSellPanel } from './ShopSellPanel'
 import type { ShopTabKey } from './types'
@@ -71,6 +73,14 @@ export function ShopHubLayout({
     campaign.chest.unboundCards.length +
     campaign.chest.unboundPassives.length
 
+  const narrow = useNarrowViewport()
+
+  const shopTabLabelNode = (tab: 'offers' | 'sell' | 'chest', count: number | null) => (
+    <span aria-label={shopTabAriaLabel(tab, count)}>
+      {shopTabLabel(tab, count, narrow)}
+    </span>
+  )
+
   const offersPanel = (
     <div>
       <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -112,14 +122,16 @@ export function ShopHubLayout({
         onUnequip={(slot) => onUnequip(activeCharacterId, slot)}
       />
       <Tabs
+        className="game-tabs--scroll"
         size="small"
+        tabBarGutter={8}
         activeKey={activeTab}
         onChange={(key) => setActiveTab(key as ShopTabKey)}
         items={[
-          { key: 'offers', label: 'Магазин', children: offersPanel },
+          { key: 'offers', label: shopTabLabelNode('offers', null), children: offersPanel },
           {
             key: 'sell',
-            label: 'Продажа',
+            label: shopTabLabelNode('sell', null),
             children: (
               <ShopSellPanel
                 stash={stash}
@@ -130,7 +142,7 @@ export function ShopHubLayout({
           },
           {
             key: 'chest',
-            label: `Сундук (${chestCount})`,
+            label: shopTabLabelNode('chest', chestCount),
             children: (
               <ChestInventoryView
                 campaign={campaign}
