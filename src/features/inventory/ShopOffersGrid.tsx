@@ -2,7 +2,9 @@ import { Radio, Space, Typography } from 'antd'
 import { useState } from 'react'
 import { SKILL_ACQUISITION } from '../../game/config/skillAcquisition'
 import { getCardAttackTemplate } from '../../game/content/cardTemplates'
+import { getPassiveTemplate } from '../../game/content/passiveTemplates'
 import { getCardDisplayLabel } from '../../game/descriptions/cardText'
+import { getPassiveDisplayLabel } from '../../game/descriptions/passiveText'
 import {
   equipmentSlotLabelRu,
   itemPerLevelBonusesLines,
@@ -13,7 +15,7 @@ import type { ShopOffer } from '../../game/types'
 import { ItemPopoverActions } from './ItemPopoverActions'
 import { InventoryCell } from './InventoryCell'
 import { InventoryGrid } from './InventoryGrid'
-import { resolveCardEmoji, resolveItemEmoji } from './inventoryEmoji'
+import { resolveCardEmoji, resolveItemEmoji, resolvePassiveEmoji } from './inventoryEmoji'
 
 type ShopOffersGridProps = {
   offers: ShopOffer[]
@@ -155,6 +157,56 @@ export function ShopOffersGrid({
                 onBuy(index)
               }}
               ariaLabel={getCardDisplayLabel(offer.templateId)}
+            />
+          )
+        }
+        if (offer.kind === 'passive') {
+          const tmpl = getPassiveTemplate(offer.templateId)
+          const price = SKILL_ACQUISITION.shopPassivePrice
+          const canBuy = gold >= price
+          const label = getPassiveDisplayLabel(offer.templateId)
+          return (
+            <InventoryCell
+              key={`passive-${index}`}
+              emoji={resolvePassiveEmoji(tmpl)}
+              contextBadge={`${price} 💰`}
+              className="inv-cell--passive-offer"
+              state={inBattle ? 'disabled' : canBuy ? 'filled' : 'disabled'}
+              popoverTitle={`Навык: ${label}`}
+              popoverContent={
+                <Space orientation="vertical" size="small">
+                  <Typography.Text style={{ fontSize: 12 }}>
+                    Покупка → сундук. Уровень 1. Привязка к герою необратима.
+                  </Typography.Text>
+                  <Typography.Text style={{ fontSize: 12 }}>{itemPriceLine(price)}</Typography.Text>
+                  <ItemPopoverActions
+                    inBattle={inBattle}
+                    actions={[
+                      {
+                        key: 'buy',
+                        label: 'Купить',
+                        type: 'primary',
+                        disabled: !canBuy,
+                        onClick: () => {
+                          if (!canBuy) {
+                            onInsufficientGold()
+                            return
+                          }
+                          onBuy(index)
+                        },
+                      },
+                    ]}
+                  />
+                </Space>
+              }
+              onDoubleClick={() => {
+                if (!canBuy) {
+                  onInsufficientGold()
+                  return
+                }
+                onBuy(index)
+              }}
+              ariaLabel={label}
             />
           )
         }

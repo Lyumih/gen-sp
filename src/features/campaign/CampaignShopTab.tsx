@@ -71,8 +71,10 @@ type CampaignShopTabProps = {
   onInsufficientGold: () => void
   onSellChestItem: (itemId: string) => void
   onSellChestCard: (cardId: string) => void
+  onSellChestPassive: (passiveId: string) => void
   onSellItem: (characterId: string, itemId: string) => void
   onBindChestCard: (cardId: string, characterId: string) => void
+  onBindChestPassive: (passiveId: string, characterId: string) => void
   onMoveChestItemToCharacter?: (itemId: string, characterId: string) => void
   onUnequip: (characterId: string, slot: EquipmentSlot) => void
 }
@@ -85,8 +87,10 @@ export function CampaignShopTab({
   onInsufficientGold,
   onSellChestItem,
   onSellChestCard,
+  onSellChestPassive,
   onSellItem,
   onBindChestCard,
+  onBindChestPassive,
   onMoveChestItemToCharacter,
   onUnequip,
 }: CampaignShopTabProps) {
@@ -198,10 +202,14 @@ export function CampaignShopTab({
       <ChestInventoryView
         campaign={campaign}
         inBattle={inBattle}
+        inventoryLocked={campaign.expedition !== null}
+        bindCharacterId={selected.id}
         onSellChestItem={onSellChestItem}
         onSellChestCard={onSellChestCard}
+        onSellChestPassive={onSellChestPassive}
         bindCharacterName={selected.name}
         onBindCard={(cardId) => onBindChestCard(cardId, selected.id)}
+        onBindPassive={(passiveId) => onBindChestPassive(passiveId, selected.id)}
         onAssignItemToCharacter={
           onMoveChestItemToCharacter
             ? (itemId) => onMoveChestItemToCharacter(itemId, selected.id)

@@ -2041,6 +2041,20 @@ describe('chest and shop offers', () => {
     expect(hero(s).items).toHaveLength(0)
   })
 
+  it('BUY_SHOP_OFFER passive adds passive to chest', () => {
+    let s: CampaignState = {
+      ...initialCampaignState(),
+      gold: SKILL_ACQUISITION.shopPassivePrice,
+      shopOffers: [{ kind: 'passive' as const, templateId: 'warrior_fortitude' }],
+    }
+    s = applyRunAction(s, { type: 'BUY_SHOP_OFFER', offerIndex: 0 })
+    expect(s.gold).toBe(0)
+    expect(s.chest.unboundPassives).toHaveLength(1)
+    expect(s.chest.unboundPassives[0]!.templateId).toBe('warrior_fortitude')
+    expect(s.shopOffers).toHaveLength(0)
+    expect(s.codexDiscovered).toContain(codexEntryId('passive', 'warrior_fortitude'))
+  })
+
   it('BIND_CHEST_CARD moves card to character permanently', () => {
     const card = createCardInstance('fireball', 'unbound-1')
     let s: CampaignState = {

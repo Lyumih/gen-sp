@@ -1306,6 +1306,23 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
           [codexEntryId('card', offer.templateId)],
         )
       }
+      if (offer.kind === 'passive') {
+        if (state.gold < SKILL_ACQUISITION.shopPassivePrice) return state
+        const passive = createPassiveInstance(offer.templateId)
+        return withCodexDiscoveries(
+          {
+            ...state,
+            gold: state.gold - SKILL_ACQUISITION.shopPassivePrice,
+            chest: {
+              ...state.chest,
+              unboundPassives: [...state.chest.unboundPassives, passive],
+            },
+            shopOffers: state.shopOffers!.filter((_, i) => i !== action.offerIndex),
+          },
+          [codexEntryId('passive', offer.templateId)],
+        )
+      }
+      if (offer.kind !== 'item') return state
       const tmpl = getItemTemplate(offer.templateId)
       if (!tmpl || state.gold < tmpl.shopPrice) return state
       const inst: ItemInstance = {
