@@ -31,6 +31,7 @@ import {
   maxPassiveEquipSlots,
   maxSkillLoadoutSlots,
 } from '../../game/specialization/loadoutCaps'
+import { previewOfferForNextSlot } from '../../game/specialization/previewOffer'
 import type { CampaignState, CardInstance, ModOffer, PassiveInstance } from '../../game/types'
 import { UI_DAMAGE, UI_HEART, UI_LEVEL } from '../../game/ui/labels'
 import { InventoryCell } from './InventoryCell'
@@ -108,8 +109,15 @@ function SortableCardCell({
   })
 
   const effectUi = tmpl?.kind === 'heal' ? UI_HEART : UI_DAMAGE
+  const nextSlotPreview = previewOfferForNextSlot(
+    campaign,
+    character.id,
+    character,
+    'card',
+    card,
+  )
   const showModBadge = !modsDisabled && hasPendingModOffer(card.modSlots)
-  const hasModUi = card.modSlots.length > 0 || card.global_level > 0
+  const hasModUi = card.modSlots.length > 0 || card.global_level > 0 || nextSlotPreview !== null
 
   const popover = (
     <Space orientation="vertical" size="small" style={{ maxWidth: 320 }}>
@@ -126,6 +134,8 @@ function SortableCardCell({
           <CarrierModPopoverSection
             modSlots={card.modSlots}
             carrierLevel={card.global_level}
+            carrierKind="card"
+            nextSlotPreview={nextSlotPreview}
             modsDisabled={modsDisabled}
             modsDisabledTooltip={modsDisabledTooltip}
             onOpenPicker={(slotIndex, offer) => onOpenPicker(card.id, slotIndex, offer)}
@@ -273,8 +283,15 @@ function DraggablePassiveCell({
     disabled: locked,
   })
 
+  const nextSlotPreview = previewOfferForNextSlot(
+    campaign,
+    character.id,
+    character,
+    'passive',
+    passive,
+  )
   const showModBadge = !modsDisabled && hasPendingModOffer(passive.modSlots)
-  const hasModUi = passive.modSlots.length > 0 || passive.global_level > 0
+  const hasModUi = passive.modSlots.length > 0 || passive.global_level > 0 || nextSlotPreview !== null
 
   const popover = (
     <Space orientation="vertical" size="small" style={{ maxWidth: 320 }}>
@@ -291,6 +308,8 @@ function DraggablePassiveCell({
           <CarrierModPopoverSection
             modSlots={passive.modSlots}
             carrierLevel={passive.global_level}
+            carrierKind="passive"
+            nextSlotPreview={nextSlotPreview}
             modsDisabled={modsDisabled}
             modsDisabledTooltip={modsDisabledTooltip}
             onOpenPicker={(slotIndex, offer) => onOpenPicker(passive.id, slotIndex, offer)}

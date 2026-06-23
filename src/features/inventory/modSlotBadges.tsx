@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Space, Typography } from 'antd'
 import { getModTemplate, type ModGroup } from '../../game/content/modTemplates'
+import { getPassiveModTemplate } from '../../game/content/passiveModTemplates'
 import { milestoneThreshold, rollbackCarrierLevel, unlockedSlotCount } from '../../game/memento/modSlots'
 import type { ModOffer, ModSlotState } from '../../game/types'
 import { UI_LEVEL } from '../../game/ui/labels'
@@ -32,6 +33,45 @@ export function findFirstPendingOffer(
 export function removeModConfirmText(currentLevel: number, slotIndex: number): string {
   const rollbackLevel = rollbackCarrierLevel(slotIndex)
   return `Уровень носителя будет снижен с ${UI_LEVEL}${currentLevel} до ${UI_LEVEL}${rollbackLevel}. Модификатор и его Lm будут потеряны безвозвратно.`
+}
+
+function resolveModTemplate(modId: string, carrierKind?: 'card' | 'passive') {
+  if (carrierKind === 'passive') {
+    return getPassiveModTemplate(modId) ?? getModTemplate(modId)
+  }
+  return getModTemplate(modId) ?? getPassiveModTemplate(modId)
+}
+
+function NextSlotPreviewList({
+  offer,
+  carrierKind,
+}: {
+  offer: ModOffer
+  carrierKind: 'card' | 'passive'
+}) {
+  return (
+    <Space orientation="vertical" size={2} style={{ width: '100%' }}>
+      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+        Следующий слот (превью)
+      </Typography.Text>
+      <ul className="inv-mod-slot-list" style={{ margin: 0 }}>
+        {offer.modIds.map((modId) => {
+          const tmpl = resolveModTemplate(modId, carrierKind)
+          return (
+            <li key={modId}>
+              <Typography.Text style={{ fontSize: 12 }}>
+                <span style={{ color: modGroupColor(modId) }} aria-hidden>
+                  ●
+                </span>{' '}
+                {tmpl?.emoji ? `${tmpl.emoji} ` : ''}
+                {tmpl?.label ?? modId}
+              </Typography.Text>
+            </li>
+          )
+        })}
+      </ul>
+    </Space>
+  )
 }
 
 function modGroupColor(templateId: string): string {
@@ -86,6 +126,8 @@ function nextLockedSlotLine(carrierLevel: number, modSlotCount: number): string 
 type CarrierModPopoverSectionProps = {
   modSlots: ModSlotState[]
   carrierLevel: number
+  carrierKind?: 'card' | 'passive'
+  nextSlotPreview?: ModOffer | null
   modsDisabled: boolean
   modsDisabledTooltip?: string
   onOpenPicker: (slotIndex: number, offer: ModOffer) => void
@@ -95,6 +137,8 @@ type CarrierModPopoverSectionProps = {
 export function CarrierModPopoverSection({
   modSlots,
   carrierLevel,
+  carrierKind = 'card',
+  nextSlotPreview,
   modsDisabled,
   modsDisabledTooltip,
   onOpenPicker,
@@ -140,6 +184,9 @@ export function CarrierModPopoverSection({
         <Typography.Text type="secondary" style={{ fontSize: 12 }}>
           ◌ {lockedLine}
         </Typography.Text>
+      ) : null}
+      {nextSlotPreview ? (
+        <NextSlotPreviewList offer={nextSlotPreview} carrierKind={carrierKind} />
       ) : null}
       {actions.length > 0 ? (
         <ItemPopoverActions
