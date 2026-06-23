@@ -34,6 +34,11 @@ import {
   EMPTY_EQUIPMENT,
   EQUIPMENT_ROLL_ORDER,
 } from '../equipment/equipmentOrder'
+import {
+  aggregateGearDamageMult,
+  aggregateGearStrikeDamageMult,
+} from '../equipment/aggregates'
+import { getItemTemplate } from '../content/itemTemplates'
 
 /** v2 campaign with flat hero fields before Character roster migration. */
 export type LegacyCampaignStateV2 = Omit<
@@ -302,6 +307,51 @@ function normalizeBattleAttemptSnapshot(
   }
 }
 
+function normalizeBattleGearMults(c: CampaignState): CampaignState {
+  if (!c.battle) return c
+  const primary = getPrimaryCharacter(c)
+  const legacyBattle = c.battle as BattleState & { gearCardLevelBonus?: number }
+  const legacy = legacyBattle.gearCardLevelBonus
+  const hasLegacy = typeof legacy === 'number' && Number.isFinite(legacy)
+
+  let gearDamageMult: number
+  let gearStrikeDamageMult: number
+
+  if (hasLegacy) {
+    const canRecompute = primary.items.length > 0
+    gearDamageMult = canRecompute
+      ? aggregateGearDamageMult(primary.items, primary.equipment, getItemTemplate)
+      : 1 + legacy / 100
+    gearStrikeDamageMult = canRecompute
+      ? aggregateGearStrikeDamageMult(primary.items, primary.equipment, getItemTemplate)
+      : gearDamageMult
+  } else {
+    gearDamageMult =
+      typeof c.battle.gearDamageMult === 'number' && Number.isFinite(c.battle.gearDamageMult)
+        ? c.battle.gearDamageMult
+        : 1
+    gearStrikeDamageMult =
+      typeof c.battle.gearStrikeDamageMult === 'number' &&
+      Number.isFinite(c.battle.gearStrikeDamageMult)
+        ? c.battle.gearStrikeDamageMult
+        : 1
+  }
+
+  const { gearCardLevelBonus: _drop, ...rest } = legacyBattle
+  return {
+    ...c,
+    battle: {
+      ...rest,
+      roundNumber:
+        typeof c.battle.roundNumber === 'number' && Number.isFinite(c.battle.roundNumber)
+          ? c.battle.roundNumber
+          : 1,
+      gearDamageMult,
+      gearStrikeDamageMult,
+    },
+  }
+}
+
 function normalizeCampaignEconomy(c: CampaignState): CampaignState {
   const gold = typeof c.gold === 'number' && Number.isFinite(c.gold) ? c.gold : 0
   const characters = c.characters.map(normalizeCharacter)
@@ -311,28 +361,9 @@ function normalizeCampaignEconomy(c: CampaignState): CampaignState {
     snap = normalizeBattleAttemptSnapshot(snap as BattleAttemptSnapshot | Record<string, unknown>)
   }
 
-  const battle =
-    c.battle !== null
-      ? {
-          ...c.battle,
-          roundNumber:
-            typeof c.battle.roundNumber === 'number' && Number.isFinite(c.battle.roundNumber)
-              ? c.battle.roundNumber
-              : 1,
-          gearDamageMult:
-            typeof c.battle.gearDamageMult === 'number' &&
-            Number.isFinite(c.battle.gearDamageMult)
-              ? c.battle.gearDamageMult
-              : 1,
-          gearStrikeDamageMult:
-            typeof c.battle.gearStrikeDamageMult === 'number' &&
-            Number.isFinite(c.battle.gearStrikeDamageMult)
-              ? c.battle.gearStrikeDamageMult
-              : 1,
-        }
-      : null
-
-  return { ...c, gold, characters, battleAttemptSnapshot: snap, battle }
+  let out: CampaignState = { ...c, gold, characters, battleAttemptSnapshot: snap }
+  out = normalizeBattleGearMults(out)
+  return out
 }
 
 function withDefaultScenarioSlotIndex(c: CampaignState): CampaignState {
@@ -811,6 +842,10 @@ export function migrateV7CampaignFromV6(c: CampaignState): CampaignState {
   return migrateV6CampaignToV7(c)
 }
 
+export function migrateV7CampaignToV8(c: CampaignState): CampaignState {
+  return normalizeBattleGearMults(normalizeLoadedCampaign(c))
+}
+
 function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null && !Array.isArray(x)
 }
@@ -848,9 +883,18 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
     return null
   }
   const version = raw.version
-  if (version !== 1 && version !== 2 && version !== 3 && version !== 4 && version !== 5 && version !== 6 && version !== 7) {
+  if (
+    version !== 1 &&
+    version !== 2 &&
+    version !== 3 &&
+    version !== 4 &&
+    version !== 5 &&
+    version !== 6 &&
+    version !== 7 &&
+    version !== 8
+  ) {
     console.warn(
-      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, 4, 5, 6, or 7`,
+      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, 4, 5, 6, 7, or 8`,
     )
     return null
   }
@@ -869,6 +913,9 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
   campaign = migrateV5CampaignToV6(campaign)
   if (version <= 6) {
     campaign = migrateV6CampaignToV7(campaign)
+  }
+  if (version <= 7) {
+    campaign = migrateV7CampaignToV8(campaign)
   }
   return campaign
 }

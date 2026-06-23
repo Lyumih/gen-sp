@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { applyRunAction, initialCampaignState } from '../campaign/runReducer'
+import type { BattleState } from '../types'
 import { getPrimaryCharacter } from '../campaign/selectors'
 import { codexEntryId } from '../codex/discovery'
 import type { CampaignState } from '../types'
@@ -329,6 +330,56 @@ describe('migrateV6CampaignToV7', () => {
     const out = migrateFromUnknown({ version: 6, campaign: c })
     expect(out).not.toBeNull()
     expect(hero(out!).cards.every((card) => card.templateId === 'strike')).toBe(true)
+  })
+})
+
+describe('migrate v7 → v8 gear damage mult', () => {
+  it('migrates v7 battle gearCardLevelBonus to gear mult fields', () => {
+    const init = initialCampaignState()
+    const sword = { id: 'w1', templateId: 'wooden_sword', itemLevel: 50, modSlots: [] }
+    const withGear = {
+      ...init,
+      characters: [
+        {
+          ...hero(init),
+          items: [sword],
+          equipment: { weapon: 'w1', armor: null, accessory: null },
+        },
+      ],
+    }
+    const inBattle = applyRunAction(withGear, { type: 'START_OR_CONTINUE_BATTLE' })
+    const battle = inBattle.battle!
+    const { gearDamageMult: _g, gearStrikeDamageMult: _s, ...legacyBattle } = battle
+    const raw = {
+      version: 7,
+      campaign: {
+        ...inBattle,
+        battle: { ...legacyBattle, gearCardLevelBonus: 50 },
+      },
+    }
+    const loaded = migrateFromUnknown(raw)
+    expect(loaded).not.toBeNull()
+    expect(loaded!.battle?.gearDamageMult).toBeCloseTo(1.5, 5)
+    expect(loaded!.battle?.gearStrikeDamageMult).toBeGreaterThanOrEqual(1)
+    expect(
+      (loaded!.battle as BattleState & { gearCardLevelBonus?: number }).gearCardLevelBonus,
+    ).toBeUndefined()
+  })
+
+  it('falls back to legacy bonus when hero has no items', () => {
+    const init = initialCampaignState()
+    const inBattle = applyRunAction(init, { type: 'START_OR_CONTINUE_BATTLE' })
+    const battle = inBattle.battle!
+    const { gearDamageMult: _g, gearStrikeDamageMult: _s, ...legacyBattle } = battle
+    const loaded = migrateFromUnknown({
+      version: 7,
+      campaign: {
+        ...inBattle,
+        battle: { ...legacyBattle, gearCardLevelBonus: 25 },
+      },
+    })
+    expect(loaded?.battle?.gearDamageMult).toBeCloseTo(1.25, 5)
+    expect(loaded?.battle?.gearStrikeDamageMult).toBeCloseTo(1.25, 5)
   })
 })
 
