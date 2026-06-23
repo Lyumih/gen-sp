@@ -28,10 +28,11 @@ import {
 import { afterCarrierLevelChange, modOfferSeed, occupiedModTemplateIds } from '../memento/carrierLevelChange'
 import { applyItemUseRoll } from '../memento/itemProgress'
 import { generateOffer } from '../memento/modOffers'
-import { rollbackCarrierLevel } from '../memento/modSlots'
+import { milestoneThreshold, rollbackCarrierLevel } from '../memento/modSlots'
 import { resolveCarrierTags } from '../mods/carrierTags'
 import { MOD_OFFER_POOL, getModTemplate } from '../content/modTemplates'
 import { getPassiveModTemplate, PASSIVE_MOD_OFFER_POOL } from '../content/passiveModTemplates'
+import { characterHasEffect, softRollbackCarrierLevel } from '../specialization/resolve'
 import { rollMementoLevelUp } from '../memento/rollMementoLevelUp'
 import {
   pickRandomPassiveTemplateId,
@@ -432,6 +433,7 @@ function finalizeVictory(
         inst.templateId,
         nextLevel,
         modOfferSeed(itemId, 0, nextLevel),
+        { campaign: state, characterId: hero.id },
       )
       items = items.map((x, j) => (j === idx ? nextInst : x))
     }
@@ -873,17 +875,25 @@ function tryRemoveMod(
       const tags = resolveCarrierTags(action.carrierKind, templateId)
       const pool =
         action.carrierKind === 'passive' ? PASSIVE_MOD_OFFER_POOL : MOD_OFFER_POOL
+      const offerCount = characterHasEffect(state, action.characterId, 'mod_offer_plus') ? 4 : 3
       const offer = generateOffer(
         pool,
         tags,
         occupied,
         action.slotIndex,
         modOfferSeed(action.carrierId, action.slotIndex, Date.now()),
+        offerCount,
       )
 
       const modSlots = [...carrier.modSlots]
       modSlots[action.slotIndex] = { status: 'empty', offer }
-      const newLevel = rollbackCarrierLevel(action.slotIndex)
+      const currentLevel =
+        action.carrierKind === 'item'
+          ? (carrier as ItemInstance).itemLevel
+          : (carrier as CardInstance | PassiveInstance).global_level
+      const newLevel = characterHasEffect(state, action.characterId, 'mod_soft_rollback')
+        ? softRollbackCarrierLevel(currentLevel, action.slotIndex, milestoneThreshold)
+        : rollbackCarrierLevel(action.slotIndex)
 
       if (action.carrierKind === 'card' || action.carrierKind === 'passive') {
         return {

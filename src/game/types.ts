@@ -7,7 +7,10 @@ export type { BaseStats, StatId } from './config/baseStats'
 
 export type EquipmentSlot = 'weapon' | 'armor' | 'accessory'
 
-export type ModOffer = { modIds: [string, string, string]; rollSeed: number }
+export type ModOffer = {
+  modIds: [string, string, string] | [string, string, string, string]
+  rollSeed: number
+}
 
 export type ModSlotState =
   | { status: 'empty'; offer: ModOffer | null }

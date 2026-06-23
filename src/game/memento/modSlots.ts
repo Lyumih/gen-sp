@@ -1,4 +1,6 @@
 import { milestoneThreshold, MOD_SLOT_MILESTONES } from '../config/modSlotMilestones'
+import type { Character } from '../types'
+import { unlockedSlotCountForCharacter } from '../specialization/milestones'
 import type { ModOffer, ModSlotState } from '../types'
 
 export { milestoneThreshold, MOD_SLOT_MILESTONES }
@@ -21,8 +23,12 @@ export function syncModSlotsForLevel(
   slots: ModSlotState[],
   carrierLevel: number,
   makeOffer: (slotIndex: number) => ModOffer,
+  owner?: Character | null,
 ): ModSlotState[] {
-  const targetCount = unlockedSlotCount(carrierLevel)
+  const targetCount =
+    owner !== undefined
+      ? unlockedSlotCountForCharacter(owner ?? null, carrierLevel, milestoneThreshold)
+      : unlockedSlotCount(carrierLevel)
   const result: ModSlotState[] = []
 
   for (let i = 0; i < targetCount; i++) {

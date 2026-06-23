@@ -31,6 +31,7 @@ export function generateOffer(
   occupiedTemplateIds: readonly string[],
   _slotIndex: number,
   seed: number,
+  offerCount: 3 | 4 = 3,
 ): ModOffer {
   const eligible = filterModsForCarrier(pool, carrierTags, occupiedTemplateIds)
   const rng = seededRng(seed)
@@ -38,6 +39,13 @@ export function generateOffer(
   const pickId = (): string => {
     const idx = Math.floor(rng() * eligible.length)
     return eligible[idx]!.id
+  }
+
+  if (offerCount === 4) {
+    return {
+      modIds: [pickId(), pickId(), pickId(), pickId()],
+      rollSeed: seed,
+    }
   }
 
   return {

@@ -71,6 +71,11 @@ describe('generateOffer', () => {
     expect(a.rollSeed).toBe(4242)
   })
 
+  it('generateOffer returns 4 mods when offerCount is 4', () => {
+    const offer = generateOffer(TEST_POOL, fireballTags, [], 0, 42, 4)
+    expect(offer.modIds).toHaveLength(4)
+  })
+
   it('repeats sole eligible mod three times when pool filters to one', () => {
     const healOnlyPool: ModTemplate[] = [
       testMod({ id: 'mod-heal-up', label: 'Heal', requires: ['heal'], group: 'survival' }),

@@ -937,6 +937,19 @@ function migratePartyMemberToV10(
 }
 
 export function migrateV9CampaignToV10(c: CampaignState): CampaignState {
+  const expedition = c.expedition
+    ? {
+        ...c.expedition,
+        squadSnapshot: c.expedition.squadSnapshot.map((slot) =>
+          slot
+            ? {
+                ...slot,
+                battleLoadout: normalizeBattleLoadout(slot.battleLoadout),
+              }
+            : null,
+        ),
+      }
+    : null
   const battleAttemptSnapshot = c.battleAttemptSnapshot
     ? {
         ...c.battleAttemptSnapshot,
@@ -945,6 +958,7 @@ export function migrateV9CampaignToV10(c: CampaignState): CampaignState {
     : null
   return normalizeLoadedCampaign({
     ...c,
+    expedition,
     characters: c.characters.map(migrateCharacterToV10),
     battleAttemptSnapshot,
   })

@@ -33,6 +33,7 @@ import { generateOffer } from '../memento/modOffers'
 import { MOD_OFFER_POOL } from '../content/modTemplates'
 import { resolveCarrierTags } from '../mods/carrierTags'
 import { milestoneThreshold, rollbackCarrierLevel } from '../memento/modSlots'
+import { softRollbackCarrierLevel } from '../specialization/resolve'
 import { MOD_SLOT_MILESTONES } from '../config/modSlotMilestones'
 import { SKILL_ACQUISITION } from '../config/skillAcquisition'
 import { createPassiveInstance } from '../passives/passiveFactory'
@@ -1845,6 +1846,40 @@ describe('mod hub actions', () => {
     expect(card.modSlots[1]).toHaveProperty('offer')
     expect((card.modSlots[1] as { offer: ModOffer }).offer?.modIds).toHaveLength(3)
     expect(card.modSlots[2]).toEqual(slot2Filled)
+  })
+
+  it('REMOVE_MOD with mod_soft_rollback loses 20% not full milestone', () => {
+    const startLevel = 90
+    const slot1Filled: ModSlotState = {
+      status: 'filled',
+      templateId: 'mod-damage-up',
+      lm: 3,
+    }
+    let s = initialCampaignState()
+    const fireball = {
+      ...createCardInstance('fireball', 'c2'),
+      global_level: startLevel,
+      modSlots: [
+        { status: 'filled' as const, templateId: 'mod-aoe-size', lm: 1 },
+        slot1Filled,
+      ],
+    }
+    s = withHero(s, {
+      specializationId: 'mod_soft_rollback',
+      cards: [...hero(s).cards, fireball],
+    })
+
+    s = applyRunAction(s, {
+      type: 'REMOVE_MOD',
+      characterId: HERO_ID,
+      carrierKind: 'card',
+      carrierId: 'c2',
+      slotIndex: 1,
+    })
+
+    const card = hero(s).cards.find((c) => c.id === 'c2')!
+    expect(card.global_level).toBe(softRollbackCarrierLevel(startLevel, 1, milestoneThreshold))
+    expect(card.global_level).not.toBe(rollbackCarrierLevel(1))
   })
 
   it('mod actions no-op in battle', () => {
