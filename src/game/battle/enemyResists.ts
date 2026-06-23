@@ -1,4 +1,16 @@
+import { getCardAttackTemplate } from "../content/cardTemplates";
 import { getRaceDefinition, type RaceId } from "../content/enemyRaces";
+import { getSemanticEmoji } from "../ui/semanticEmoji";
+
+/** Card template tags plus semantic theme tag for race resist/vulnerable lookup. */
+export function resolveCardDamageTags(templateId: string): readonly string[] {
+  const tmpl = getCardAttackTemplate(templateId);
+  if (!tmpl) return [];
+  const tags = new Set(tmpl.tags);
+  const themeTag = getSemanticEmoji(tmpl.semanticEmojiId)?.themeTag;
+  if (themeTag) tags.add(themeTag);
+  return [...tags];
+}
 
 export function applyRaceDamageModifiers(
   damage: number,

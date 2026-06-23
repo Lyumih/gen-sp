@@ -33,6 +33,7 @@ import {
   type PassiveFireInput,
 } from '../passives/passiveEngine'
 import type { PassiveTrigger } from '../content/passiveTemplates'
+import { applyRaceDamageModifiers, resolveCardDamageTags } from './enemyResists'
 
 /** Приращение worldPower за смерть врага (MVP-заглушка §6). */
 export const WORLD_POWER_PER_ENEMY_KILL = 1
@@ -565,6 +566,11 @@ function applySingleStrike(
   if (target.side === 'player') {
     damage = mitigatePassiveDefense(next, target, damage)
   }
+
+  const damageTags = params.fromCard
+    ? resolveCardDamageTags(params.fromCard.templateId)
+    : [params.attackKind]
+  damage = applyRaceDamageModifiers(damage, damageTags, target.raceId)
 
   const updated = withDamage(target, damage)
   const wasKill = updated.hp <= 0 && target.hp > 0
