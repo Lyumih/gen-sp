@@ -23,6 +23,8 @@ export function createCharacter(input: CreateCharacterInput): Character {
     equipment: { ...EMPTY_EQUIPMENT },
     items: [],
     cards: [],
+    passives: [],
+    passiveEquip: [null, null, null, null],
     battleLoadout: [null, null],
     iconEmoji: defaultIconEmojiForClass(input.classId),
     iconAccent: 'default',

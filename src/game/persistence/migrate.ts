@@ -201,6 +201,15 @@ function normalizeCharacter(char: Character): Character {
     equipment,
     cards,
     battleLoadout,
+    passives: Array.isArray(char.passives) ? char.passives : [],
+    passiveEquip: Array.isArray(char.passiveEquip) && char.passiveEquip.length === 4
+      ? [
+          typeof char.passiveEquip[0] === 'string' ? char.passiveEquip[0] : null,
+          typeof char.passiveEquip[1] === 'string' ? char.passiveEquip[1] : null,
+          typeof char.passiveEquip[2] === 'string' ? char.passiveEquip[2] : null,
+          typeof char.passiveEquip[3] === 'string' ? char.passiveEquip[3] : null,
+        ]
+      : [null, null, null, null],
     iconEmoji:
       typeof char.iconEmoji === 'string' && isValidIconEmoji(char.iconEmoji)
         ? char.iconEmoji
@@ -411,7 +420,11 @@ export function migrateV6CampaignToV7(c: CampaignState): CampaignState {
   return {
     ...c,
     characters,
-    chest: { items: c.chest?.items ?? [], unboundCards: unbound },
+    chest: {
+      items: c.chest?.items ?? [],
+      unboundCards: unbound,
+      unboundPassives: c.chest?.unboundPassives ?? [],
+    },
     shopOffers: c.shopOffers ?? null,
     shopRefreshSeed: typeof c.shopRefreshSeed === 'number' ? c.shopRefreshSeed : 0,
     pendingHubNotice: null,

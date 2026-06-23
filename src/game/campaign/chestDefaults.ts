@@ -1,6 +1,6 @@
 import type { CampaignChest, CampaignState } from '../types'
 
-export const EMPTY_CHEST: CampaignChest = { items: [], unboundCards: [] }
+export const EMPTY_CHEST: CampaignChest = { items: [], unboundCards: [], unboundPassives: [] }
 
 export function withDefaultChestFields(c: CampaignState): CampaignState {
   const chest = c.chest ?? EMPTY_CHEST

@@ -62,6 +62,16 @@ export type CardInstance = {
   modSlots: ModSlotState[]
 }
 
+export type PassiveInstance = {
+  id: string
+  templateId: string
+  global_level: number
+  uses_count: number
+  modSlots: ModSlotState[]
+}
+
+export type PassiveEquipLoadout = [string | null, string | null, string | null, string | null]
+
 /** Поля карточки, участвующие в прогрессе за использование. */
 export type CardProgressSlice = Pick<CardInstance, 'global_level' | 'uses_count'>
 
@@ -77,6 +87,7 @@ export type ShopOffer =
 export type CampaignChest = {
   items: ItemInstance[]
   unboundCards: CardInstance[]
+  unboundPassives: PassiveInstance[]
 }
 
 export type HubNotice = { kind: 'skill_drop'; templateId: string }
@@ -93,6 +104,8 @@ export type Character = {
   equipment: Record<EquipmentSlot, string | null>
   items: ItemInstance[]
   cards: CardInstance[]
+  passives: PassiveInstance[]
+  passiveEquip: PassiveEquipLoadout
   battleLoadout: BattleLoadout
   iconEmoji: string
   iconAccent: IconAccentId

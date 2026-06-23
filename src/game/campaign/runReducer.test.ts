@@ -2037,7 +2037,7 @@ describe('chest and shop offers', () => {
     const card = createCardInstance('fireball', 'unbound-1')
     let s: CampaignState = {
       ...initialCampaignState(),
-      chest: { items: [], unboundCards: [card] },
+      chest: { items: [], unboundCards: [card], unboundPassives: [] },
     }
     s = applyRunAction(s, {
       type: 'BIND_CHEST_CARD',
@@ -2052,7 +2052,7 @@ describe('chest and shop offers', () => {
     const item = { id: 'i1', templateId: 'wooden_sword', itemLevel: 1, modSlots: [] }
     let s: CampaignState = {
       ...initialCampaignState(),
-      chest: { items: [item], unboundCards: [] },
+      chest: { items: [item], unboundCards: [], unboundPassives: [] },
     }
     s = applyRunAction(s, {
       type: 'MOVE_CHEST_ITEM_TO_CHARACTER',
@@ -2080,7 +2080,7 @@ describe('chest and shop offers', () => {
     let s: CampaignState = {
       ...initialCampaignState(),
       gold: 0,
-      chest: { items: [item], unboundCards: [] },
+      chest: { items: [item], unboundCards: [], unboundPassives: [] },
     }
     s = applyRunAction(s, { type: 'SELL_CHEST_ITEM', itemId: 'i1' })
     expect(s.chest.items).toHaveLength(0)
@@ -2092,7 +2092,7 @@ describe('chest and shop offers', () => {
     let s: CampaignState = {
       ...initialCampaignState(),
       gold: 0,
-      chest: { items: [], unboundCards: [card] },
+      chest: { items: [], unboundCards: [card], unboundPassives: [] },
     }
     s = applyRunAction(s, { type: 'SELL_CHEST_CARD', cardId: 'chest-fb' })
     expect(s.chest.unboundCards).toHaveLength(0)
