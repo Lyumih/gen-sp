@@ -2,9 +2,10 @@ import type { CodexCategory, CodexEntry } from '../../game/codex/registry'
 
 export type { CodexCategory }
 
-export const CODEX_CATEGORY_ORDER: CodexCategory[] = ['item', 'card', 'mod', 'enemy']
+export const CODEX_CATEGORY_ORDER: CodexCategory[] = ['class', 'item', 'card', 'mod', 'enemy']
 
 export const CODEX_CATEGORY_LABEL: Record<CodexCategory, string> = {
+  class: 'Классы',
   item: 'Предметы',
   card: 'Умения',
   mod: 'Модификаторы',
@@ -15,6 +16,7 @@ export const CODEX_CATEGORY_LABEL: Record<CodexCategory, string> = {
 export const CODEX_SHOW_ALL_DEFAULT = true
 
 export const CODEX_EMPTY_HINT: Record<CodexCategory, string> = {
+  class: 'Нанимите героя этого класса в таверне.',
   item: 'Купите или получите предмет в кампании.',
   card: 'Используйте умение в бою.',
   mod: 'Получите очки модификации за убийство врага.',

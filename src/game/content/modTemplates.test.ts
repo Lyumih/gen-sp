@@ -25,10 +25,20 @@ describe('modTemplates catalog', () => {
     }
   })
 
-  it('excludes mod-mana-save from offer pool', () => {
-    expect(MOD_OFFER_POOL).toHaveLength(SPEC_MOD_IDS.length - 1)
-    expect(MOD_OFFER_POOL.some((m) => m.id === 'mod-mana-save')).toBe(false)
-    expect(MOD_TEMPLATES['mod-mana-save']?.enabled).toBe(false)
+  it('excludes disabled phase-2 mods from offer pool', () => {
+    const disabledIds = [
+      'mod-mana-save',
+      'mod-poison-up',
+      'mod-regen-up',
+      'mod-buff-duration',
+      'mod-resurrect-hp',
+      'mod-debuff-range',
+    ]
+    expect(MOD_OFFER_POOL).toHaveLength(SPEC_MOD_IDS.length - disabledIds.length)
+    for (const id of disabledIds) {
+      expect(MOD_OFFER_POOL.some((m) => m.id === id)).toBe(false)
+      expect(MOD_TEMPLATES[id]?.enabled).toBe(false)
+    }
   })
 
   it('keeps legacy kill_reward for migration bridge', () => {

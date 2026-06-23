@@ -10,6 +10,8 @@ function tmpl(p: Partial<ItemTemplate> & Pick<ItemTemplate, 'id' | 'slot'>): Ite
     hpBonusPerItemLevel: 0,
     cardLevelBonusPerItemLevel: 0,
     label: p.id,
+    tags: [],
+    semanticEmojiId: 'sword-red',
     ...p,
   }
 }

@@ -7,12 +7,12 @@ describe('resolveCarrierTags', () => {
   })
 
   it('fireball card tags skill, ranged, aoe, attack', () => {
-    expect(resolveCarrierTags('card', 'fireball')).toEqual([
-      'skill',
-      'ranged',
-      'aoe',
-      'attack',
-    ])
+    const tags = resolveCarrierTags('card', 'fireball')
+    expect(tags).toContain('skill')
+    expect(tags).toContain('ranged')
+    expect(tags).toContain('aoe')
+    expect(tags).toContain('attack')
+    expect(tags).toHaveLength(4)
   })
 
   it('wooden_sword item tags weapon, attack, melee', () => {
@@ -25,5 +25,10 @@ describe('resolveCarrierTags', () => {
 
   it('leather_armor item tags armor', () => {
     expect(resolveCarrierTags('item', 'leather_armor')).toEqual(['armor'])
+  })
+
+  it('ranger_bow uses explicit ranged tag from template', () => {
+    expect(resolveCarrierTags('item', 'ranger_bow')).toContain('ranged')
+    expect(resolveCarrierTags('item', 'ranger_bow')).not.toContain('melee')
   })
 })

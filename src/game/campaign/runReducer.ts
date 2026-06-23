@@ -1347,14 +1347,17 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       }
       character = { ...character, items, equipment }
 
-      return {
-        ...state,
-        gold: state.gold - candidate.price,
-        characters: [...state.characters, character],
-        tavernCandidates: state.tavernCandidates.filter(
-          (c) => c.candidateId !== action.candidateId,
-        ),
-      }
+      return withCodexDiscoveries(
+        {
+          ...state,
+          gold: state.gold - candidate.price,
+          characters: [...state.characters, character],
+          tavernCandidates: state.tavernCandidates.filter(
+            (c) => c.candidateId !== action.candidateId,
+          ),
+        },
+        [codexEntryId('class', candidate.classId)],
+      )
     }
     case 'RENAME_CHARACTER': {
       if (!assertHubActionAllowed(state, 'equip')) return state
@@ -1437,7 +1440,7 @@ export function initialCampaignState(): CampaignState {
     battle: null,
     battleAttemptId: 0,
     battleAttemptSnapshot: null,
-    codexDiscovered: [],
+    codexDiscovered: [codexEntryId('class', 'warrior')],
     codexSeenEntryIds: [],
     characters: [hero],
     squad,

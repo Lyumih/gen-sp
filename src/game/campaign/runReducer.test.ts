@@ -1584,6 +1584,16 @@ describe('tavern', () => {
     }
   })
 
+  it('HIRE_TAVERN_CANDIDATE discovers class in codex', () => {
+    const state = refreshedState(200)
+    const candidate = state.tavernCandidates![0]!
+    const next = applyRunAction(state, {
+      type: 'HIRE_TAVERN_CANDIDATE',
+      candidateId: candidate.candidateId,
+    })
+    expect(next.codexDiscovered).toContain(codexEntryId('class', candidate.classId))
+  })
+
   it('rejects hire when roster is full', () => {
     let state = refreshedState(10_000)
     const characters = [getPrimaryCharacter(state)]

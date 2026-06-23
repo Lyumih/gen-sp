@@ -18,6 +18,8 @@ import { MOD_SLOT_MILESTONES } from '../config/modSlotMilestones'
 import { playerCardsByUnitFromParty } from '../battle/playerCards'
 import { playerCardsFromLoadout } from '../campaign/playerCardsFromLoadout'
 import { getPrimaryCharacter } from '../campaign/selectors'
+import { discoverCodexEntry } from '../codex/discovery'
+import { codexEntryId } from '../codex/registry'
 import { STARTER_CARDS } from '../campaign/runReducer'
 import { SCENARIOS } from '../campaign/scenarios'
 import { createCharacter } from '../character/createCharacter'
@@ -566,6 +568,16 @@ function withLegacyCardModTemplateIds(c: CampaignState): CampaignState {
   return { ...c, characters, battle, battleAttemptSnapshot }
 }
 
+function discoverClassesFromRoster(c: CampaignState): CampaignState {
+  let codexDiscovered = c.codexDiscovered
+  for (const character of c.characters) {
+    const classId = character.classId ?? 'warrior'
+    codexDiscovered = discoverCodexEntry(codexDiscovered, codexEntryId('class', classId))
+  }
+  if (codexDiscovered === c.codexDiscovered) return c
+  return { ...c, codexDiscovered }
+}
+
 function withLegacyCodexFields(c: CampaignState): CampaignState {
   const codexDiscovered = Array.isArray(c.codexDiscovered) ? c.codexDiscovered : []
   const codexSeenEntryIds = Array.isArray(c.codexSeenEntryIds) ? c.codexSeenEntryIds : []
@@ -618,6 +630,7 @@ export function normalizeLoadedCampaign(c: CampaignState): CampaignState {
   out = normalizeBattleFromLoadout(out)
   out = normalizeBattlePlayerCards(out)
   out = withLegacyCodexFields(out)
+  out = discoverClassesFromRoster(out)
   out = withLegacyCardModTemplateIds(out)
   return out
 }

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { applyRunAction, initialCampaignState } from '../campaign/runReducer'
 import { getPrimaryCharacter } from '../campaign/selectors'
+import { codexEntryId } from '../codex/discovery'
 import type { CampaignState } from '../types'
 import { SCENARIOS } from '../campaign/scenarios'
+import { testCreateCharacter } from '../stats/testFixtures'
 import { migrateFromUnknown, migrateV5CampaignToV6, normalizeLoadedCampaign } from './migrate'
 import { MOD_SLOT_MILESTONES } from '../config/modSlotMilestones'
 import { EMPTY_EQUIPMENT } from '../equipment/equipmentOrder'
@@ -162,7 +164,7 @@ describe('normalizeLoadedCampaign scenarioSlotIndex', () => {
 })
 
 describe('normalizeLoadedCampaign legacy codex and mod fields', () => {
-  it('v1 envelope without codex fields gets empty arrays after migrateFromUnknown', () => {
+  it('v1 envelope without codex fields gets warrior class discovered from roster', () => {
     const v1 = {
       version: 1,
       campaign: {
@@ -182,8 +184,23 @@ describe('normalizeLoadedCampaign legacy codex and mod fields', () => {
       },
     }
     const out = migrateFromUnknown(v1)
-    expect(out?.codexDiscovered).toEqual([])
+    expect(out?.codexDiscovered).toContain(codexEntryId('class', 'warrior'))
     expect(out?.codexSeenEntryIds).toEqual([])
+  })
+
+  it('discovers classes from roster idempotently on load', () => {
+    const init = initialCampaignState()
+    const mage = testCreateCharacter({ id: 'mage-1', name: 'Mage', classId: 'mage' })
+    const legacy = {
+      ...init,
+      codexDiscovered: [codexEntryId('class', 'warrior')],
+      characters: [...init.characters, mage],
+    }
+    const out = normalizeLoadedCampaign(legacy)
+    expect(out.codexDiscovered).toContain(codexEntryId('class', 'warrior'))
+    expect(out.codexDiscovered).toContain(codexEntryId('class', 'mage'))
+    const again = normalizeLoadedCampaign(out)
+    expect(again.codexDiscovered).toEqual(out.codexDiscovered)
   })
 
   it('campaign with modification { level: 0 } clears modSlots when L below milestone', () => {
@@ -257,7 +274,10 @@ describe('migrateV5CampaignToV6', () => {
       codexDiscovered: ['mod:kill_reward'],
       codexSeenEntryIds: ['mod:kill_reward'],
     })
-    expect(out.codexDiscovered).toEqual(['mod:mod-damage-up'])
+    expect(out.codexDiscovered).toEqual(
+      expect.arrayContaining(['mod:mod-damage-up', codexEntryId('class', 'warrior')]),
+    )
+    expect(out.codexDiscovered).toHaveLength(2)
     expect(out.codexSeenEntryIds).toEqual(['mod:mod-damage-up'])
   })
 })

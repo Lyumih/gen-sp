@@ -13,10 +13,14 @@ import {
 
 type CampaignCodexTabProps = {
   campaign: CampaignState
+  /** Test hook: override default first tab (normally `class`). */
+  initialCategory?: CodexCategory
 }
 
-export function CampaignCodexTab({ campaign }: CampaignCodexTabProps) {
-  const [activeCategory, setActiveCategory] = useState<CodexCategory>(CODEX_CATEGORY_ORDER[0]!)
+export function CampaignCodexTab({ campaign, initialCategory }: CampaignCodexTabProps) {
+  const [activeCategory, setActiveCategory] = useState<CodexCategory>(
+    initialCategory ?? CODEX_CATEGORY_ORDER[0]!,
+  )
   const [showAll, setShowAll] = useState(CODEX_SHOW_ALL_DEFAULT)
   const [searchValue, setSearchValue] = useState('')
 

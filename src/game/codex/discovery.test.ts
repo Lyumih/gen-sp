@@ -85,6 +85,13 @@ describe('codexProgress', () => {
     expect(opened).toBe(0)
     expect(total).toBe(codexEntriesByCategory('item').length)
   })
+
+  it('starter campaign discovers warrior class', () => {
+    const campaign = initialCampaignState()
+    expect(campaign.codexDiscovered).toContain(codexEntryId('class', 'warrior'))
+    const { opened } = codexProgress(campaign, 'class')
+    expect(opened).toBe(1)
+  })
 })
 
 describe('unreadCodexEntryIds', () => {

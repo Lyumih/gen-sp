@@ -1,6 +1,7 @@
 import {
   describeCardCombatStats,
 } from '../descriptions/cardText'
+import { describeClassCodex } from '../descriptions/classText'
 import { describeEnemyCodex } from '../descriptions/enemyText'
 import {
   equipmentSlotLabelRu,
@@ -8,15 +9,31 @@ import {
   itemPerLevelBonusesLines,
 } from '../descriptions/itemText'
 import { describeModCodex } from '../descriptions/modText'
+import { getCardAttackTemplate } from '../content/cardTemplates'
 import { getItemTemplate } from '../content/itemTemplates'
+import { getModTemplate } from '../content/modTemplates'
+import { tagLabelRu } from '../content/tagTaxonomy'
 import type { CardInstance } from '../types'
 import type { CodexEntry } from './registry'
+
+function formatTagSummaryLine(tags: readonly string[]): string {
+  if (tags.length === 0) return ''
+  return `Теги: ${tags.map((id) => tagLabelRu(id)).join(' · ')}`
+}
 
 export function describeCodexEntry(
   entry: CodexEntry,
   gearCardLevelBonus = 0,
 ): { label: string; summaryLines: string[]; detailLines: string[] } {
   switch (entry.category) {
+    case 'class': {
+      const d = describeClassCodex(entry.templateId)
+      return {
+        label: d.label,
+        summaryLines: d.summaryLines,
+        detailLines: [...d.summaryLines, ...d.detailLines],
+      }
+    }
     case 'item': {
       const t = getItemTemplate(entry.templateId)
       if (!t) {
@@ -26,9 +43,14 @@ export function describeCodexEntry(
           detailLines: [],
         }
       }
+      const tagLine = formatTagSummaryLine(t.tags ?? [])
       return {
         label: t.label,
-        summaryLines: [equipmentSlotLabelRu(t.slot), ...itemPerLevelBonusesLines(t)],
+        summaryLines: [
+          equipmentSlotLabelRu(t.slot),
+          ...itemPerLevelBonusesLines(t),
+          ...(tagLine ? [tagLine] : []),
+        ],
         detailLines: itemInstanceDescriptionLines(t, 1),
       }
     }
@@ -40,10 +62,12 @@ export function describeCodexEntry(
         uses_count: 0,
         modSlots: [],
       }
+      const tmpl = getCardAttackTemplate(entry.templateId)
       const d = describeCardCombatStats(card, gearCardLevelBonus)
+      const tagLine = tmpl ? formatTagSummaryLine(tmpl.tags) : ''
       return {
         label: d.displayLabel,
-        summaryLines: d.lines.slice(0, 2),
+        summaryLines: [...d.lines.slice(0, 2), ...(tagLine ? [tagLine] : [])],
         detailLines: d.lines,
       }
     }
@@ -57,9 +81,11 @@ export function describeCodexEntry(
     }
     case 'mod': {
       const d = describeModCodex(entry.templateId)
+      const tmpl = getModTemplate(entry.templateId)
+      const tagLine = tmpl ? formatTagSummaryLine(tmpl.tags) : ''
       return {
         label: d.label,
-        summaryLines: d.lines.slice(0, 2),
+        summaryLines: [...d.lines.slice(0, 2), ...(tagLine ? [tagLine] : [])],
         detailLines: d.lines,
       }
     }

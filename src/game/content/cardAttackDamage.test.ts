@@ -10,6 +10,8 @@ describe('computeCardAttackDamage', () => {
       maxRange: 1,
       damageToken: '40%%',
       fallbackDamage: 5,
+      tags: ['skill', 'attack', 'melee'],
+      semanticEmojiId: 'sword-red',
     }
     expect(computeCardAttackDamage(t, 100)).toBe(80)
   })
@@ -20,6 +22,8 @@ describe('computeCardAttackDamage', () => {
       kind: 'melee',
       maxRange: 1,
       fallbackDamage: 7,
+      tags: ['skill', 'attack', 'melee'],
+      semanticEmojiId: 'sword-red',
     }
     expect(computeCardAttackDamage(t, 50)).toBe(7)
   })
