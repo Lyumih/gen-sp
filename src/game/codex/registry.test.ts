@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { CHARACTER_CLASS_IDS } from '../content/characterClasses'
 import { ITEM_TEMPLATES } from '../content/itemTemplates'
 import { CARD_ATTACK_TEMPLATES } from '../content/cardTemplates'
-import { ENEMY_TEMPLATES } from '../content/enemyTemplates'
+import { ENEMY_ARCHETYPE_IDS } from '../content/enemyArchetypes'
 import { MOD_TEMPLATES } from '../content/modTemplates'
 import { PASSIVE_TEMPLATES } from '../content/passiveTemplates'
 import { allCodexEntries, codexEntryId, codexEntriesByCategory } from './registry'
@@ -48,6 +48,13 @@ describe('codex registry', () => {
     expect(enemyIdx).toBeGreaterThan(passiveIdx)
   })
 
+  it('includes 27 enemy archetype entries', () => {
+    const enemies = codexEntriesByCategory('enemy')
+    expect(enemies).toHaveLength(27)
+    expect(enemies).toHaveLength(ENEMY_ARCHETYPE_IDS.length)
+    expect(new Set(enemies.map((e) => e.id)).size).toBe(enemies.length)
+  })
+
   it('includes all six categories', () => {
     const all = allCodexEntries()
     expect(all.some((e) => e.category === 'class')).toBe(true)
@@ -59,7 +66,7 @@ describe('codex registry', () => {
         Object.keys(ITEM_TEMPLATES).length +
         Object.keys(CARD_ATTACK_TEMPLATES).length +
         Object.keys(PASSIVE_TEMPLATES).length +
-        Object.keys(ENEMY_TEMPLATES).length +
+        ENEMY_ARCHETYPE_IDS.length +
         Object.keys(MOD_TEMPLATES).length,
     )
   })

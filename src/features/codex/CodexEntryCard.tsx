@@ -1,5 +1,6 @@
 import { Card, Collapse, Space, Tag, Typography } from 'antd'
 import { getCharacterClass } from '../../game/content/characterClasses'
+import { getEnemyArchetype } from '../../game/content/enemyArchetypes'
 import { tagGroup, tagLabelRu } from '../../game/content/tagTaxonomy'
 import { describeCodexEntry } from '../../game/codex/codexText'
 import type { CodexEntry } from '../../game/codex/registry'
@@ -19,6 +20,8 @@ export function CodexEntryCard({
   showAll,
 }: CodexEntryCardProps) {
   const details = describeCodexEntry(entry)
+  const isBossEnemy =
+    entry.category === 'enemy' && getEnemyArchetype(entry.templateId)?.isBoss === true
   const classTags =
     entry.category === 'class'
       ? (getCharacterClass(entry.templateId)?.tags ?? [])
@@ -37,6 +40,7 @@ export function CodexEntryCard({
             {details.label}
           </Typography.Text>
           {unread ? <Tag color="gold">Новое</Tag> : null}
+          {isBossEnemy ? <Tag color="purple">★ Босс</Tag> : null}
           {showAll && !discovered ? <Tag>не открыто</Tag> : null}
         </Space>
 

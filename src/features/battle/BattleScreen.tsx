@@ -170,6 +170,7 @@ function BattleUnitCell({
       effectiveStats={effective}
       hp={unit.hp}
       maxHp={unit.maxHp}
+      raceId={unit.raceId}
     >
       {button}
     </BattleUnitTooltip>

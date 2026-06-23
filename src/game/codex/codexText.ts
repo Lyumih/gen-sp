@@ -102,8 +102,8 @@ export function describeCodexEntry(
       const d = describeEnemyCodex(entry.templateId, 1)
       return {
         label: d.label,
-        summaryLines: d.lines.slice(-1),
-        detailLines: d.lines,
+        summaryLines: d.summaryLines,
+        detailLines: d.detailLines,
       }
     }
     case 'mod': {

@@ -1,6 +1,6 @@
 import { CHARACTER_CLASSES } from '../content/characterClasses'
 import { CARD_ATTACK_TEMPLATES } from '../content/cardTemplates'
-import { ENEMY_TEMPLATES } from '../content/enemyTemplates'
+import { ENEMY_ARCHETYPE_IDS, getEnemyArchetype } from '../content/enemyArchetypes'
 import { ITEM_TEMPLATES } from '../content/itemTemplates'
 import { MOD_TEMPLATES } from '../content/modTemplates'
 import { PASSIVE_TEMPLATES } from '../content/passiveTemplates'
@@ -48,9 +48,10 @@ const ALL_CODEX_ENTRIES: readonly CodexEntry[] = [
   ...Object.entries(PASSIVE_TEMPLATES).map(([templateId, template]) =>
     entryFromTemplate('passive', templateId, template),
   ),
-  ...Object.entries(ENEMY_TEMPLATES).map(([templateId, template]) =>
-    entryFromTemplate('enemy', templateId, template),
-  ),
+  ...ENEMY_ARCHETYPE_IDS.map((templateId) => {
+    const archetype = getEnemyArchetype(templateId)!
+    return entryFromTemplate('enemy', templateId, archetype)
+  }),
   ...Object.entries(MOD_TEMPLATES).map(([templateId, template]) =>
     entryFromTemplate('mod', templateId, template),
   ),
