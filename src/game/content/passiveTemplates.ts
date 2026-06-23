@@ -1,4 +1,5 @@
 import type { ClassId, StatId } from '../config/baseStats'
+import { ENEMY_PASSIVE_TEMPLATES } from './enemyPassiveTemplates'
 import type { ModOp } from './modTemplates'
 
 export type PassiveTrigger =
@@ -450,5 +451,5 @@ export const PASSIVE_TEMPLATES: Readonly<Record<string, PassiveTemplate>> = PASS
 export const PASSIVE_TEMPLATE_IDS: readonly string[] = Object.keys(PASSIVE_ENTRIES)
 
 export function getPassiveTemplate(id: string): PassiveTemplate | undefined {
-  return PASSIVE_TEMPLATES[id]
+  return PASSIVE_TEMPLATES[id] ?? ENEMY_PASSIVE_TEMPLATES[id]
 }
