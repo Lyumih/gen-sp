@@ -1,5 +1,5 @@
 import { PlayCircleOutlined } from '@ant-design/icons'
-import { Button, Flex, Space, Tooltip, Typography } from 'antd'
+import { Button, Space, Tooltip, Typography } from 'antd'
 import type { CampaignState } from '../../game/types'
 import { UI_DNA, UI_GOLD, UI_WORLD_POWER } from '../../game/ui/labels'
 import type { CampaignHubTab } from './campaignHubShared'
@@ -64,24 +64,24 @@ export function GameHeader({
 
   return (
     <header className="game-header">
-      <Flex align="center" gap="middle" style={{ width: '100%' }}>
-        <Flex flex={1} align="center" style={{ minWidth: 0 }}>
-          <Typography.Text strong className="game-header__brand">
-            {UI_DNA} Gen
-          </Typography.Text>
-        </Flex>
+      <div className="game-header__inner">
+        <div className="game-header__brand">
+          <Typography.Text strong>{UI_DNA} Gen</Typography.Text>
+        </div>
 
-        <CampaignHubNav
-          activeTab={activeTab}
-          onTabChange={onTabChange}
-          unreadCodexCount={unreadCodexCount}
-          codexDisabled={codexDisabled}
-          shopDisabled={shopDisabled}
-          tavernDisabled={tavernDisabled}
-          tabsDisabled={tabsDisabled}
-        />
+        <div className="game-header__nav">
+          <CampaignHubNav
+            activeTab={activeTab}
+            onTabChange={onTabChange}
+            unreadCodexCount={unreadCodexCount}
+            codexDisabled={codexDisabled}
+            shopDisabled={shopDisabled}
+            tavernDisabled={tavernDisabled}
+            tabsDisabled={tabsDisabled}
+          />
+        </div>
 
-        <Flex flex={1} align="center" justify="flex-end" style={{ minWidth: 0 }}>
+        <div className="game-header__actions">
           <Space size="middle" align="center" wrap={false}>
             <HeaderResource
               emoji={UI_GOLD}
@@ -105,8 +105,8 @@ export function GameHeader({
               </Button>
             </Tooltip>
           </Space>
-        </Flex>
-      </Flex>
+        </div>
+      </div>
     </header>
   )
 }
