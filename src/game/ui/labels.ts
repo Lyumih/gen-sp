@@ -25,3 +25,9 @@ export const UI_INITIATIVE = '⚡'
 export const UI_CRIT = '🎯'
 
 export const UI_RATING = '★'
+
+export const UI_GOLD = '🪙'
+
+export const UI_WORLD_POWER = '⚡'
+
+export const UI_DNA = '🧬'
