@@ -33,7 +33,7 @@ import {
   type PassiveFireInput,
 } from '../passives/passiveEngine'
 import type { PassiveTrigger } from '../content/passiveTemplates'
-import { applyRaceDamageModifiers, resolveCardDamageTags } from './enemyResists'
+import { applyRaceDamageModifiers, applyElementalResistModifiers, resolveCardDamageTags } from './enemyResists'
 import { updateActorEnemyCards } from './enemyCards'
 import { resolveEnemySkillAmount, resolveEnemySkillEffectPower } from './enemySkillResolve'
 import {
@@ -586,10 +586,16 @@ function applySingleStrike(
   const damageTags = params.fromCard
     ? resolveCardDamageTags(params.fromCard.templateId)
     : [params.attackKind]
-  damage = applyRaceDamageModifiers(damage, damageTags, target.raceId)
 
   const currentTarget = getUnit(next, params.targetId)
   if (!isAliveUnit(currentTarget)) return { state: next, killed: null }
+
+  damage = applyRaceDamageModifiers(damage, damageTags, currentTarget.raceId)
+  damage = applyElementalResistModifiers(
+    damage,
+    params.fromCard?.templateId,
+    currentTarget,
+  )
 
   const negated = tryNegateSpellDamage(
     damage,

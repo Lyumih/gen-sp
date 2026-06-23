@@ -1,5 +1,6 @@
 import type { StatId } from '../config/baseStats'
 import type { Unit } from '../types'
+import { rotateShiftingResistTag } from './elementalResist'
 
 export type UnitStatusKind =
   | 'attack_up'
@@ -17,6 +18,7 @@ export type UnitStatusKind =
   | 'silence_dark'
   | 'decay_aura'
   | 'stealth'
+  | 'elemental_resist'
 
 export type UnitStatusEffect = {
   id: string
@@ -115,6 +117,19 @@ export function tickUnitStatusesAtTurnStart(unit: Unit): {
   for (const s of unitStatuses(unit)) {
     if (s.kind === 'dot') dotDamage += s.magnitude
     if (s.kind === 'regen') regenHeal += s.magnitude
+    if (s.kind === 'elemental_resist') {
+      const remaining = s.remainingTurns - 1
+      if (remaining <= 0) {
+        next.push({
+          ...s,
+          sourceTemplateId: rotateShiftingResistTag(s.sourceTemplateId),
+          remainingTurns: 3,
+        })
+      } else {
+        next.push({ ...s, remainingTurns: remaining })
+      }
+      continue
+    }
     const remaining = s.remainingTurns - 1
     if (remaining > 0) next.push({ ...s, remainingTurns: remaining })
   }

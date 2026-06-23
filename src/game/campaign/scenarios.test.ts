@@ -207,4 +207,55 @@ describe('battleStateFromScenario', () => {
     ])
     expect(battle.enemyCardsByUnitId?.ravager?.every((c) => c.cooldownRemaining === 0)).toBe(true)
   })
+
+  it('resolves chaotic aberration skills and variance from spawn seed', () => {
+    const chaoticScenario: BattleScenario = {
+      ...duoScenario,
+      enemies: [
+        {
+          id: 'mutant',
+          x: 5,
+          y: 2,
+          baseHpStat: 11,
+          unitLevel: 1,
+          archetypeId: 'enemy_chaos_aberration',
+        },
+      ],
+    }
+    const snap = snapshotWithParty([member({ characterId: HERO_ID })])
+    const battle = battleStateFromScenario(chaoticScenario, snap, 42)
+
+    const enemy = battle.units.find((u) => u.id === 'mutant')
+    expect(enemy?.archetypeId).toBe('enemy_chaos_aberration')
+    expect(battle.enemyCardsByUnitId?.mutant).toHaveLength(2)
+    expect(battle.enemyCardsByUnitId?.mutant?.map((c) => c.templateId)).toEqual([
+      'shadow_bolt',
+      'life_drain',
+    ])
+    expect(enemy?.baseStats?.health).not.toBe(11)
+  })
+
+  it('shifting shaman spawns with rotating elemental resist status', () => {
+    const shamanScenario: BattleScenario = {
+      ...duoScenario,
+      enemies: [
+        {
+          id: 'shaman',
+          x: 5,
+          y: 2,
+          baseHpStat: 11,
+          unitLevel: 1,
+          archetypeId: 'enemy_shifting_shaman',
+        },
+      ],
+    }
+    const snap = snapshotWithParty([member({ characterId: HERO_ID })])
+    const battle = battleStateFromScenario(shamanScenario, snap, 7)
+    const enemy = battle.units.find((u) => u.id === 'shaman')
+    expect(enemy?.statusEffects?.[0]).toMatchObject({
+      kind: 'elemental_resist',
+      remainingTurns: 3,
+      sourceTemplateId: 'fire',
+    })
+  })
 })

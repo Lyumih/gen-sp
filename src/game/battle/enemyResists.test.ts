@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { LEGACY_HERO_CHARACTER_ID } from "../character/constants";
 import type { BattleState } from "../types";
 import { applyAction } from "./reducer";
-import { applyRaceDamageModifiers } from "./enemyResists";
+import { applyRaceDamageModifiers, applyElementalResistModifiers } from "./enemyResists";
 
 const HERO_ID = LEGACY_HERO_CHARACTER_ID;
 
@@ -19,6 +19,31 @@ describe("applyRaceDamageModifiers", () => {
 
   it("unknown race leaves damage unchanged", () => {
     expect(applyRaceDamageModifiers(100, ["holy"], undefined)).toBe(100);
+  });
+});
+
+describe("applyElementalResistModifiers", () => {
+  it("reduces fireball damage when fire ward is active", () => {
+    const shaman = {
+      id: "shaman",
+      side: "enemy" as const,
+      x: 0,
+      y: 0,
+      hp: 20,
+      maxHp: 20,
+      unitLevel: 1,
+      statusEffects: [
+        {
+          id: "ward",
+          kind: "elemental_resist" as const,
+          remainingTurns: 3,
+          magnitude: 30,
+          sourceTemplateId: "fire",
+        },
+      ],
+    };
+    expect(applyElementalResistModifiers(100, "fireball", shaman)).toBe(70);
+    expect(applyElementalResistModifiers(100, "frost_nova", shaman)).toBe(100);
   });
 });
 

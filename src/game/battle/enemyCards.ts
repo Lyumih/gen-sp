@@ -1,4 +1,6 @@
 import type { EnemyArchetype } from '../content/enemyArchetypes'
+import type { ChaoticArchetypeResolution } from './enemySpawn'
+import { mergeArchetypeWithChaoticResolution } from './enemySpawn'
 import { cloneModSlots } from '../memento/modSlotsClone'
 import type { BattlePlayerCard, BattleState, PassiveInstance } from '../types'
 
@@ -54,10 +56,14 @@ export function getActorEnemyCards(
 export function enemyCardsByUnitFromScenario(
   enemies: readonly { id: string; archetypeId: string }[],
   getArchetype: (id: string) => EnemyArchetype | undefined,
+  chaoticByUnitId?: Readonly<Record<string, ChaoticArchetypeResolution>>,
 ): Record<string, BattlePlayerCard[]> {
   const out: Record<string, BattlePlayerCard[]> = {}
   for (const enemy of enemies) {
-    const archetype = getArchetype(enemy.archetypeId)
+    const base = getArchetype(enemy.archetypeId)
+    const chaotic = chaoticByUnitId?.[enemy.id]
+    const archetype =
+      base && chaotic ? mergeArchetypeWithChaoticResolution(base, chaotic) : base
     if (!archetype || archetype.skillPresets.length === 0) continue
     out[enemy.id] = enemyCardsFromArchetype(archetype, enemy.id)
   }
@@ -67,10 +73,14 @@ export function enemyCardsByUnitFromScenario(
 export function enemyPassivesByUnitFromScenario(
   enemies: readonly { id: string; archetypeId: string }[],
   getArchetype: (id: string) => EnemyArchetype | undefined,
+  chaoticByUnitId?: Readonly<Record<string, ChaoticArchetypeResolution>>,
 ): Record<string, PassiveInstance[]> {
   const out: Record<string, PassiveInstance[]> = {}
   for (const enemy of enemies) {
-    const archetype = getArchetype(enemy.archetypeId)
+    const base = getArchetype(enemy.archetypeId)
+    const chaotic = chaoticByUnitId?.[enemy.id]
+    const archetype =
+      base && chaotic ? mergeArchetypeWithChaoticResolution(base, chaotic) : base
     if (!archetype || archetype.passivePresets.length === 0) continue
     out[enemy.id] = enemyPassivesFromArchetype(archetype, enemy.id)
   }

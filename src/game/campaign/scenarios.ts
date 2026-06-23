@@ -14,6 +14,11 @@ import { playerGearModSlotsByUnitFromParty } from './playerGearFromParty'
 import { getItemTemplate } from '../content/itemTemplates'
 import { computeUnitStat } from '../balance'
 import { assignPlayerSpawnPositions, buildSpawnSeed } from '../battle/spawnPlacement'
+import {
+  makeChaoticSpawnRng,
+  resolveChaoticArchetype,
+  type ChaoticArchetypeResolution,
+} from '../battle/enemySpawn'
 import { resolveEnemyUnitDisplay } from '../content/enemyDisplay'
 import type { BattleAttemptSnapshot, BattleState, IconAccentId, Unit } from '../types'
 import { cellKey } from '../battle/grid'
@@ -167,9 +172,20 @@ function enemyBaseStats(archetypeId: string, fallbackHp: number): BaseStats {
 function makeEnemies(
   scenario: BattleScenario,
   snapshot: BattleAttemptSnapshot,
-): Unit[] {
-  return scenario.enemies.map((e) => {
-    const baseStats = enemyBaseStats(e.archetypeId, e.baseHpStat)
+  spawnSeed?: number,
+): { units: Unit[]; chaoticByUnitId: Record<string, ChaoticArchetypeResolution> } {
+  const seed = spawnSeed ?? buildSpawnSeed(scenario.id, snapshot.scenarioSlotIndex)
+  const chaoticByUnitId: Record<string, ChaoticArchetypeResolution> = {}
+
+  const units = scenario.enemies.map((e) => {
+    const archetype = getEnemyArchetype(e.archetypeId)
+    const chaotic =
+      archetype?.isChaotic === true
+        ? resolveChaoticArchetype(archetype, makeChaoticSpawnRng(seed, e.id))
+        : null
+    if (chaotic) chaoticByUnitId[e.id] = chaotic
+
+    const baseStats = chaotic?.baseStats ?? enemyBaseStats(e.archetypeId, e.baseHpStat)
     const maxHp = computeUnitStat({
       baseStat: baseStats.health,
       unitLevel: e.unitLevel,
@@ -181,7 +197,6 @@ function makeEnemies(
       e.unitLevel,
       snapshot.worldPower,
     )
-    const archetype = getEnemyArchetype(e.archetypeId)
     const display = resolveEnemyUnitDisplay(e)
     return {
       id: e.id,
@@ -192,14 +207,17 @@ function makeEnemies(
       maxHp,
       unitLevel: e.unitLevel,
       archetypeId: e.archetypeId,
-      raceId: archetype?.raceId,
+      raceId: chaotic?.raceId ?? archetype?.raceId,
       initiativeBase,
       baseStats,
       displayName: display.name,
       iconEmoji: display.emoji,
       iconAccent: display.accent,
+      ...(chaotic?.statusEffects ? { statusEffects: chaotic.statusEffects } : {}),
     }
   })
+
+  return { units, chaoticByUnitId }
 }
 
 /**
@@ -215,12 +233,20 @@ export function battleStateFromScenario(
     scenario,
     spawnSeed,
   )
-  const enemies = makeEnemies(scenario, snapshot)
+  const { units: enemies, chaoticByUnitId } = makeEnemies(scenario, snapshot, spawnSeed)
   const units = [...players, ...enemies]
   const phase = players.length === 0 ? 'defeat' : 'ongoing'
   const playerPassives = passivesByUnitFromParty(snapshot.party)
-  const enemyPassives = enemyPassivesByUnitFromScenario(scenario.enemies, getEnemyArchetype)
-  const enemyCards = enemyCardsByUnitFromScenario(scenario.enemies, getEnemyArchetype)
+  const enemyPassives = enemyPassivesByUnitFromScenario(
+    scenario.enemies,
+    getEnemyArchetype,
+    chaoticByUnitId,
+  )
+  const enemyCards = enemyCardsByUnitFromScenario(
+    scenario.enemies,
+    getEnemyArchetype,
+    chaoticByUnitId,
+  )
   const passivesByUnitId =
     Object.keys({ ...playerPassives, ...enemyPassives }).length > 0
       ? { ...playerPassives, ...enemyPassives }
