@@ -10,6 +10,10 @@ import {
 
 export { codexEntryId }
 
+export function affinityCodexEntryId(specializationId: string): string {
+  return `affinity:${specializationId}`
+}
+
 export function discoverCodexEntry(
   discovered: readonly string[],
   entryId: string,

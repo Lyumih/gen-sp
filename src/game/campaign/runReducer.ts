@@ -10,6 +10,7 @@ import {
 } from './cardCombat'
 import {
   codexEntryId,
+  affinityCodexEntryId,
   discoverCodexEntry,
   markCodexSeen,
   mergeBattleCodexDiscoveries,
@@ -32,6 +33,7 @@ import { milestoneThreshold, rollbackCarrierLevel } from '../memento/modSlots'
 import { resolveCarrierTags } from '../mods/carrierTags'
 import { MOD_OFFER_POOL, getModTemplate } from '../content/modTemplates'
 import { getPassiveModTemplate, PASSIVE_MOD_OFFER_POOL } from '../content/passiveModTemplates'
+import { pickRandomSpecializationId } from '../specialization/pickRandom'
 import { characterHasEffect, partyMetaBonusFraction, partyMetaMultiplier, rollWithLuckyRetry, softRollbackCarrierLevel } from '../specialization/resolve'
 import { rollMementoLevelUp } from '../memento/rollMementoLevelUp'
 import {
@@ -1344,6 +1346,9 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         seededRng(state.characters.length * 31 + candidate.classId.length + 7),
       )
       const passive = createPassiveInstance(passiveTemplateId)
+      const specializationId = pickRandomSpecializationId(
+        seededRng(state.characters.length * 37 + candidate.classId.length + 13),
+      )
       character = {
         ...character,
         items,
@@ -1352,7 +1357,11 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         passives: [passive],
         passiveEquip: [passive.id, null, null, null, null],
         battleLoadout: [skillCard.id, null, null, null],
+        specializationId,
       }
+
+      const pendingHubNotice =
+        state.pendingHubNotice ?? { kind: 'specialization_reveal' as const, specializationId }
 
       return withCodexDiscoveries(
         {
@@ -1362,11 +1371,13 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
           tavernCandidates: state.tavernCandidates.filter(
             (c) => c.candidateId !== action.candidateId,
           ),
+          pendingHubNotice,
         },
         [
           codexEntryId('class', candidate.classId),
           codexEntryId('card', skillTemplateId),
           `passive:${passiveTemplateId}`,
+          affinityCodexEntryId(specializationId),
         ],
       )
     }

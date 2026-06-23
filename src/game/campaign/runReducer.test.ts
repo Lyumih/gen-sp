@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { canMeleeAttack, canRangedAttack } from '../battle/combat'
 import { wallSet } from '../battle/grid'
 import { reachableMoveCells } from '../battle/rangeOverlay'
-import { codexEntryId } from '../codex/discovery'
+import { affinityCodexEntryId, codexEntryId } from '../codex/discovery'
 import type {
   BattleAction,
   BattleAttemptSnapshot,
@@ -1757,6 +1757,24 @@ describe('tavern', () => {
       candidateId: candidate.candidateId,
     })
     expect(next.codexDiscovered).toContain(codexEntryId('class', candidate.classId))
+  })
+
+  it('HIRE_TAVERN_CANDIDATE assigns random specializationId and notice', () => {
+    const state = refreshedState(200)
+    const candidate = state.tavernCandidates![0]!
+    const next = applyRunAction(state, {
+      type: 'HIRE_TAVERN_CANDIDATE',
+      candidateId: candidate.candidateId,
+    })
+    const hired = next.characters.find((c) => c.id !== HERO_ID)!
+    expect(hired.specializationId).toBeTruthy()
+    expect(next.pendingHubNotice).toEqual({
+      kind: 'specialization_reveal',
+      specializationId: hired.specializationId,
+    })
+    expect(next.codexDiscovered).toContain(
+      affinityCodexEntryId(hired.specializationId!),
+    )
   })
 
   it('rejects hire when roster is full', () => {
