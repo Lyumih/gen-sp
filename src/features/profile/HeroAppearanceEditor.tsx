@@ -31,7 +31,7 @@ export function HeroAppearanceEditor({ hero, expeditionLocked }: HeroAppearanceE
     return (
       <>
         <Divider plain>Облик</Divider>
-        <Alert type="info" showIcon message="Недоступно во время expedition" />
+        <Alert type="info" showIcon message="Недоступно во время экспедиции" />
       </>
     )
   }

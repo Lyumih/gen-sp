@@ -10,11 +10,11 @@ describe('renderHelpInline', () => {
 
   it('renders bold and italic markup', () => {
     const html = renderToStaticMarkup(
-      createElement('span', null, renderHelpInline('система **Memento Mori** и *expedition*')),
+      createElement('span', null, renderHelpInline('система **Memento Mori** и *экспедиция*')),
     )
     expect(html).toContain('<strong>')
     expect(html).toContain('Memento Mori')
     expect(html).toContain('<i>')
-    expect(html).toContain('expedition')
+    expect(html).toContain('экспедиция')
   })
 })

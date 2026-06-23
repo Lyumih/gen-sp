@@ -32,7 +32,7 @@ export function SquadPicker({
 
   return (
     <Space orientation="vertical" size="small" style={{ width: '100%' }}>
-      <Typography.Text strong>Отряд expedition ({requiredCount} бойцов)</Typography.Text>
+      <Typography.Text strong>Отряд экспедиции ({requiredCount} бойцов)</Typography.Text>
 
       {rosterTooSmall ? (
         <Typography.Text type="danger">

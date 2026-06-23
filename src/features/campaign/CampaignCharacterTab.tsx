@@ -99,7 +99,7 @@ export function CampaignCharacterTab({
   const squadLocked = expeditionActive
   const modsDisabled = inBattle || expeditionActive
   const modsDisabledTooltip = expeditionActive
-    ? 'Недоступно во время expedition'
+    ? 'Недоступно во время экспедиции'
     : inBattle
       ? 'Доступно после боя'
       : undefined

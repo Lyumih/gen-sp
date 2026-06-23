@@ -60,7 +60,7 @@ export function CampaignTavernTab({
       </Typography.Title>
 
       {expeditionLocked ? (
-        <Alert type="warning" showIcon message="Таверна недоступна во время expedition" />
+        <Alert type="warning" showIcon message="Таверна недоступна во время экспедиции" />
       ) : null}
 
       {rosterFull ? (

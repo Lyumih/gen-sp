@@ -688,7 +688,7 @@ export function CardsInventoryView({
   const lockTooltip = inBattle
     ? 'Доступно после боя'
     : inventoryLocked
-      ? 'Недоступно во время expedition'
+      ? 'Недоступно во время экспедиции'
       : undefined
 
   if (locked && lockTooltip) {
