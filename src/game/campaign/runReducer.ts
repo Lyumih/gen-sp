@@ -331,7 +331,7 @@ function startExpeditionBattle(
   expedition: Expedition,
 ): CampaignState {
   const chain = getExpeditionChainById(expedition.scenarioChainId)
-  if (!chain) return state
+  if (!chain || chain.kind !== 'static') return state
 
   const scenarioId = chain.battleScenarioIds[expedition.battleIndex]
   if (!scenarioId) return state

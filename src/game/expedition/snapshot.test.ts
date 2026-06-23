@@ -6,7 +6,12 @@ import { buildExpeditionSnapshot } from './snapshot'
 
 const fourMemberChain: ExpeditionChainConfig = {
   id: 'test-four',
+  kind: 'static',
+  label: 'Test four',
+  description: 'Test chain',
+  paramPreview: '4 · 2',
   partySize: 4,
+  partyMin: 1,
   battleCount: 2,
   battleScenarioIds: ['tutorial', 'two-front'],
 }
