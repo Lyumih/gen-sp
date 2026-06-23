@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { CampaignHubTab } from '../features/campaign/campaignHubShared'
 import type { BattleAction, CampaignState } from '../game/types'
 import {
   applyRunAction,
@@ -10,7 +11,9 @@ import { STORAGE_KEY } from '../game/persistence/schema'
 
 export type GameStoreState = {
   campaign: CampaignState
+  hubActiveTab: CampaignHubTab
   autoBattleEnabled: boolean
+  setHubActiveTab: (tab: CampaignHubTab) => void
   setAutoBattleEnabled: (enabled: boolean) => void
   dispatchRun: (action: RunAction) => void
   dispatchBattle: (action: BattleAction) => void
@@ -30,7 +33,9 @@ function readInitialCampaign(): CampaignState {
 
 export const useGameStore = create<GameStoreState>((set, get) => ({
   campaign: readInitialCampaign(),
+  hubActiveTab: 'character',
   autoBattleEnabled: false,
+  setHubActiveTab: (tab) => set({ hubActiveTab: tab }),
   setAutoBattleEnabled: (enabled) => set({ autoBattleEnabled: enabled }),
   dispatchRun: (action) => {
     set((s) => ({ campaign: applyRunAction(s.campaign, action) }))

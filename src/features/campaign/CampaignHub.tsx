@@ -6,7 +6,7 @@ import { unreadCodexEntryIds } from '../../game/codex/discovery'
 import { getCardDisplayLabel } from '../../game/descriptions/cardText'
 import { getPassiveTemplate } from '../../game/content/passiveTemplates'
 import { getSpecializationTemplate } from '../../game/specialization/specializationTemplates'
-import { findFirstEmptySquadSlotIndex, findSquadSlotIndex } from '../../game/character/selectors'
+import { findFirstEmptySquadSlotIndex, findSquadSlotIndex, getCharacter } from '../../game/character/selectors'
 import type { EquipmentSlot } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
 import { CampaignBattleTab } from './CampaignBattleTab'
@@ -21,11 +21,12 @@ import { CampaignShopTab } from './CampaignShopTab'
 import { CampaignTavernTab } from './CampaignTavernTab'
 
 export function CampaignHub() {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const campaign = useGameStore((s) => s.campaign)
   const dispatchRun = useGameStore((s) => s.dispatchRun)
+  const activeTab = useGameStore((s) => s.hubActiveTab)
+  const setHubActiveTab = useGameStore((s) => s.setHubActiveTab)
   const [replaySlot, setReplaySlot] = useState(0)
-  const [activeTab, setActiveTab] = useState<CampaignHubTab>('shop')
   const done = campaign.scenarioIndex >= SCENARIOS.length
   const scenario = SCENARIOS[campaign.scenarioIndex]
   const inBattle = campaign.battle !== null
@@ -57,7 +58,7 @@ export function CampaignHub() {
     if (tab === 'codex') {
       dispatchRun({ type: 'MARK_CODEX_SEEN' })
     }
-    setActiveTab(tab)
+    setHubActiveTab(tab)
   }
 
   const refreshShop = (free?: boolean) => {
@@ -205,6 +206,23 @@ export function CampaignHub() {
     dispatchRun({ type: 'SET_SQUAD_SLOT', slotIndex, characterId: null })
   }
 
+  const releaseCharacter = (characterId: string) => {
+    const character = getCharacter(campaign, characterId)
+    if (!character) return
+    modal.confirm({
+      title: `Отпустить ${character.name}?`,
+      content:
+        'Все умения (карты и пассивки) будут удалены безвозвратно. Предметы перейдут в сундук.',
+      okText: 'Отпустить',
+      okButtonProps: { danger: true },
+      cancelText: 'Отмена',
+      onOk: () => {
+        dispatchRun({ type: 'RELEASE_CHARACTER', characterId })
+        message.success(`${character.name} отпущен`)
+      },
+    })
+  }
+
   return (
     <Card
       title={
@@ -273,6 +291,7 @@ export function CampaignHub() {
             onSwapSquadSlots={swapSquadSlots}
             onAssignToSquad={assignToSquad}
             onRemoveFromSquad={removeFromSquad}
+            onReleaseCharacter={releaseCharacter}
             onSetPassiveEquip={setPassiveEquip}
             onPickModOffer={pickModOffer}
             onRemoveMod={removeMod}

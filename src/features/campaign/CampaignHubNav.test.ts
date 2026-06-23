@@ -71,10 +71,10 @@ describe('CampaignHubNav', () => {
     expect(disabledCount).toBeGreaterThanOrEqual(2)
   })
 
-  it('renders shop tab first in tab order', () => {
+  it('renders character tab first in tab order', () => {
     const html = renderToStaticMarkup(
       createElement(CampaignHubNav, {
-        activeTab: 'shop',
+        activeTab: 'character',
         onTabChange: () => {},
         unreadCodexCount: 0,
         codexDisabled: false,
@@ -85,8 +85,8 @@ describe('CampaignHubNav', () => {
 
     const shopPos = html.indexOf('Магазин')
     const characterPos = html.indexOf('Персонаж')
-    expect(shopPos).toBeGreaterThanOrEqual(0)
-    expect(characterPos).toBeGreaterThan(shopPos)
+    expect(characterPos).toBeGreaterThanOrEqual(0)
+    expect(shopPos).toBeGreaterThan(characterPos)
   })
 
   it('renders help tab label and icon', () => {

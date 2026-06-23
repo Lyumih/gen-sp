@@ -39,6 +39,7 @@ type CampaignCharacterTabProps = {
   onSwapSquadSlots: (from: number, to: number) => void
   onAssignToSquad: (characterId: string) => void
   onRemoveFromSquad: (characterId: string) => void
+  onReleaseCharacter: (characterId: string) => void
   onPickModOffer: (
     characterId: string,
     carrierKind: 'card' | 'item' | 'passive',
@@ -79,6 +80,7 @@ export function CampaignCharacterTab({
   onSwapSquadSlots,
   onAssignToSquad,
   onRemoveFromSquad,
+  onReleaseCharacter,
   onPickModOffer,
   onRemoveMod,
   onInvalidSlot,
@@ -102,6 +104,8 @@ export function CampaignCharacterTab({
       ? 'Доступно после боя'
       : undefined
   const transferDisabled = inBattle || squadLocked
+  const canReleaseCharacter =
+    !inBattle && !squadLocked && campaign.characters.length > 1
   const selectedCharacter = getCharacter(campaign, selectedCharacterId) ?? getActiveCharacter(campaign)
   const appearanceCharacter =
     appearanceCharacterId !== null
@@ -163,6 +167,8 @@ export function CampaignCharacterTab({
               onSelectCharacter={setSelectedCharacterId}
               onAssignToSquad={onAssignToSquad}
               onRemoveFromSquad={onRemoveFromSquad}
+              onReleaseCharacter={onReleaseCharacter}
+              canReleaseCharacter={canReleaseCharacter}
               onEditAppearance={setAppearanceCharacterId}
             />
             <HeroProfileContent

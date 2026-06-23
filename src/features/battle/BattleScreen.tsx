@@ -4,6 +4,7 @@ import {
   CheckCircleOutlined,
   CreditCardOutlined,
   DragOutlined,
+  FlagOutlined,
   IdcardOutlined,
   LogoutOutlined,
   RedoOutlined,
@@ -182,6 +183,7 @@ export function BattleScreen() {
   const { message, modal } = App.useApp()
   const campaign = useGameStore((s) => s.campaign)
   const dispatchRun = useGameStore((s) => s.dispatchRun)
+  const setHubActiveTab = useGameStore((s) => s.setHubActiveTab)
   const dispatchBattle = useGameStore((s) => s.dispatchBattle)
   const autoBattleEnabled = useGameStore((s) => s.autoBattleEnabled)
   const setAutoBattleEnabled = useGameStore((s) => s.setAutoBattleEnabled)
@@ -519,6 +521,10 @@ export function BattleScreen() {
     })
   }
 
+  const expedition = campaign.expedition
+  const expeditionContinues =
+    expedition !== null && expedition.battleIndex < expedition.battleCount
+
   const confirmAbandon = () => {
     modal.confirm({
       title: 'Выйти из боя?',
@@ -527,7 +533,25 @@ export function BattleScreen() {
       okText: 'Выйти',
       cancelText: 'Отмена',
       okButtonProps: { danger: true },
-      onOk: () => dispatchRun({ type: 'ABANDON_BATTLE' }),
+      onOk: () => {
+        setHubActiveTab('battle')
+        dispatchRun({ type: 'ABANDON_BATTLE' })
+      },
+    })
+  }
+
+  const confirmFinishExpedition = () => {
+    modal.confirm({
+      title: 'Завершить экспедицию?',
+      content:
+        'Цепочка будет прервана. Текущий бой не засчитается; награды за незавершённые бои не начислятся. Состав отряда снова станет доступен в хабе.',
+      okText: 'Завершить',
+      cancelText: 'Отмена',
+      okButtonProps: { danger: true },
+      onOk: () => {
+        setHubActiveTab('battle')
+        dispatchRun({ type: 'FINISH_EXPEDITION' })
+      },
     })
   }
 
@@ -718,6 +742,16 @@ export function BattleScreen() {
           >
             Профиль героя
           </Button>
+          {expeditionContinues ? (
+            <Button
+              type="default"
+              danger
+              icon={<FlagOutlined aria-hidden />}
+              onClick={confirmFinishExpedition}
+            >
+              Завершить экспедицию
+            </Button>
+          ) : null}
           {battle.phase === 'ongoing' || battle.phase === 'defeat' ? (
             <Button type="default" danger icon={<LogoutOutlined />} onClick={confirmAbandon}>
               Выйти из боя

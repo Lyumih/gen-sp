@@ -2312,6 +2312,76 @@ describe('chest and shop offers', () => {
     expect(s.chest.items.some((i) => i.id === 'i1')).toBe(true)
   })
 
+  it('RELEASE_CHARACTER moves all items to chest and removes skills', () => {
+    const reserve = testCreateCharacter({
+      id: 'char-reserve-1',
+      name: 'Reserve',
+      classId: 'mage',
+    })
+    const weapon = { id: 'w1', templateId: 'wooden_sword', itemLevel: 1, modSlots: [] }
+    const stash = { id: 's1', templateId: 'leather_armor', itemLevel: 1, modSlots: [] }
+    const fireball = createCardInstance('fireball', 'fb1')
+    const passive = createPassiveInstance('lucky', 'p1')
+    reserve.items = [weapon, stash]
+    reserve.equipment = { weapon: 'w1', armor: null, accessory: null }
+    reserve.cards = [...reserve.cards, fireball]
+    reserve.battleLoadout = [reserve.battleLoadout[0], 'fb1', null, null]
+    reserve.passives = [passive]
+    reserve.passiveEquip = [passive.id, null, null, null, null]
+
+    let s: CampaignState = {
+      ...initialCampaignState(),
+      characters: [getPrimaryCharacter(initialCampaignState()), reserve],
+      squad: [HERO_ID, 'char-reserve-1', null, null],
+    }
+
+    const next = applyRunAction(s, {
+      type: 'RELEASE_CHARACTER',
+      characterId: 'char-reserve-1',
+    })
+
+    expect(next.characters).toHaveLength(1)
+    expect(next.characters[0]!.id).toBe(HERO_ID)
+    expect(next.squad).toEqual([HERO_ID, null, null, null])
+    expect(next.chest.items.map((i) => i.id).sort()).toEqual(['s1', 'w1'])
+    expect(next.chest.unboundCards).toHaveLength(0)
+    expect(next.chest.unboundPassives).toHaveLength(0)
+  })
+
+  it('RELEASE_CHARACTER rejects last character in roster', () => {
+    const s = initialCampaignState()
+    const next = applyRunAction(s, {
+      type: 'RELEASE_CHARACTER',
+      characterId: HERO_ID,
+    })
+    expect(next).toBe(s)
+    expect(next.characters).toHaveLength(1)
+  })
+
+  it('RELEASE_CHARACTER is blocked during expedition', () => {
+    const reserve = testCreateCharacter({
+      id: 'char-reserve-1',
+      name: 'Reserve',
+      classId: 'warrior',
+    })
+    const hub: CampaignState = {
+      ...initialCampaignState(),
+      characters: [getPrimaryCharacter(initialCampaignState()), reserve],
+      squad: [HERO_ID, 'char-reserve-1', null, null],
+    }
+    const expedition = applyRunAction(hub, {
+      type: 'START_EXPEDITION',
+      chainId: 'campaign-main',
+      selectedCharacterIds: [HERO_ID],
+    })
+    const next = applyRunAction(expedition, {
+      type: 'RELEASE_CHARACTER',
+      characterId: 'char-reserve-1',
+    })
+    expect(next).toBe(expedition)
+    expect(next.characters).toHaveLength(2)
+  })
+
   it('SELL_CHEST_ITEM adds gold and removes item', () => {
     const item = { id: 'i1', templateId: 'wooden_sword', itemLevel: 1, modSlots: [] }
     let s: CampaignState = {

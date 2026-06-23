@@ -1,6 +1,7 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { EditOutlined } from '@ant-design/icons'
 import { Button, List, Tag, Typography } from 'antd'
+import type { ReactNode } from 'react'
 import {
   getCharacter,
   getReserveCharacters,
@@ -24,8 +25,50 @@ type CharacterRosterViewProps = {
   onSelectCharacter: (characterId: string) => void
   onAssignToSquad: (characterId: string) => void
   onRemoveFromSquad: (characterId: string) => void
+  onReleaseCharacter?: (characterId: string) => void
+  canReleaseCharacter?: boolean
   onEditAppearance?: (characterId: string) => void
   showSquadActions?: boolean
+}
+
+function editAppearanceButton(
+  characterId: string,
+  onEditAppearance?: (characterId: string) => void,
+): ReactNode[] {
+  if (!onEditAppearance) return []
+  return [
+    <Button
+      key="edit"
+      size="small"
+      icon={<EditOutlined />}
+      aria-label="Редактировать облик"
+      onClick={(e) => {
+        e.stopPropagation()
+        onEditAppearance(characterId)
+      }}
+    />,
+  ]
+}
+
+function releaseCharacterButton(
+  characterId: string,
+  canReleaseCharacter: boolean,
+  onReleaseCharacter?: (characterId: string) => void,
+): ReactNode[] {
+  if (!canReleaseCharacter || !onReleaseCharacter) return []
+  return [
+    <Button
+      key="release"
+      size="small"
+      danger
+      onClick={(e) => {
+        e.stopPropagation()
+        onReleaseCharacter(characterId)
+      }}
+    >
+      Отпустить
+    </Button>,
+  ]
 }
 
 function RosterRow({
@@ -39,6 +82,8 @@ function RosterRow({
   onSelectCharacter,
   onAssignToSquad,
   onRemoveFromSquad,
+  onReleaseCharacter,
+  canReleaseCharacter,
   onEditAppearance,
   showSquadActions,
   squadHasEmptySlot,
@@ -53,6 +98,8 @@ function RosterRow({
   onSelectCharacter: (characterId: string) => void
   onAssignToSquad: (characterId: string) => void
   onRemoveFromSquad: (characterId: string) => void
+  onReleaseCharacter?: (characterId: string) => void
+  canReleaseCharacter: boolean
   onEditAppearance?: (characterId: string) => void
   showSquadActions: boolean
   squadHasEmptySlot: boolean
@@ -85,77 +132,50 @@ function RosterRow({
   const display = getCharacterDisplay(character)
   const stashCount = character.items.length
 
-  const squadActions =
-    showSquadActions && !squadLocked
-      ? inSquad
-        ? [
-            ...(onEditAppearance
-              ? [
-                  <Button
-                    key="edit"
-                    size="small"
-                    icon={<EditOutlined />}
-                    aria-label="Редактировать облик"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onEditAppearance(character.id)
-                    }}
-                  />,
-                ]
-              : []),
-            <Button
-              key="remove"
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation()
-                onRemoveFromSquad(character.id)
-              }}
-            >
-              Снять
-            </Button>,
-          ]
-        : [
-            ...(onEditAppearance
-              ? [
-                  <Button
-                    key="edit"
-                    size="small"
-                    icon={<EditOutlined />}
-                    aria-label="Редактировать облик"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onEditAppearance(character.id)
-                    }}
-                  />,
-                ]
-              : []),
-            <Button
-              key="assign"
-              size="small"
-              type="primary"
-              disabled={!squadHasEmptySlot}
-              onClick={(e) => {
-                e.stopPropagation()
-                onAssignToSquad(character.id)
-              }}
-            >
-              Назначить
-            </Button>,
-          ]
-      : onEditAppearance
-        ? [
-            <Button
-              key="edit"
-              size="small"
-              icon={<EditOutlined />}
-              aria-label="Редактировать облик"
-              onClick={(e) => {
-                e.stopPropagation()
-                onEditAppearance(character.id)
-              }}
-            />,
-          ]
-        : undefined
+  const releaseBtn = releaseCharacterButton(
+    character.id,
+    canReleaseCharacter,
+    onReleaseCharacter,
+  )
+  const editBtn = editAppearanceButton(character.id, onEditAppearance)
+
+  let rowActions: ReactNode[] | undefined
+  if (showSquadActions && !squadLocked) {
+    rowActions = inSquad
+      ? [
+          ...editBtn,
+          <Button
+            key="remove"
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation()
+              onRemoveFromSquad(character.id)
+            }}
+          >
+            Снять
+          </Button>,
+          ...releaseBtn,
+        ]
+      : [
+          ...editBtn,
+          <Button
+            key="assign"
+            size="small"
+            type="primary"
+            disabled={!squadHasEmptySlot}
+            onClick={(e) => {
+              e.stopPropagation()
+              onAssignToSquad(character.id)
+            }}
+          >
+            Назначить
+          </Button>,
+          ...releaseBtn,
+        ]
+  } else {
+    const fallback = [...editBtn, ...releaseBtn]
+    rowActions = fallback.length > 0 ? fallback : undefined
+  }
 
   return (
     <List.Item
@@ -164,7 +184,7 @@ function RosterRow({
         if (!inSquad) setDragRef(node)
       }}
       {...(!inSquad && !squadLocked ? { ...attributes, ...listeners } : {})}
-      actions={squadActions}
+      actions={rowActions}
       style={{
         cursor: 'pointer',
         padding: '8px 12px',
@@ -222,6 +242,8 @@ export function CharacterRosterView({
   onSelectCharacter,
   onAssignToSquad,
   onRemoveFromSquad,
+  onReleaseCharacter,
+  canReleaseCharacter = false,
   onEditAppearance,
   showSquadActions = true,
 }: CharacterRosterViewProps) {
@@ -258,6 +280,8 @@ export function CharacterRosterView({
               onSelectCharacter={onSelectCharacter}
               onAssignToSquad={onAssignToSquad}
               onRemoveFromSquad={onRemoveFromSquad}
+              onReleaseCharacter={onReleaseCharacter}
+              canReleaseCharacter={canReleaseCharacter}
               onEditAppearance={onEditAppearance}
               showSquadActions={showSquadActions}
               squadHasEmptySlot={squadHasEmptySlot}

@@ -77,7 +77,12 @@ import {
   updateCharacter,
 } from '../character/selectors'
 import { createCharacter } from '../character/createCharacter'
-import { DEFAULT_SQUAD_SLOTS, LEGACY_HERO_CHARACTER_ID, MAX_ROSTER_SIZE } from '../character/constants'
+import {
+  DEFAULT_SQUAD_SLOTS,
+  LEGACY_HERO_CHARACTER_ID,
+  MAX_ROSTER_SIZE,
+  MIN_ROSTER_SIZE,
+} from '../character/constants'
 import {
   isValidIconAccent,
   isValidIconEmoji,
@@ -161,6 +166,7 @@ export type RunAction =
   | { type: 'FINISH_EXPEDITION' }
   | { type: 'REFRESH_TAVERN'; seed?: number }
   | { type: 'HIRE_TAVERN_CANDIDATE'; candidateId: string }
+  | { type: 'RELEASE_CHARACTER'; characterId: string }
   | { type: 'RENAME_CHARACTER'; characterId: string; name: string }
   | {
       type: 'SET_CHARACTER_APPEARANCE'
@@ -388,13 +394,24 @@ function handleExpeditionBattleVictory(state: CampaignState): CampaignState {
 
 function finishExpedition(state: CampaignState): CampaignState {
   if (!state.expedition) return state
-  return {
+
+  const snap = state.battleAttemptSnapshot
+  const base: CampaignState = {
     ...state,
     expedition: null,
     battle: null,
     battleAttemptSnapshot: null,
     phase: 'hub',
   }
+
+  if (state.battle?.phase === 'ongoing' && snap) {
+    return restorePartyFromSnapshot(
+      { ...base, worldPower: snap.worldPower, gold: snap.gold },
+      snap,
+    )
+  }
+
+  return base
 }
 
 function withBattleSpecializationFlags(
@@ -1188,6 +1205,22 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       nextSquad[from] = nextSquad[to]!
       nextSquad[to] = tmp
       return { ...state, squad: nextSquad }
+    }
+    case 'RELEASE_CHARACTER': {
+      if (!inHub(state)) return state
+      if (!assertHubActionAllowed(state, 'squad')) return state
+      if (state.characters.length <= MIN_ROSTER_SIZE) return state
+      const hero = getCharacter(state, action.characterId)
+      if (!hero) return state
+      return {
+        ...state,
+        characters: state.characters.filter((c) => c.id !== action.characterId),
+        squad: state.squad.map((id) => (id === action.characterId ? null : id)),
+        chest: {
+          ...state.chest,
+          items: [...state.chest.items, ...hero.items],
+        },
+      }
     }
     case 'TRANSFER_ITEM': {
       if (!assertHubActionAllowed(state, 'transfer')) return state
