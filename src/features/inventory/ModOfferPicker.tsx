@@ -1,5 +1,6 @@
 import { Card, Modal, Space, Typography } from 'antd'
 import { getModTemplate } from '../../game/content/modTemplates'
+import { getPassiveModTemplate } from '../../game/content/passiveModTemplates'
 import type { ModOffer } from '../../game/types'
 
 type ModOfferPickerProps = {
@@ -7,6 +8,10 @@ type ModOfferPickerProps = {
   offer: ModOffer | null
   onPick: (modTemplateId: string) => void
   onCancel: () => void
+}
+
+function resolveModTemplate(modId: string) {
+  return getModTemplate(modId) ?? getPassiveModTemplate(modId)
 }
 
 export function ModOfferPicker({ open, offer, onPick, onCancel }: ModOfferPickerProps) {
@@ -21,7 +26,7 @@ export function ModOfferPicker({ open, offer, onPick, onCancel }: ModOfferPicker
       {offer ? (
         <Space orientation="vertical" size="small" style={{ width: '100%' }}>
           {offer.modIds.map((modId) => {
-            const tmpl = getModTemplate(modId)
+            const tmpl = resolveModTemplate(modId)
             return (
               <Card
                 key={modId}
