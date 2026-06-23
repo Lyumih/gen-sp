@@ -34,7 +34,7 @@ function shopTemplatePopover(
 ) {
   const t = getItemTemplate(templateId)!
   return (
-    <Space orientation="vertical" size="small" style={{ maxWidth: 280 }}>
+    <Space orientation="vertical" size="small" style={{ width: '100%' }}>
       <ul style={{ margin: 0, paddingLeft: 16 }}>
         <li>
           <Typography.Text style={{ fontSize: 12 }}>
@@ -68,7 +68,7 @@ function shopStashPopover(
   const sellPrice = tmpl ? itemSellPrice(tmpl) : 0
   const lines = itemInstanceDescriptionLinesFromInstance(item, getItemTemplate)
   return (
-    <Space orientation="vertical" size="small" style={{ maxWidth: 320 }}>
+    <Space orientation="vertical" size="small" style={{ width: '100%' }}>
       <ul style={{ margin: 0, paddingLeft: 16 }}>
         {lines.map((line, idx) => (
           <li key={idx}>

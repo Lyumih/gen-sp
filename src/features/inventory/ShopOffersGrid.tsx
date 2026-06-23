@@ -50,7 +50,7 @@ function ItemBuyPopover({
 }) {
   const t = getItemTemplate(templateId)!
   return (
-    <Space orientation="vertical" size="small" style={{ maxWidth: 280 }}>
+    <Space orientation="vertical" size="small" style={{ width: '100%' }}>
       <ul style={{ margin: 0, paddingLeft: 16 }}>
         <li>
           <Typography.Text style={{ fontSize: 12 }}>

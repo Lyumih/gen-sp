@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FlagOutlined } from '@ant-design/icons'
-import { App, Card, Divider, Space } from 'antd'
+import { App, Space } from 'antd'
 import { SCENARIOS } from '../../game/campaign/scenarios'
 import { unreadCodexEntryIds } from '../../game/codex/discovery'
 import { getCardDisplayLabel } from '../../game/descriptions/cardText'
@@ -14,9 +13,8 @@ import { CampaignCharacterTab } from './CampaignCharacterTab'
 import { CampaignCodexTab } from '../codex/CampaignCodexTab'
 import { CampaignHelpTab } from '../help/CampaignHelpTab'
 import type { CampaignHubTab } from './campaignHubShared'
-import { isBattleContextActive } from './campaignHubShared'
-import { CampaignHubHud } from './CampaignHubHud'
-import { CampaignHubNav } from './CampaignHubNav'
+import { GameHeader } from './GameHeader'
+import { GameShell } from '../layout/GameShell'
 import { CampaignShopTab } from './CampaignShopTab'
 import { CampaignTavernTab } from './CampaignTavernTab'
 
@@ -224,27 +222,19 @@ export function CampaignHub() {
   }
 
   return (
-    <Card
-      title={
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <FlagOutlined aria-hidden />
-          Gen — кампания
-        </span>
-      }
-    >
-      <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-        <CampaignHubHud campaign={campaign} />
-        <Divider style={{ margin: '4px 0 8px' }} />
-        <CampaignHubNav
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
-          unreadCodexCount={unreadCodexCount}
-          codexDisabled={inBattle}
-          shopDisabled={expeditionActive}
-          tavernDisabled={expeditionActive}
-          battleTabHighlighted={isBattleContextActive(campaign)}
-        />
+    <GameShell>
+      <GameHeader
+        campaign={campaign}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        unreadCodexCount={unreadCodexCount}
+        codexDisabled={inBattle}
+        shopDisabled={expeditionActive}
+        tavernDisabled={expeditionActive}
+        onBattleClick={() => handleTabChange('battle')}
+      />
 
+      <Space orientation="vertical" size="small" style={{ width: '100%' }}>
         {activeTab === 'battle' ? (
           <CampaignBattleTab
             campaign={campaign}
@@ -333,6 +323,6 @@ export function CampaignHub() {
 
         {activeTab === 'help' ? <CampaignHelpTab /> : null}
       </Space>
-    </Card>
+    </GameShell>
   )
 }

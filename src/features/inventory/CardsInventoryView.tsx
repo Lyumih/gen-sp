@@ -120,7 +120,7 @@ function SortableCardCell({
   const hasModUi = card.modSlots.length > 0 || card.global_level > 0 || nextSlotPreview !== null
 
   const popover = (
-    <Space orientation="vertical" size="small" style={{ maxWidth: 320 }}>
+    <Space orientation="vertical" size="small" style={{ width: '100%' }}>
       <ul style={{ margin: 0, paddingLeft: 16 }}>
         {stats.lines.map((line, idx) => (
           <li key={idx}>
@@ -189,7 +189,7 @@ function SortableCardCell({
       state={inBattle || loadoutBlocked ? 'disabled' : 'filled'}
       popoverTitle={stats.displayLabel}
       popoverContent={
-        <Space orientation="vertical" size="small" style={{ maxWidth: 320 }}>
+        <Space orientation="vertical" size="small" style={{ width: '100%' }}>
           {loadoutBlocked ? (
             <Typography.Text type="secondary" style={{ fontSize: 12 }}>
               Умение отключено — нельзя взять в бой.
@@ -294,7 +294,7 @@ function DraggablePassiveCell({
   const hasModUi = passive.modSlots.length > 0 || passive.global_level > 0 || nextSlotPreview !== null
 
   const popover = (
-    <Space orientation="vertical" size="small" style={{ maxWidth: 320 }}>
+    <Space orientation="vertical" size="small" style={{ width: '100%' }}>
       <ul style={{ margin: 0, paddingLeft: 16 }}>
         {stats.lines.map((line, idx) => (
           <li key={idx}>

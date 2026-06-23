@@ -10,7 +10,7 @@ function AppContent() {
   const campaign = useGameStore((s) => s.campaign)
   if (campaign.phase === 'inter_battle') {
     return (
-      <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+      <Space orientation="vertical" size="small" style={{ width: '100%' }}>
         <CampaignBattleNav campaign={campaign} />
         <InterBattleScreen />
       </Space>
@@ -18,7 +18,7 @@ function AppContent() {
   }
   if (campaign.battle !== null) {
     return (
-      <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+      <Space orientation="vertical" size="small" style={{ width: '100%' }}>
         <CampaignBattleNav campaign={campaign} />
         <BattleScreen />
       </Space>
@@ -30,7 +30,7 @@ function AppContent() {
 function App() {
   return (
     <AntdApp>
-      <div style={{ maxWidth: 720, margin: '24px auto', padding: 16 }}>
+      <div style={{ maxWidth: 1280, margin: '0 auto', padding: 8 }}>
         <AppContent />
       </div>
       <Analytics />

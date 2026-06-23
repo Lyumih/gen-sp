@@ -11,6 +11,8 @@ import {
 import { previewCandidateEffectiveStats } from '../../game/stats/previewCandidateStats'
 import { StatStrip } from '../stats/StatStrip'
 import { classAffinityTooltipLines } from '../stats/statTooltipText'
+import { GamePanel } from '../layout/GamePanel'
+import '../layout/game-layout.css'
 import { SLOT_LABEL } from './campaignHubShared'
 
 const ROSTER_SOFT_WARN_SIZE = 90
@@ -54,11 +56,25 @@ export function CampaignTavernTab({
   }
 
   return (
-    <Space orientation="vertical" size="middle" style={{ width: '100%' }} role="tabpanel">
-      <Typography.Title level={5} style={{ marginTop: 0, marginBottom: 0 }}>
-        Таверна
-      </Typography.Title>
-
+    <Space orientation="vertical" size="small" style={{ width: '100%' }} role="tabpanel">
+      <GamePanel
+        title="Таверна"
+        extra={
+          <Space wrap size="small">
+            <Button
+              size="small"
+              icon={<ReloadOutlined />}
+              disabled={actionsDisabled}
+              onClick={handleRefresh}
+            >
+              Обновить ({TAVERN_REFRESH_COST} золота)
+            </Button>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              Кандидатов: {candidates.length} / {TAVERN_CANDIDATE_COUNT}
+            </Typography.Text>
+          </Space>
+        }
+      >
       {expeditionLocked ? (
         <Alert type="warning" showIcon message="Таверна недоступна во время экспедиции" />
       ) : null}
@@ -77,25 +93,12 @@ export function CampaignTavernTab({
         />
       ) : null}
 
-      <Space wrap>
-        <Button
-          icon={<ReloadOutlined />}
-          disabled={actionsDisabled}
-          onClick={handleRefresh}
-        >
-          Обновить ({TAVERN_REFRESH_COST} золота)
-        </Button>
-        <Typography.Text type="secondary">
-          Кандидатов: {candidates.length} / {TAVERN_CANDIDATE_COUNT}
-        </Typography.Text>
-      </Space>
-
       {candidates.length === 0 ? (
         <Typography.Text type="secondary">
           Нажмите «Обновить», чтобы получить кандидатов для найма.
         </Typography.Text>
       ) : (
-        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+        <div className="game-tavern-grid">
           {candidates.map((candidate) => {
             const cls = getCharacterClass(candidate.classId)
             const hireDisabled = actionsDisabled || rosterFull || campaign.gold < candidate.price
@@ -142,8 +145,9 @@ export function CampaignTavernTab({
               </Card>
             )
           })}
-        </Space>
+        </div>
       )}
+      </GamePanel>
     </Space>
   )
 }

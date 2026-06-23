@@ -56,6 +56,8 @@ import {
   removeModConfirmText,
 } from './modSlotBadges'
 import './inventory.css'
+import { GameColumns } from '../layout/GameColumns'
+import { GamePanel } from '../layout/GamePanel'
 
 type PickerState = {
   carrierId: string
@@ -87,6 +89,8 @@ type EquipmentInventoryViewProps = {
   ) => void
   onRemoveMod: (carrierKind: 'item', carrierId: string, slotIndex: number) => void
   squadLocked?: boolean
+  panelTitle?: string
+  sideContent?: ReactNode
   dndBeforeContent?: (activeDragId: string | null) => ReactNode
   dndAfterContent?: (activeDragId: string | null) => ReactNode
 }
@@ -408,6 +412,8 @@ export function EquipmentInventoryView({
   onPickModOffer,
   onRemoveMod,
   squadLocked = false,
+  panelTitle,
+  sideContent,
   dndBeforeContent,
   dndAfterContent,
 }: EquipmentInventoryViewProps) {
@@ -684,7 +690,30 @@ export function EquipmentInventoryView({
       onDragEnd={handleDragEnd}
     >
       {dndBeforeContent?.(activeDragId)}
-      {inBattle ? <Tooltip title="Доступно после боя">{content}</Tooltip> : content}
+      {sideContent !== undefined ? (
+        <GameColumns>
+          <div>
+            {panelTitle !== undefined ? (
+              <GamePanel title={panelTitle}>
+                {inBattle ? <Tooltip title="Доступно после боя">{content}</Tooltip> : content}
+              </GamePanel>
+            ) : inBattle ? (
+              <Tooltip title="Доступно после боя">{content}</Tooltip>
+            ) : (
+              content
+            )}
+          </div>
+          <div>{sideContent}</div>
+        </GameColumns>
+      ) : panelTitle !== undefined ? (
+        <GamePanel title={panelTitle}>
+          {inBattle ? <Tooltip title="Доступно после боя">{content}</Tooltip> : content}
+        </GamePanel>
+      ) : inBattle ? (
+        <Tooltip title="Доступно после боя">{content}</Tooltip>
+      ) : (
+        content
+      )}
       {dndAfterContent?.(activeDragId)}
       <DragOverlay>
         {activeStashItem || activeChestItem ? (

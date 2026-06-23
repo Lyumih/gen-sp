@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { Divider, Drawer, Space } from 'antd'
+import { Drawer } from 'antd'
 import { unreadCodexEntryIds } from '../../game/codex/discovery'
 import type { CampaignState } from '../../game/types'
 import { CampaignHelpTab } from '../help/CampaignHelpTab'
-import { CampaignHubHud } from './CampaignHubHud'
-import { CampaignHubNav } from './CampaignHubNav'
+import { GameHeader } from './GameHeader'
+import { GameShell } from '../layout/GameShell'
 
 type CampaignBattleNavProps = {
   campaign: CampaignState
@@ -17,10 +17,9 @@ export function CampaignBattleNav({ campaign }: CampaignBattleNavProps) {
 
   return (
     <>
-      <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-        <CampaignHubHud campaign={campaign} />
-        <Divider style={{ margin: '4px 0 8px' }} />
-        <CampaignHubNav
+      <GameShell>
+        <GameHeader
+          campaign={campaign}
           activeTab="battle"
           onTabChange={(tab) => {
             if (tab === 'help') setHelpOpen(true)
@@ -29,10 +28,11 @@ export function CampaignBattleNav({ campaign }: CampaignBattleNavProps) {
           codexDisabled={inBattle}
           shopDisabled={expeditionActive}
           tavernDisabled={expeditionActive}
-          battleTabHighlighted
           tabsDisabled
+          battleScreenActive
+          onBattleClick={() => {}}
         />
-      </Space>
+      </GameShell>
 
       <Drawer
         title="Справка"

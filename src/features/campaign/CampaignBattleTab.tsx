@@ -1,5 +1,5 @@
 import { PlayCircleOutlined, RocketOutlined } from '@ant-design/icons'
-import { Alert, Button, Divider, Select, Space, Typography } from 'antd'
+import { Alert, Button, Select, Space, Typography } from 'antd'
 import { useMemo, useState } from 'react'
 import { SCENARIOS } from '../../game/campaign/scenarios'
 import {
@@ -12,6 +12,8 @@ import {
   resolveExpeditionParty,
 } from '../../game/expedition/resolveExpeditionParty'
 import type { CampaignState } from '../../game/types'
+import { GameColumns } from '../layout/GameColumns'
+import { GamePanel } from '../layout/GamePanel'
 import { ExpeditionModeList } from './ExpeditionModeList'
 import { ExpeditionSquadStrip } from './ExpeditionSquadStrip'
 
@@ -84,94 +86,89 @@ export function CampaignBattleTab({
   }
 
   return (
-    <Space orientation="vertical" size="middle" style={{ width: '100%' }} role="tabpanel">
-      {done ? (
-        <>
-          <Typography.Text type="secondary">
-            Цепочка сценариев пройдена. Можно снова сыграть любой сценарий с текущим прогрессом.
-          </Typography.Text>
-          <Space wrap style={{ width: '100%' }}>
-            <Select
-              aria-label="Сценарий для повтора"
-              style={{ minWidth: 200 }}
-              value={replaySlot}
-              onChange={onReplaySlotChange}
-              options={SCENARIOS.map((s, i) => ({
-                value: i,
-                label: s.id,
-              }))}
-            />
+    <div role="tabpanel">
+      <GameColumns>
+      <GamePanel title="Кампания">
+        <Space orientation="vertical" size="small" style={{ width: '100%' }}>
+          {done ? (
+            <>
+              <Typography.Text type="secondary">
+                Цепочка сценариев пройдена. Можно снова сыграть любой сценарий с текущим
+                прогрессом.
+              </Typography.Text>
+              <Space wrap style={{ width: '100%' }}>
+                <Select
+                  aria-label="Сценарий для повтора"
+                  style={{ minWidth: 200 }}
+                  value={replaySlot}
+                  onChange={onReplaySlotChange}
+                  options={SCENARIOS.map((s, i) => ({
+                    value: i,
+                    label: s.id,
+                  }))}
+                />
+                <Button
+                  type="primary"
+                  disabled={inBattle}
+                  icon={<PlayCircleOutlined />}
+                  onClick={onStartReplay}
+                >
+                  Играть сценарий
+                </Button>
+              </Space>
+            </>
+          ) : (
             <Button
               type="primary"
               disabled={inBattle}
               icon={<PlayCircleOutlined />}
-              onClick={onStartReplay}
+              onClick={onStartOrContinue}
             >
-              Играть сценарий
+              Начать / продолжить бой
             </Button>
-          </Space>
-        </>
-      ) : (
-        <Button
-          type="primary"
-          disabled={inBattle}
-          icon={<PlayCircleOutlined />}
-          onClick={onStartOrContinue}
-        >
-          Начать / продолжить бой
-        </Button>
-      )}
-
-      <Typography.Text>
-        Сценарий:{' '}
-        {done ? 'пройдено' : `${scenarioIndex + 1} / ${SCENARIOS.length}`}
-        {scenarioId ? ` — ${scenarioId}` : ''}
-      </Typography.Text>
-
-      <Divider style={{ margin: '8px 0' }} />
-
-      <ExpeditionSquadStrip
-        campaign={campaign}
-        markedIds={markedIds}
-        disabled={expeditionDisabled}
-        onToggleMark={handleToggleMark}
-      />
-
-      <Divider style={{ margin: '8px 0' }} />
-
-      <Typography.Title level={5} style={{ marginTop: 0, marginBottom: 0 }}>
-        Экспедиция
-      </Typography.Title>
-
-      {expeditionActive ? (
-        <>
-          <Alert
-            type="info"
-            showIcon
-            message="Недоступно во время экспедиции"
-          />
-          <Typography.Text type="secondary">
-            Экспедиция активна: {campaign.expedition!.scenarioChainId}, бой{' '}
-            {campaign.expedition!.battleIndex + 1} / {campaign.expedition!.battleCount}
+          )}
+          <Typography.Text>
+            Сценарий:{' '}
+            {done ? 'пройдено' : `${scenarioIndex + 1} / ${SCENARIOS.length}`}
+            {scenarioId ? ` — ${scenarioId}` : ''}
           </Typography.Text>
-        </>
-      ) : null}
+        </Space>
+      </GamePanel>
 
-      <ExpeditionModeList
-        chains={EXPEDITION_CHAINS}
-        selectedChainId={selectedChainId}
-        disabled={expeditionDisabled}
-        onSelect={setSelectedChainId}
-      />
-
-      <Button
-        type="primary"
-        disabled={!canStartExpedition}
-        icon={<RocketOutlined />}
-        onClick={handleStartExpedition}
-      >
-        Начать экспедицию
-      </Button>
-    </Space>
+      <GamePanel title="Экспедиция">
+        <Space orientation="vertical" size="small" style={{ width: '100%' }}>
+          <ExpeditionSquadStrip
+            campaign={campaign}
+            markedIds={markedIds}
+            disabled={expeditionDisabled}
+            onToggleMark={handleToggleMark}
+          />
+          {expeditionActive ? (
+            <>
+              <Alert type="info" showIcon title="Недоступно во время экспедиции" />
+              <Typography.Text type="secondary">
+                Экспедиция активна: {campaign.expedition!.scenarioChainId}, бой{' '}
+                {campaign.expedition!.battleIndex + 1} / {campaign.expedition!.battleCount}
+              </Typography.Text>
+            </>
+          ) : null}
+          <ExpeditionModeList
+            chains={EXPEDITION_CHAINS}
+            selectedChainId={selectedChainId}
+            disabled={expeditionDisabled}
+            onSelect={setSelectedChainId}
+          />
+          <Button
+            type="primary"
+            disabled={!canStartExpedition}
+            icon={<RocketOutlined />}
+            onClick={handleStartExpedition}
+          >
+            Начать экспедицию
+          </Button>
+        </Space>
+      </GamePanel>
+    </GameColumns>
+    </div>
   )
 }

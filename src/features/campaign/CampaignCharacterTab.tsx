@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Divider, Modal, Space, Typography } from 'antd'
+import { Modal, Space } from 'antd'
 import { getActiveCharacter, getCharacter } from '../../game/character/selectors'
 import type { CampaignState, EquipmentSlot } from '../../game/types'
 import { CharacterRosterView } from '../character/CharacterRosterView'
 import { SquadSlotRow } from '../character/SquadSlotRow'
+import { GamePanel } from '../layout/GamePanel'
 import { HeroAppearanceEditor } from '../profile/HeroAppearanceEditor'
 import { HeroProfileContent } from '../profile/HeroProfileContent'
 import { CardsInventoryView } from '../inventory/CardsInventoryView'
@@ -113,7 +114,7 @@ export function CampaignCharacterTab({
       : null
 
   return (
-    <Space orientation="vertical" size="middle" style={{ width: '100%' }} role="tabpanel">
+    <Space orientation="vertical" size="small" style={{ width: '100%' }} role="tabpanel">
       <EquipmentInventoryView
         campaign={campaign}
         characterId={selectedCharacterId}
@@ -121,6 +122,46 @@ export function CampaignCharacterTab({
         modsDisabled={modsDisabled}
         modsDisabledTooltip={modsDisabledTooltip}
         squadLocked={squadLocked}
+        panelTitle="Экипировка"
+        dndBeforeContent={(activeDragId) => (
+          <Space orientation="vertical" size="small" style={{ width: '100%', marginBottom: 8 }}>
+            <GamePanel title="Отряд">
+              <SquadSlotRow
+                campaign={campaign}
+                selectedCharacterId={selectedCharacterId}
+                squadLocked={squadLocked || inBattle}
+                activeDragId={activeDragId}
+                onSelectCharacter={setSelectedCharacterId}
+                onRemoveFromSquad={onRemoveFromSquad}
+              />
+            </GamePanel>
+            <GamePanel title={`Состав (${campaign.characters.length})`}>
+              <CharacterRosterView
+                campaign={campaign}
+                selectedCharacterId={selectedCharacterId}
+                inventoryCharacterId={selectedCharacterId}
+                transferDisabled={transferDisabled}
+                squadLocked={squadLocked || inBattle}
+                activeDragId={activeDragId}
+                onSelectCharacter={setSelectedCharacterId}
+                onAssignToSquad={onAssignToSquad}
+                onRemoveFromSquad={onRemoveFromSquad}
+                onReleaseCharacter={onReleaseCharacter}
+                canReleaseCharacter={canReleaseCharacter}
+                onEditAppearance={setAppearanceCharacterId}
+              />
+            </GamePanel>
+            <HeroProfileContent
+              mode="hub"
+              campaign={campaign}
+              battle={null}
+              characterId={selectedCharacterId}
+              includeResourceStats={false}
+              includeEquipmentReadout={false}
+              includeCardsCollapse={false}
+            />
+          </Space>
+        )}
         onEquip={(itemId, slot) => onEquip(selectedCharacterId, itemId, slot)}
         onUnequip={(slot) => onUnequip(selectedCharacterId, slot)}
         onReorderStash={(itemIds) => onReorderStash(selectedCharacterId, itemIds)}
@@ -147,108 +188,60 @@ export function CampaignCharacterTab({
         onRemoveMod={(_kind, carrierId, slotIndex) =>
           onRemoveMod(selectedCharacterId, 'item', carrierId, slotIndex)
         }
-        dndBeforeContent={(activeDragId) => (
-          <Space orientation="vertical" size="middle" style={{ width: '100%', marginBottom: 16 }}>
-            <SquadSlotRow
+        sideContent={
+          <GamePanel title="Умения и навыки">
+            <CardsInventoryView
               campaign={campaign}
-              selectedCharacterId={selectedCharacterId}
-              squadLocked={squadLocked || inBattle}
-              activeDragId={activeDragId}
-              onSelectCharacter={setSelectedCharacterId}
-              onRemoveFromSquad={onRemoveFromSquad}
-            />
-            <CharacterRosterView
-              campaign={campaign}
-              selectedCharacterId={selectedCharacterId}
-              inventoryCharacterId={selectedCharacterId}
-              transferDisabled={transferDisabled}
-              squadLocked={squadLocked || inBattle}
-              activeDragId={activeDragId}
-              onSelectCharacter={setSelectedCharacterId}
-              onAssignToSquad={onAssignToSquad}
-              onRemoveFromSquad={onRemoveFromSquad}
-              onReleaseCharacter={onReleaseCharacter}
-              canReleaseCharacter={canReleaseCharacter}
-              onEditAppearance={setAppearanceCharacterId}
-            />
-            <HeroProfileContent
-              mode="hub"
-              campaign={campaign}
-              battle={null}
               characterId={selectedCharacterId}
-              includeResourceStats={false}
-              includeEquipmentReadout={false}
-              includeCardsCollapse={false}
+              inBattle={inBattle}
+              inventoryLocked={expeditionActive}
+              modsDisabled={modsDisabled}
+              modsDisabledTooltip={modsDisabledTooltip}
+              onReorderCards={(cardIds) => onReorderCards(selectedCharacterId, cardIds)}
+              onSetBattleLoadout={(slotIndex, cardId) =>
+                onSetBattleLoadout(selectedCharacterId, slotIndex, cardId)
+              }
+              onSetPassiveEquip={(slotIndex, passiveId) =>
+                onSetPassiveEquip(selectedCharacterId, slotIndex, passiveId)
+              }
+              onPickModOffer={(carrierKind, carrierId, slotIndex, modTemplateId) =>
+                onPickModOffer(
+                  selectedCharacterId,
+                  carrierKind,
+                  carrierId,
+                  slotIndex,
+                  modTemplateId,
+                )
+              }
+              onRemoveMod={(carrierKind, carrierId, slotIndex) =>
+                onRemoveMod(selectedCharacterId, carrierKind, carrierId, slotIndex)
+              }
+              onSellCard={(cardId) => onSellCard(selectedCharacterId, cardId)}
             />
-            <Typography.Title level={5} style={{ marginTop: 0, marginBottom: 0 }}>
-              Инвентарь и экипировка — {selectedCharacter.name}
-            </Typography.Title>
-            <Divider style={{ margin: '8px 0 0' }} />
-          </Space>
-        )}
+          </GamePanel>
+        }
         dndAfterContent={(activeDragId) => (
-          <>
-            <div style={{ marginTop: 16 }}>
-              <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
-                <span style={{ fontSize: 28, lineHeight: 1, verticalAlign: '-0.18em' }} aria-hidden>
-                  🃏
-                </span>{' '}
-                Карточки — {selectedCharacter.name}
-              </Typography.Text>
-              <CardsInventoryView
-                campaign={campaign}
-                characterId={selectedCharacterId}
-                inBattle={inBattle}
-                inventoryLocked={expeditionActive}
-                modsDisabled={modsDisabled}
-                modsDisabledTooltip={modsDisabledTooltip}
-                onReorderCards={(cardIds) => onReorderCards(selectedCharacterId, cardIds)}
-                onSetBattleLoadout={(slotIndex, cardId) =>
-                  onSetBattleLoadout(selectedCharacterId, slotIndex, cardId)
-                }
-                onSetPassiveEquip={(slotIndex, passiveId) =>
-                  onSetPassiveEquip(selectedCharacterId, slotIndex, passiveId)
-                }
-                onPickModOffer={(carrierKind, carrierId, slotIndex, modTemplateId) =>
-                  onPickModOffer(
-                    selectedCharacterId,
-                    carrierKind,
-                    carrierId,
-                    slotIndex,
-                    modTemplateId,
-                  )
-                }
-                onRemoveMod={(carrierKind, carrierId, slotIndex) =>
-                  onRemoveMod(selectedCharacterId, carrierKind, carrierId, slotIndex)
-                }
-                onSellCard={(cardId) => onSellCard(selectedCharacterId, cardId)}
-              />
-            </div>
-            <div style={{ marginTop: 16 }}>
-              <Typography.Title level={5} style={{ marginTop: 0, marginBottom: 8 }}>
-                Сундук
-              </Typography.Title>
-              <ChestInventoryView
-                campaign={campaign}
-                inBattle={inBattle}
-                inventoryLocked={expeditionActive}
-                bindCharacterId={selectedCharacterId}
-                onSellChestItem={onSellChestItem}
-                onSellChestCard={onSellChestCard}
-                onSellChestPassive={onSellChestPassive}
-                bindCharacterName={selectedCharacter.name}
-                onBindCard={(cardId) => onBindChestCard(cardId, selectedCharacterId)}
-                onBindPassive={(passiveId) =>
-                  onBindChestPassive(passiveId, selectedCharacterId)
-                }
-                onAssignItemToCharacter={(itemId) =>
-                  onMoveChestItemToCharacter(itemId, selectedCharacterId)
-                }
-                dndEnabled
-                activeDragId={activeDragId}
-              />
-            </div>
-          </>
+          <GamePanel title="Сундук">
+            <ChestInventoryView
+              campaign={campaign}
+              inBattle={inBattle}
+              inventoryLocked={expeditionActive}
+              bindCharacterId={selectedCharacterId}
+              onSellChestItem={onSellChestItem}
+              onSellChestCard={onSellChestCard}
+              onSellChestPassive={onSellChestPassive}
+              bindCharacterName={selectedCharacter.name}
+              onBindCard={(cardId) => onBindChestCard(cardId, selectedCharacterId)}
+              onBindPassive={(passiveId) =>
+                onBindChestPassive(passiveId, selectedCharacterId)
+              }
+              onAssignItemToCharacter={(itemId) =>
+                onMoveChestItemToCharacter(itemId, selectedCharacterId)
+              }
+              dndEnabled
+              activeDragId={activeDragId}
+            />
+          </GamePanel>
         )}
       />
 

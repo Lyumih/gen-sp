@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Divider, Space, Typography } from 'antd'
+import { Button, Space, Typography } from 'antd'
 import { SKILL_ACQUISITION } from '../../game/config/skillAcquisition'
 import { getCardDisplayLabel } from '../../game/descriptions/cardText'
 import {
@@ -19,6 +19,8 @@ import { InventoryGrid } from '../inventory/InventoryGrid'
 import { ItemPopoverActions } from '../inventory/ItemPopoverActions'
 import { ShopOffersGrid } from '../inventory/ShopOffersGrid'
 import { resolveItemEmoji } from '../inventory/inventoryEmoji'
+import { GameColumns } from '../layout/GameColumns'
+import { GamePanel } from '../layout/GamePanel'
 import { StatStrip } from '../stats/StatStrip'
 import { UI_LEVEL } from '../../game/ui/labels'
 import '../inventory/inventory.css'
@@ -109,113 +111,106 @@ export function CampaignShopTab({
   const offers = campaign.shopOffers ?? []
 
   return (
-    <Space orientation="vertical" size="middle" style={{ width: '100%' }} role="tabpanel">
-      <Space wrap style={{ width: '100%', justifyContent: 'space-between' }}>
-        <Typography.Title level={5} style={{ margin: 0 }}>
-          Магазин
-        </Typography.Title>
-        <Button
-          size="small"
-          disabled={inBattle || campaign.expedition !== null}
-          onClick={() => onRefreshShop(false)}
-        >
-          Обновить ({SKILL_ACQUISITION.shopRefreshCost} 💰)
-        </Button>
-      </Space>
-
-      <ShopOffersGrid
-        offers={offers}
-        gold={campaign.gold}
-        inBattle={inBattle}
-        selectedCharacterName={selected.name}
-        selectedCharacterId={selected.id}
-        onBuy={onBuyOffer}
-        onInsufficientGold={onInsufficientGold}
-      />
-
-      <Divider style={{ margin: '8px 0' }} />
-
-      <Typography.Title level={5} style={{ margin: 0 }}>
-        Состав
-      </Typography.Title>
-      <CharacterRosterView
-        campaign={campaign}
-        selectedCharacterId={selectedCharacterId}
-        inventoryCharacterId={selectedCharacterId}
-        transferDisabled
-        squadLocked
-        activeDragId={null}
-        onSelectCharacter={setSelectedCharacterId}
-        onAssignToSquad={() => {}}
-        onRemoveFromSquad={() => {}}
-        showSquadActions={false}
-      />
-
-      <Typography.Title level={5} style={{ margin: 0 }}>
-        {selected.name}
-      </Typography.Title>
-      <StatStrip
-        baseStats={selected.baseStats}
-        baseStatRating={selected.baseStatRating}
-        showRating
-      />
-      <EquipmentSlotRow
-        character={selected}
-        inBattle={inBattle}
-        onUnequip={(slot) => onUnequip(selected.id, slot)}
-      />
-      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        Карты:{' '}
-        {selected.cards.map((c) => getCardDisplayLabel(c.templateId)).join(' · ') || '—'}
-      </Typography.Text>
-
-      <Typography.Title level={5} style={{ margin: 0 }}>
-        Инвентарь — {selected.name}
-      </Typography.Title>
-      <InventoryGrid
-        itemCount={stash.length}
-        renderCell={(index, isEmpty) => {
-          if (isEmpty) return <InventoryCell state="empty" ariaLabel="Пустой слот" />
-          const item = stash[index]!
-          const tmpl = getItemTemplate(item.templateId)
-          const sellPrice = tmpl ? itemSellPrice(tmpl) : 0
-          return (
-            <InventoryCell
-              key={item.id}
-              emoji={resolveItemEmoji(tmpl, tmpl?.slot ?? 'weapon')}
-              levelBadge={`${UI_LEVEL}${item.itemLevel}`}
-              contextBadge={sellPrice > 0 ? `${sellPrice} 💰` : undefined}
-              state={inBattle ? 'disabled' : 'filled'}
-              popoverTitle={tmpl?.label}
-              popoverContent={shopStashItemPopover(item, inBattle, () =>
-                onSellItem(selected.id, item.id),
-              )}
-              ariaLabel={tmpl?.label ?? item.templateId}
-            />
-          )
-        }}
-      />
-
-      <Typography.Title level={5} style={{ margin: 0 }}>
-        Сундук
-      </Typography.Title>
-      <ChestInventoryView
-        campaign={campaign}
-        inBattle={inBattle}
-        inventoryLocked={campaign.expedition !== null}
-        bindCharacterId={selected.id}
-        onSellChestItem={onSellChestItem}
-        onSellChestCard={onSellChestCard}
-        onSellChestPassive={onSellChestPassive}
-        bindCharacterName={selected.name}
-        onBindCard={(cardId) => onBindChestCard(cardId, selected.id)}
-        onBindPassive={(passiveId) => onBindChestPassive(passiveId, selected.id)}
-        onAssignItemToCharacter={
-          onMoveChestItemToCharacter
-            ? (itemId) => onMoveChestItemToCharacter(itemId, selected.id)
-            : undefined
+    <Space orientation="vertical" size="small" style={{ width: '100%' }} role="tabpanel">
+      <GamePanel
+        title="Магазин"
+        extra={
+          <Button
+            size="small"
+            disabled={inBattle || campaign.expedition !== null}
+            onClick={() => onRefreshShop(false)}
+          >
+            Обновить ({SKILL_ACQUISITION.shopRefreshCost} 💰)
+          </Button>
         }
-      />
+      >
+        <ShopOffersGrid
+          offers={offers}
+          gold={campaign.gold}
+          inBattle={inBattle}
+          selectedCharacterName={selected.name}
+          selectedCharacterId={selected.id}
+          onBuy={onBuyOffer}
+          onInsufficientGold={onInsufficientGold}
+        />
+      </GamePanel>
+
+      <GameColumns>
+        <GamePanel title="Персонаж">
+          <CharacterRosterView
+            campaign={campaign}
+            selectedCharacterId={selectedCharacterId}
+            inventoryCharacterId={selectedCharacterId}
+            transferDisabled
+            squadLocked
+            activeDragId={null}
+            onSelectCharacter={setSelectedCharacterId}
+            onAssignToSquad={() => {}}
+            onRemoveFromSquad={() => {}}
+            showSquadActions={false}
+          />
+          <Typography.Text strong style={{ display: 'block', marginTop: 8 }}>
+            {selected.name}
+          </Typography.Text>
+          <StatStrip
+            baseStats={selected.baseStats}
+            baseStatRating={selected.baseStatRating}
+            showRating
+          />
+          <EquipmentSlotRow
+            character={selected}
+            inBattle={inBattle}
+            onUnequip={(slot) => onUnequip(selected.id, slot)}
+          />
+          <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
+            Карты:{' '}
+            {selected.cards.map((c) => getCardDisplayLabel(c.templateId)).join(' · ') || '—'}
+          </Typography.Text>
+          <InventoryGrid
+            itemCount={stash.length}
+            renderCell={(index, isEmpty) => {
+              if (isEmpty) return <InventoryCell state="empty" ariaLabel="Пустой слот" />
+              const item = stash[index]!
+              const tmpl = getItemTemplate(item.templateId)
+              const sellPrice = tmpl ? itemSellPrice(tmpl) : 0
+              return (
+                <InventoryCell
+                  key={item.id}
+                  emoji={resolveItemEmoji(tmpl, tmpl?.slot ?? 'weapon')}
+                  levelBadge={`${UI_LEVEL}${item.itemLevel}`}
+                  contextBadge={sellPrice > 0 ? `${sellPrice} 💰` : undefined}
+                  state={inBattle ? 'disabled' : 'filled'}
+                  popoverTitle={tmpl?.label}
+                  popoverContent={shopStashItemPopover(item, inBattle, () =>
+                    onSellItem(selected.id, item.id),
+                  )}
+                  ariaLabel={tmpl?.label ?? item.templateId}
+                />
+              )
+            }}
+          />
+        </GamePanel>
+
+        <GamePanel title="Сундук">
+          <ChestInventoryView
+            campaign={campaign}
+            inBattle={inBattle}
+            inventoryLocked={campaign.expedition !== null}
+            bindCharacterId={selected.id}
+            onSellChestItem={onSellChestItem}
+            onSellChestCard={onSellChestCard}
+            onSellChestPassive={onSellChestPassive}
+            bindCharacterName={selected.name}
+            onBindCard={(cardId) => onBindChestCard(cardId, selected.id)}
+            onBindPassive={(passiveId) => onBindChestPassive(passiveId, selected.id)}
+            onAssignItemToCharacter={
+              onMoveChestItemToCharacter
+                ? (itemId) => onMoveChestItemToCharacter(itemId, selected.id)
+                : undefined
+            }
+          />
+        </GamePanel>
+      </GameColumns>
     </Space>
   )
 }

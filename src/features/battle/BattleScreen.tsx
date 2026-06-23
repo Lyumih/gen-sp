@@ -11,7 +11,7 @@ import {
   RobotOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons'
-import { Alert, App, Badge, Button, Card, Collapse, Radio, Space, Switch, Tooltip, Typography } from 'antd'
+import { Alert, App, Badge, Button, Radio, Space, Switch, Tooltip, Typography } from 'antd'
 import { getCardAttackTemplate, isHealKind, usesCardBuffDispatch } from '../../game/content/cardTemplates'
 import {
   HERO_BASIC_MELEE_DAMAGE,
@@ -22,7 +22,11 @@ import {
 import { getHeroRangedCooldown } from '../../game/battle/heroRangedCooldown'
 import { describeCardCombatStats, getCardDisplayLabel } from '../../game/descriptions/cardText'
 import { describeCardModSummary } from '../../game/descriptions/modText'
-import { UI_CELL, UI_DAMAGE, UI_HEART, UI_LEVEL } from '../../game/ui/labels'
+import { UI_CELL, UI_DAMAGE, UI_HEART, UI_LEVEL, UI_WORLD_POWER } from '../../game/ui/labels'
+import { WORLD_POWER_TOOLTIP } from '../campaign/resourceTooltips'
+import { GamePanel } from '../layout/GamePanel'
+import { GameScrollX } from '../layout/GameScrollX'
+import '../layout/game-layout.css'
 import { computeEffectiveStats, computeGearStatBonuses } from '../../game/stats/effectiveStats'
 import { aggregatePassiveSkillStatBonuses } from '../../game/passives/passiveStatBonuses'
 import { computePassiveRangedRangeBonus } from '../../game/passives/passiveEngine'
@@ -725,152 +729,93 @@ export function BattleScreen() {
   }
 
   return (
-    <Card
-      title={
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <ThunderboltOutlined aria-hidden />
-          Бой
-        </span>
-      }
-      extra={
-        <Space wrap>
-          <Button
-            type="default"
-            icon={<IdcardOutlined aria-hidden />}
-            aria-label="Профиль героя"
-            onClick={() => setProfileOpen(true)}
-          >
-            Профиль героя
-          </Button>
-          {expeditionContinues ? (
+    <Space orientation="vertical" size="small" style={{ width: '100%' }}>
+      {battle.phase === 'defeat' && (
+        <Alert
+          type="error"
+          title="Поражение"
+          description="Начните бой заново — мета-прогресс без дюпа наград за прошлую попытку."
+          action={
             <Button
-              type="default"
+              type="primary"
               danger
-              icon={<FlagOutlined aria-hidden />}
-              onClick={confirmFinishExpedition}
+              icon={<RedoOutlined />}
+              onClick={() => dispatchRun({ type: 'RETRY_CURRENT_BATTLE' })}
             >
-              Завершить экспедицию
+              Начать новый бой
             </Button>
-          ) : null}
-          {battle.phase === 'ongoing' || battle.phase === 'defeat' ? (
-            <Button type="default" danger icon={<LogoutOutlined />} onClick={confirmAbandon}>
-              Выйти из боя
-            </Button>
-          ) : null}
-        </Space>
-      }
-    >
-      <Space orientation="vertical" size="large" style={{ width: '100%' }}>
-        {battle.phase === 'defeat' && (
-          <Alert
-            type="error"
-            title="Поражение"
-            description="Начните бой заново — мета-прогресс без дюпа наград за прошлую попытку."
-            action={
-              <Button
-                type="primary"
-                danger
-                icon={<RedoOutlined />}
-                onClick={() => dispatchRun({ type: 'RETRY_CURRENT_BATTLE' })}
-              >
-                Начать новый бой
+          }
+        />
+      )}
+      {excludedNames.length > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          closable
+          title="Не хватило места спавна"
+          description={`${excludedNames.join(', ')} не участвуют в этом бою`}
+        />
+      )}
+      {battle.phase === 'victory' && (
+        <Alert
+          type="success"
+          showIcon
+          icon={<CheckCircleOutlined />}
+          title="Победа"
+          description="Просмотрите журнал и поле боя. Награды кампании и переход дальше произойдут только после вашего выбора."
+          action={
+            <Space>
+              <Button type="primary" onClick={finalizeVictoryToHub}>
+                Продолжить
               </Button>
-            }
-          />
-        )}
-        {excludedNames.length > 0 && (
-          <Alert
-            type="warning"
-            showIcon
-            closable
-            title="Не хватило места спавна"
-            description={`${excludedNames.join(', ')} не участвуют в этом бою`}
-          />
-        )}
-        {battle.phase === 'victory' && (
-          <Alert
-            type="success"
-            showIcon
-            icon={<CheckCircleOutlined />}
-            title="Победа"
-            description="Просмотрите журнал и поле боя. Награды кампании и переход дальше произойдут только после вашего выбора."
-            action={
-              <Space>
-                <Button type="primary" onClick={finalizeVictoryToHub}>
-                  Продолжить
-                </Button>
-                <Button onClick={finalizeVictoryToHub}>Закончить</Button>
-              </Space>
-            }
-          />
-        )}
-        <Typography.Text>
-          {battle.phase === 'victory' ? (
-            <>
-              Победа — можно пролистать журнал ниже.
-              {' · '}
-              <span style={{ fontSize: 28, lineHeight: 1, verticalAlign: '-0.18em' }} aria-hidden>
-                ⚡
-              </span>{' '}
-              worldPower (бой): {battle.worldPower}
-            </>
-          ) : (
-            <>
-              Ход:{' '}
-              <strong>
-                {current
-                  ? `${getUnitDisplay(current, campaign).emoji} ${getUnitDisplay(current, campaign).name}`
-                  : '—'}
-              </strong>
-              {' · '}
-              Раунд {battle.roundNumber}
-              {' · '}
-              <span style={{ fontSize: 28, lineHeight: 1, verticalAlign: '-0.18em' }} aria-hidden>
-                ⚡
-              </span>{' '}
-              worldPower (бой): {battle.worldPower}
-            </>
-          )}
-        </Typography.Text>
+              <Button onClick={finalizeVictoryToHub}>Закончить</Button>
+            </Space>
+          }
+        />
+      )}
 
-        <div>
-          <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>
-            Инициатива
-          </Typography.Text>
-          <InitiativeQueue
-            turnOrder={battle.turnOrder}
-            currentActorId={currentId}
-            units={battle.units}
-            campaign={campaign}
-            highlightedUnitId={highlightedUnitId}
-            onHighlight={setHighlightedUnitId}
-          />
-        </div>
+      <div className="game-battle-layout">
+        <div className="game-battle-field">
+          <div>
+            <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>
+              Инициатива
+            </Typography.Text>
+            <InitiativeQueue
+              turnOrder={battle.turnOrder}
+              currentActorId={currentId}
+              units={battle.units}
+              campaign={campaign}
+              highlightedUnitId={highlightedUnitId}
+              onHighlight={setHighlightedUnitId}
+            />
+          </div>
 
-        <div>
-          <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>
-            Здоровье героя и врагов
-          </Typography.Text>
-          <Space wrap>
-            {unitsHealthOrder.map((u) => {
-              const d = getUnitDisplay(u, campaign)
-              return (
-                <Typography.Text key={u.id}>
-                  {d.emoji} {d.name}: {UI_HEART} {u.hp}/{u.maxHp}
-                </Typography.Text>
-              )
-            })}
-          </Space>
-        </div>
+          <div>
+            <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>
+              Здоровье
+            </Typography.Text>
+            <Space wrap size="small">
+              {unitsHealthOrder.map((u) => {
+                const d = getUnitDisplay(u, campaign)
+                return (
+                  <Typography.Text key={u.id} style={{ fontSize: 12 }}>
+                    {d.emoji} {d.name}: {UI_HEART} {u.hp}/{u.maxHp}
+                  </Typography.Text>
+                )
+              })}
+            </Space>
+          </div>
 
-        <div
-          onMouseLeave={handleGridMouseLeave}
-          style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(${battle.width}, ${CELL_PX}px)`,
-            gap: 4,
-          }}
-        >
+          <GameScrollX>
+            <div
+              onMouseLeave={handleGridMouseLeave}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${battle.width}, ${CELL_PX}px)`,
+                gap: 4,
+                width: 'max-content',
+              }}
+            >
           {gridCells.flatMap((row) =>
             row.map(({ x, y }) => {
               const k = cellKey(x, y)
@@ -962,36 +907,90 @@ export function BattleScreen() {
               )
             }),
           )}
+            </div>
+          </GameScrollX>
+
+          {overlayActive && (
+            <Space wrap size="small" style={{ marginTop: 8 }}>
+              {OVERLAY_LEGEND.map((item) => (
+                <Typography.Text key={item.label} style={{ fontSize: 12 }}>
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      width: 14,
+                      height: 14,
+                      marginRight: 6,
+                      verticalAlign: '-2px',
+                      borderRadius: 2,
+                      border: '1px solid #ccc',
+                      background: item.color,
+                    }}
+                    aria-hidden
+                  />
+                  {item.label}
+                </Typography.Text>
+              ))}
+            </Space>
+          )}
         </div>
 
-        {overlayActive && (
-          <Space wrap size="small">
-            {OVERLAY_LEGEND.map((item) => (
-              <Typography.Text key={item.label} style={{ fontSize: 12 }}>
-                <span
-                  style={{
-                    display: 'inline-block',
-                    width: 14,
-                    height: 14,
-                    marginRight: 6,
-                    verticalAlign: '-2px',
-                    borderRadius: 2,
-                    border: '1px solid #ccc',
-                    background: item.color,
-                  }}
-                  aria-hidden
-                />
-                {item.label}
-              </Typography.Text>
-            ))}
-          </Space>
-        )}
-
-        <div>
-          <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>
-            {actor
+        <GamePanel
+          title={
+            actor
               ? `Действия: ${getCharacter(campaign, actor.id)?.name ?? actor.id}`
-              : 'Действия'}
+              : 'Действия'
+          }
+          extra={
+            <Space wrap size="small">
+              <Button
+                size="small"
+                icon={<IdcardOutlined aria-hidden />}
+                aria-label="Профиль героя"
+                onClick={() => setProfileOpen(true)}
+              >
+                Профиль
+              </Button>
+              {expeditionContinues ? (
+                <Button
+                  size="small"
+                  danger
+                  icon={<FlagOutlined aria-hidden />}
+                  onClick={confirmFinishExpedition}
+                >
+                  Завершить
+                </Button>
+              ) : null}
+              {battle.phase === 'ongoing' || battle.phase === 'defeat' ? (
+                <Button size="small" danger icon={<LogoutOutlined />} onClick={confirmAbandon}>
+                  Выйти
+                </Button>
+              ) : null}
+            </Space>
+          }
+        >
+          <Typography.Text style={{ display: 'block', marginBottom: 8, fontSize: 13 }}>
+            {battle.phase === 'victory' ? (
+              <>Победа — пролистайте журнал.</>
+            ) : (
+              <>
+                Ход:{' '}
+                <strong>
+                  {current
+                    ? `${getUnitDisplay(current, campaign).emoji} ${getUnitDisplay(current, campaign).name}`
+                    : '—'}
+                </strong>
+                {' · '}Раунд {battle.roundNumber}
+              </>
+            )}
+            {' · '}
+            <Tooltip title={WORLD_POWER_TOOLTIP} mouseEnterDelay={0.3}>
+              <span>
+                <span className="game-header__resource-emoji" aria-hidden>
+                  {UI_WORLD_POWER}
+                </span>{' '}
+                {battle.worldPower}
+              </span>
+            </Tooltip>
           </Typography.Text>
           <Space orientation="vertical" size="small" style={{ width: '100%' }}>
             <div style={{ marginBottom: 4 }}>
@@ -1107,75 +1106,38 @@ export function BattleScreen() {
               </Space>
             </div>
           </Space>
-        </div>
 
-        <div>
-          <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>
-            <span style={{ fontSize: 28, lineHeight: 1, verticalAlign: '-0.18em' }} aria-hidden>
-              🃏
-            </span>{' '}
-            Карты
-          </Typography.Text>
-          {actorCards.length === 0 ? (
-            <Typography.Text type="secondary">—</Typography.Text>
-          ) : (
-            <Collapse
-              size="small"
-              items={actorCards.map((c) => {
-                const lines = cardDetailLines(c, actorCharacter, campaign, actor)
-                const cardStats = describeCardCombatStats(c, actorCharacter, campaign, actor)
-                const dmg = cardStats.expectedDamage
-                return {
-                  key: c.id,
-                  label: (
-                    <span style={{ fontSize: 13 }}>
-                      {getCardDisplayLabel(c.templateId)} {UI_LEVEL}
-                      {c.global_level} · использ. {c.uses_count}
-                      {dmg !== null ? ` · ${String(dmg)}${UI_DAMAGE}` : ''}
-                    </span>
-                  ),
-                  children: (
-                    <ul style={{ margin: 0, paddingLeft: 18 }}>
-                      {lines.map((line, i) => (
-                        <li key={i}>
-                          <Typography.Text style={{ fontSize: 12 }}>{line}</Typography.Text>
-                        </li>
-                      ))}
-                    </ul>
-                  ),
-                }
-              })}
-            />
-          )}
-        </div>
-
-        <div>
-          <Typography.Text strong>Журнал боя</Typography.Text>
-          <div
-            style={{
-              marginTop: 8,
-              maxHeight: 200,
-              overflowY: 'auto',
-              padding: 8,
-              background: '#fafafa',
-              border: '1px solid #eee',
-              borderRadius: 6,
-              fontSize: 12,
-            }}
-          >
-            {battle.battleLog.length === 0 ? (
-              <Typography.Text type="secondary">Пока пусто</Typography.Text>
-            ) : (
-              battle.battleLog.map((entry, i) => (
-                <div key={i} style={{ marginBottom: 4 }}>
-                  {formatBattleLogEntry(entry, unitLogLookup)}
-                </div>
-              ))
-            )}
-            <div ref={logEndRef} />
+          <div style={{ marginTop: 8 }}>
+            <Typography.Text strong style={{ fontSize: 13 }}>
+              Журнал боя
+            </Typography.Text>
+            <div
+              style={{
+                marginTop: 8,
+                maxHeight: 200,
+                overflowY: 'auto',
+                padding: 8,
+                background: '#fafafa',
+                border: '1px solid #eee',
+                borderRadius: 6,
+                fontSize: 12,
+              }}
+            >
+              {battle.battleLog.length === 0 ? (
+                <Typography.Text type="secondary">Пока пусто</Typography.Text>
+              ) : (
+                battle.battleLog.map((entry, i) => (
+                  <div key={i} style={{ marginBottom: 4 }}>
+                    {formatBattleLogEntry(entry, unitLogLookup)}
+                  </div>
+                ))
+              )}
+              <div ref={logEndRef} />
+            </div>
           </div>
-        </div>
-      </Space>
+        </GamePanel>
+      </div>
+
       <HeroProfileModal
         open={profileOpen}
         onClose={() => setProfileOpen(false)}
@@ -1183,6 +1145,6 @@ export function BattleScreen() {
         campaign={campaign}
         battle={battle}
       />
-    </Card>
+    </Space>
   )
 }
