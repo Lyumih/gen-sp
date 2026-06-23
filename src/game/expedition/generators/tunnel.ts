@@ -12,12 +12,10 @@ function pickUniform<T>(items: readonly T[], rng: () => number): T {
 
 export function generateTunnel(ctx: ExpeditionGeneratorContext): BattleScenario {
   const { seed, battleIndex } = ctx
-  const orientRng = makeRng(seed, `tunnel:${battleIndex}:orient`)
-  const horizontal = orientRng() < 0.5
-  const width = horizontal ? TUNNEL_LENGTH : 1
-  const height = horizontal ? 1 : TUNNEL_LENGTH
+  const width = TUNNEL_LENGTH
+  const height = 1
   const enemyX = width - 1
-  const enemyY = height - 1
+  const enemyY = 0
   const enemyZone = { xMin: enemyX, xMax: enemyX, yMin: enemyY, yMax: enemyY }
   const playerSpawnZone = { xMin: 0, xMax: 0, yMin: 0, yMax: 0 }
 

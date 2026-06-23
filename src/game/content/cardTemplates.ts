@@ -37,6 +37,7 @@ export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>>
     statSource: 'attack',
     skillFlat: 2,
     scaleToken: '40%%',
+    cooldownTurns: 3,
     tags: ['skill', 'attack', 'melee'],
     semanticEmojiId: 'sword-red',
     emoji: '🃏',

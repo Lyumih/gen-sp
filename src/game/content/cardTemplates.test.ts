@@ -10,6 +10,7 @@ describe('CARD_ATTACK_TEMPLATES', () => {
   it('strike is enabled melee skill', () => {
     expect(isCardTemplateEnabled('strike')).toBe(true)
     expect(getCardAttackTemplate('strike')?.kind).toBe('melee')
+    expect(getCardAttackTemplate('strike')?.cooldownTurns).toBe(3)
     expect(usesCardAttackDispatch(getCardAttackTemplate('strike')!.kind)).toBe(true)
   })
 

@@ -92,6 +92,7 @@ import { buildExpeditionSnapshot } from '../expedition/snapshot'
 import {
   getExpeditionChainById,
   resolvePartySize,
+  type ExpeditionChainConfig,
 } from '../expedition/config'
 import { countOccupiedSquadSlots } from '../expedition/resolveExpeditionParty'
 import { generateScenario } from '../expedition/generators'
@@ -332,6 +333,35 @@ function mergeExpeditionBattleProgress(state: CampaignState, battle: BattleState
   }
 }
 
+function resolveExpeditionScenario(
+  chain: ExpeditionChainConfig,
+  expedition: Expedition,
+): { scenario: BattleScenario; scenarioSlotIndex: number } | null {
+  if (chain.kind === 'static') {
+    const scenarioId = chain.battleScenarioIds[expedition.battleIndex]
+    if (!scenarioId) return null
+
+    const base = getScenarioById(scenarioId)
+    const scenarioSlotIndex = getScenarioIndexById(scenarioId)
+    if (!base || scenarioSlotIndex < 0) return null
+
+    return {
+      scenario: resolveScenarioForCampaignSlot(base, scenarioSlotIndex),
+      scenarioSlotIndex,
+    }
+  }
+
+  const seed = hashSeed(`${expedition.generationSeed}:${expedition.battleIndex}`)
+  return {
+    scenario: generateScenario(chain.generatorId, {
+      seed,
+      battleIndex: expedition.battleIndex,
+      expeditionPartySize: expedition.partySize,
+    }),
+    scenarioSlotIndex: -1,
+  }
+}
+
 function startExpeditionBattle(
   state: CampaignState,
   expedition: Expedition,
@@ -339,27 +369,10 @@ function startExpeditionBattle(
   const chain = getExpeditionChainById(expedition.scenarioChainId)
   if (!chain) return state
 
-  let scenario: BattleScenario
-  let scenarioSlotIndex: number
+  const resolved = resolveExpeditionScenario(chain, expedition)
+  if (!resolved) return state
 
-  if (chain.kind === 'static') {
-    const scenarioId = chain.battleScenarioIds[expedition.battleIndex]
-    if (!scenarioId) return state
-
-    const base = getScenarioById(scenarioId)
-    scenarioSlotIndex = getScenarioIndexById(scenarioId)
-    if (!base || scenarioSlotIndex < 0) return state
-
-    scenario = resolveScenarioForCampaignSlot(base, scenarioSlotIndex)
-  } else {
-    const seed = hashSeed(`${expedition.generationSeed}:${expedition.battleIndex}`)
-    scenario = generateScenario(chain.generatorId, {
-      seed,
-      battleIndex: expedition.battleIndex,
-      expeditionPartySize: expedition.partySize,
-    })
-    scenarioSlotIndex = -1
-  }
+  const { scenario, scenarioSlotIndex } = resolved
 
   const snapshot = buildExpeditionBattleSnapshot(state, expedition, scenarioSlotIndex)
   if (!snapshot) return state
@@ -1265,10 +1278,20 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
     case 'RETRY_CURRENT_BATTLE': {
       const snap = state.battleAttemptSnapshot
       if (!snap) return state
-      const base = SCENARIOS[snap.scenarioSlotIndex]
-      if (!base) return state
 
-      const scenario = resolveScenarioForCampaignSlot(base, snap.scenarioSlotIndex)
+      let scenario: BattleScenario | null = null
+      if (state.expedition) {
+        const chain = getExpeditionChainById(state.expedition.scenarioChainId)
+        if (!chain) return state
+        const resolved = resolveExpeditionScenario(chain, state.expedition)
+        if (!resolved) return state
+        scenario = resolved.scenario
+      } else {
+        const base = SCENARIOS[snap.scenarioSlotIndex]
+        if (!base) return state
+        scenario = resolveScenarioForCampaignSlot(base, snap.scenarioSlotIndex)
+      }
+
       const snapCopy = copyBattleAttemptSnapshot(snap)
       const retryState = {
         ...state,

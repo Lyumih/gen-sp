@@ -1657,6 +1657,28 @@ describe('expedition state machine', () => {
     expect(s.expedition!.battleIndex).toBe(0)
   })
 
+  it('RETRY_CURRENT_BATTLE works for procedural expedition', () => {
+    let s = applyRunAction(hubState(), {
+      type: 'START_EXPEDITION',
+      chainId: 'small-skirmish',
+      selectedCharacterIds: [HERO_ID],
+    })
+
+    expect(s.battleAttemptSnapshot?.scenarioSlotIndex).toBe(-1)
+
+    s = {
+      ...s,
+      phase: 'defeat',
+      battle: s.battle ? { ...s.battle, phase: 'defeat' } : null,
+    }
+
+    s = applyRunAction(s, { type: 'RETRY_CURRENT_BATTLE' })
+    expect(s.phase).toBe('battle')
+    expect(s.battle).not.toBeNull()
+    expect(s.expedition!.scenarioChainId).toBe('small-skirmish')
+    expect(s.battle!.width * s.battle!.height).toBe(2)
+  })
+
   it('defeat syncs expedition squad metaStatus to downed', () => {
     let s = applyRunAction(hubState(), {
       type: 'START_EXPEDITION',
