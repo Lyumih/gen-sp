@@ -1,5 +1,7 @@
 import {
+  pickRandomPassiveTemplateId,
   pickRandomSkillTemplateId,
+  rollShopPassiveOffer,
   rollShopSkillOffer,
   SKILL_ACQUISITION,
   type SkillAcquisitionConfig,
@@ -30,6 +32,9 @@ export function generateShopOffers(
   }))
   if (rollShopSkillOffer(rng(), cfg)) {
     offers.push({ kind: 'skill', templateId: pickRandomSkillTemplateId(rng) })
+  }
+  if (rollShopPassiveOffer(rng(), cfg)) {
+    offers.push({ kind: 'passive', templateId: pickRandomPassiveTemplateId(rng) })
   }
   return offers
 }

@@ -7,7 +7,9 @@ describe('generateShopOffers', () => {
     const offers = generateShopOffers(seededRng(42), {
       battleDropChance: 0,
       shopSkillOfferChance: 0,
+      shopPassiveOfferChance: 0,
       shopSkillPrice: 100,
+      shopPassivePrice: 100,
       shopRefreshCost: 10,
     })
     const items = offers.filter((o) => o.kind === 'item')
@@ -20,10 +22,39 @@ describe('generateShopOffers', () => {
     const offers = generateShopOffers(seededRng(1), {
       battleDropChance: 0,
       shopSkillOfferChance: 1,
+      shopPassiveOfferChance: 0,
       shopSkillPrice: 100,
+      shopPassivePrice: 100,
       shopRefreshCost: 10,
     })
     expect(offers.some((o) => o.kind === 'skill')).toBe(true)
     expect(offers.length).toBe(SHOP_ITEM_SLOT_COUNT + 1)
+  })
+
+  it('may append passive offer on separate roll', () => {
+    const offers = generateShopOffers(seededRng(2), {
+      battleDropChance: 0,
+      shopSkillOfferChance: 0,
+      shopPassiveOfferChance: 1,
+      shopSkillPrice: 100,
+      shopPassivePrice: 100,
+      shopRefreshCost: 10,
+    })
+    expect(offers.some((o) => o.kind === 'passive')).toBe(true)
+    expect(offers.length).toBe(SHOP_ITEM_SLOT_COUNT + 1)
+  })
+
+  it('may append both skill and passive offers independently', () => {
+    const offers = generateShopOffers(seededRng(3), {
+      battleDropChance: 0,
+      shopSkillOfferChance: 1,
+      shopPassiveOfferChance: 1,
+      shopSkillPrice: 100,
+      shopPassivePrice: 100,
+      shopRefreshCost: 10,
+    })
+    expect(offers.some((o) => o.kind === 'skill')).toBe(true)
+    expect(offers.some((o) => o.kind === 'passive')).toBe(true)
+    expect(offers.length).toBe(SHOP_ITEM_SLOT_COUNT + 2)
   })
 })

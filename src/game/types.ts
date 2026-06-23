@@ -83,6 +83,7 @@ export type BattleLoadout = [string | null, string | null, string | null]
 export type ShopOffer =
   | { kind: 'item'; templateId: string }
   | { kind: 'skill'; templateId: string }
+  | { kind: 'passive'; templateId: string }
 
 export type CampaignChest = {
   items: ItemInstance[]
@@ -90,7 +91,9 @@ export type CampaignChest = {
   unboundPassives: PassiveInstance[]
 }
 
-export type HubNotice = { kind: 'skill_drop'; templateId: string }
+export type HubNotice =
+  | { kind: 'skill_drop'; templateId: string }
+  | { kind: 'passive_drop'; templateId: string }
 
 export type CharacterMetaStatus = 'active' | 'downed'
 
