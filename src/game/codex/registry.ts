@@ -3,9 +3,10 @@ import { CARD_ATTACK_TEMPLATES } from '../content/cardTemplates'
 import { ENEMY_TEMPLATES } from '../content/enemyTemplates'
 import { ITEM_TEMPLATES } from '../content/itemTemplates'
 import { MOD_TEMPLATES } from '../content/modTemplates'
+import { PASSIVE_TEMPLATES } from '../content/passiveTemplates'
 import { getSemanticEmoji } from '../ui/semanticEmoji'
 
-export type CodexCategory = 'class' | 'item' | 'card' | 'enemy' | 'mod'
+export type CodexCategory = 'class' | 'item' | 'card' | 'passive' | 'enemy' | 'mod'
 
 export type CodexEntry = {
   id: string
@@ -43,6 +44,9 @@ const ALL_CODEX_ENTRIES: readonly CodexEntry[] = [
   ),
   ...Object.entries(CARD_ATTACK_TEMPLATES).map(([templateId, template]) =>
     entryFromTemplate('card', templateId, template),
+  ),
+  ...Object.entries(PASSIVE_TEMPLATES).map(([templateId, template]) =>
+    entryFromTemplate('passive', templateId, template),
   ),
   ...Object.entries(ENEMY_TEMPLATES).map(([templateId, template]) =>
     entryFromTemplate('enemy', templateId, template),

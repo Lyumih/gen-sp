@@ -10,11 +10,12 @@ import {
   itemPerLevelBonusesLines,
 } from '../descriptions/itemText'
 import { describeModCodex } from '../descriptions/modText'
+import { describePassiveStats } from '../descriptions/passiveText'
 import { getCardAttackTemplate } from '../content/cardTemplates'
 import { getItemTemplate } from '../content/itemTemplates'
 import { getModTemplate } from '../content/modTemplates'
 import { tagLabelRu } from '../content/tagTaxonomy'
-import type { CardInstance, Character } from '../types'
+import type { CardInstance, Character, PassiveInstance } from '../types'
 import type { CodexEntry } from './registry'
 
 const CODEX_PREVIEW_CHARACTER: Pick<
@@ -79,6 +80,21 @@ export function describeCodexEntry(
       return {
         label: d.displayLabel,
         summaryLines: [...d.lines.slice(0, 2), ...(tagLine ? [tagLine] : [])],
+        detailLines: d.lines,
+      }
+    }
+    case 'passive': {
+      const passive: PassiveInstance = {
+        id: 'codex-preview',
+        templateId: entry.templateId,
+        global_level: 1,
+        uses_count: 0,
+        modSlots: [],
+      }
+      const d = describePassiveStats(passive, CODEX_PREVIEW_CHARACTER, { worldPower })
+      return {
+        label: d.displayLabel,
+        summaryLines: d.lines.slice(0, 2),
         detailLines: d.lines,
       }
     }
