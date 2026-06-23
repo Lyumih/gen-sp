@@ -31,8 +31,17 @@ import { generateOffer } from '../memento/modOffers'
 import { rollbackCarrierLevel } from '../memento/modSlots'
 import { resolveCarrierTags } from '../mods/carrierTags'
 import { MOD_OFFER_POOL, getModTemplate } from '../content/modTemplates'
+import { getPassiveModTemplate, PASSIVE_MOD_OFFER_POOL } from '../content/passiveModTemplates'
 import { rollMementoLevelUp } from '../memento/rollMementoLevelUp'
-import { sellPriceForSkill } from '../config/skillAcquisition'
+import {
+  pickRandomPassiveTemplateId,
+  pickRandomSkillTemplateId,
+  rollBattlePassiveDrop,
+  rollBattleSkillDrop,
+  sellPriceForPassive,
+  sellPriceForSkill,
+  SKILL_ACQUISITION,
+} from '../config/skillAcquisition'
 import type {
   BattleAction,
   BattleAttemptSnapshot,
@@ -44,6 +53,7 @@ import type {
   IconAccentId,
   IconSkinToneId,
   ItemInstance,
+  PassiveInstance,
 } from '../types'
 import {
   buildBattleAttemptSnapshot,
@@ -77,14 +87,14 @@ import {
   TAVERN_REFRESH_COST,
 } from '../tavern/generateCandidates'
 import { STARTER_HERO_BASE_STATS } from '../config/baseStats'
-import {
-  pickRandomSkillTemplateId,
-  rollBattleSkillDrop,
-  SKILL_ACQUISITION,
-} from '../config/skillAcquisition'
 import { computeBaseStatRating } from '../stats/computeRating'
 import { generateShopOffers } from '../shop/generateShopOffers'
 import { createCardInstance, createStrikeCardForHero } from './cardFactory'
+import { createPassiveInstance } from '../passives/passiveFactory'
+import {
+  canEquipPassive,
+  MAX_PASSIVES_PER_CHARACTER,
+} from '../passives/equippedPassives'
 import { EMPTY_CHEST } from './chestDefaults'
 import type { Expedition } from '../types'
 
@@ -154,7 +164,7 @@ export type RunAction =
   | {
       type: 'PICK_MOD_OFFER'
       characterId: string
-      carrierKind: 'card' | 'item'
+      carrierKind: 'card' | 'item' | 'passive'
       carrierId: string
       slotIndex: number
       modTemplateId: string
@@ -162,7 +172,7 @@ export type RunAction =
   | {
       type: 'REMOVE_MOD'
       characterId: string
-      carrierKind: 'card' | 'item'
+      carrierKind: 'card' | 'item' | 'passive'
       carrierId: string
       slotIndex: number
     }
@@ -176,6 +186,9 @@ export type RunAction =
   | { type: 'MOVE_CHEST_ITEM_TO_CHARACTER'; itemId: string; characterId: string }
   | { type: 'MOVE_CHARACTER_ITEM_TO_CHEST'; itemId: string; characterId: string }
   | { type: 'BIND_CHEST_CARD'; cardId: string; characterId: string }
+  | { type: 'BIND_PASSIVE_TO_CHARACTER'; passiveId: string; characterId: string }
+  | { type: 'SET_PASSIVE_EQUIP'; characterId: string; slotIndex: 0 | 1 | 2 | 3; passiveId: string | null }
+  | { type: 'SELL_UNBOUND_PASSIVE'; passiveId: string }
   | { type: 'SELL_CHEST_ITEM'; itemId: string }
   | { type: 'SELL_CHEST_CARD'; cardId: string }
   | { type: 'MARK_HUB_NOTICE_SEEN' }
@@ -440,11 +453,24 @@ function finalizeVictory(
   const dropRng = seededRng(state.battleAttemptId * 9973 + 13)
   let chest = state.chest ?? EMPTY_CHEST
   let pendingHubNotice = state.pendingHubNotice
+  const codexDiscoveries: string[] = []
+
   if (rollBattleSkillDrop(dropRng())) {
     const templateId = pickRandomSkillTemplateId(dropRng)
     const dropped = createCardInstance(templateId)
     chest = { ...chest, unboundCards: [...chest.unboundCards, dropped] }
     pendingHubNotice = { kind: 'skill_drop', templateId }
+    codexDiscoveries.push(codexEntryId('card', templateId))
+  }
+
+  if (rollBattlePassiveDrop(dropRng())) {
+    const passiveTemplateId = pickRandomPassiveTemplateId(dropRng)
+    const droppedPassive = createPassiveInstance(passiveTemplateId)
+    chest = { ...chest, unboundPassives: [...chest.unboundPassives, droppedPassive] }
+    if (!pendingHubNotice) {
+      pendingHubNotice = { kind: 'passive_drop', templateId: passiveTemplateId }
+    }
+    codexDiscoveries.push(`passive:${passiveTemplateId}`)
   }
 
   const base: CampaignState = {
@@ -462,10 +488,8 @@ function finalizeVictory(
     chest,
     pendingHubNotice,
   }
-  if (pendingHubNotice?.kind === 'skill_drop') {
-    return withCodexDiscoveries(base, [
-      codexEntryId('card', pendingHubNotice.templateId),
-    ])
+  if (codexDiscoveries.length > 0) {
+    return withCodexDiscoveries(base, codexDiscoveries)
   }
   return base
 }
@@ -729,12 +753,12 @@ function normalizeCharacterName(raw: string, fallback: string): string {
 function updateCarrierModSlots(
   state: CampaignState,
   characterId: string,
-  carrierKind: 'card' | 'item',
+  carrierKind: 'card' | 'item' | 'passive',
   carrierId: string,
   update: (
-    carrier: CardInstance | ItemInstance,
+    carrier: CardInstance | ItemInstance | PassiveInstance,
     templateId: string,
-  ) => CardInstance | ItemInstance | null,
+  ) => CardInstance | ItemInstance | PassiveInstance | null,
 ): CampaignState {
   const hero = getCharacter(state, characterId)
   if (!hero) return state
@@ -747,6 +771,19 @@ function updateCarrierModSlots(
     return updateCharacter(state, characterId, (c) => ({
       ...c,
       cards: c.cards.map((entry) => (entry.id === carrierId ? (next as CardInstance) : entry)),
+    }))
+  }
+
+  if (carrierKind === 'passive') {
+    const passive = hero.passives.find((p) => p.id === carrierId)
+    if (!passive) return state
+    const next = update(passive, passive.templateId)
+    if (!next) return state
+    return updateCharacter(state, characterId, (c) => ({
+      ...c,
+      passives: c.passives.map((entry) =>
+        entry.id === carrierId ? (next as PassiveInstance) : entry,
+      ),
     }))
   }
 
@@ -766,7 +803,9 @@ function tryPickModOffer(
 ): CampaignState {
   if (!inHub(state)) return state
   if (!assertHubActionAllowed(state, 'equip')) return state
-  if (!getModTemplate(action.modTemplateId)) return state
+  if (!getModTemplate(action.modTemplateId) && !getPassiveModTemplate(action.modTemplateId)) {
+    return state
+  }
 
   return updateCarrierModSlots(
     state,
@@ -809,8 +848,10 @@ function tryRemoveMod(
         (id) => id !== slot.templateId,
       )
       const tags = resolveCarrierTags(action.carrierKind, templateId)
+      const pool =
+        action.carrierKind === 'passive' ? PASSIVE_MOD_OFFER_POOL : MOD_OFFER_POOL
       const offer = generateOffer(
-        MOD_OFFER_POOL,
+        pool,
         tags,
         occupied,
         action.slotIndex,
@@ -821,9 +862,9 @@ function tryRemoveMod(
       modSlots[action.slotIndex] = { status: 'empty', offer }
       const newLevel = rollbackCarrierLevel(action.slotIndex)
 
-      if (action.carrierKind === 'card') {
+      if (action.carrierKind === 'card' || action.carrierKind === 'passive') {
         return {
-          ...(carrier as CardInstance),
+          ...(carrier as CardInstance | PassiveInstance),
           global_level: newLevel,
           modSlots,
         }
@@ -1202,11 +1243,17 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         seededRng(state.characters.length * 31 + candidate.classId.length),
       )
       const skillCard = createCardInstance(skillTemplateId)
+      const passiveTemplateId = pickRandomPassiveTemplateId(
+        seededRng(state.characters.length * 31 + candidate.classId.length + 7),
+      )
+      const passive = createPassiveInstance(passiveTemplateId)
       character = {
         ...character,
         items,
         equipment,
         cards: [skillCard],
+        passives: [passive],
+        passiveEquip: [passive.id, null, null, null],
         battleLoadout: [skillCard.id, null, null],
       }
 
@@ -1219,7 +1266,11 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
             (c) => c.candidateId !== action.candidateId,
           ),
         },
-        [codexEntryId('class', candidate.classId), codexEntryId('card', skillTemplateId)],
+        [
+          codexEntryId('class', candidate.classId),
+          codexEntryId('card', skillTemplateId),
+          `passive:${passiveTemplateId}`,
+        ],
       )
     }
     case 'REFRESH_SHOP': {
@@ -1337,6 +1388,73 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         characters: state.characters.map((c) =>
           c.id === action.characterId ? { ...c, cards: [...c.cards, card] } : c,
         ),
+      }
+    }
+    case 'BIND_PASSIVE_TO_CHARACTER': {
+      if (!assertHubActionAllowed(state, 'equip')) return state
+      const hero = getCharacter(state, action.characterId)
+      if (!hero) return state
+      if (hero.passives.length >= MAX_PASSIVES_PER_CHARACTER) return state
+      const passive = state.chest.unboundPassives.find((p) => p.id === action.passiveId)
+      if (!passive) return state
+      return withCodexDiscoveries(
+        {
+          ...state,
+          chest: {
+            ...state.chest,
+            unboundPassives: state.chest.unboundPassives.filter(
+              (p) => p.id !== action.passiveId,
+            ),
+          },
+          characters: state.characters.map((c) =>
+            c.id === action.characterId
+              ? { ...c, passives: [...c.passives, passive] }
+              : c,
+          ),
+        },
+        [`passive:${passive.templateId}`],
+      )
+    }
+    case 'SET_PASSIVE_EQUIP': {
+      if (!inHub(state)) return state
+      if (!assertHubActionAllowed(state, 'equip')) return state
+      const { characterId, slotIndex, passiveId } = action
+      if (slotIndex !== 0 && slotIndex !== 1 && slotIndex !== 2 && slotIndex !== 3) {
+        return state
+      }
+      const hero = getCharacter(state, characterId)
+      if (!hero) return state
+      if (passiveId !== null) {
+        const check = canEquipPassive(hero.passives, hero.passiveEquip, passiveId, slotIndex)
+        if (!check.ok) return state
+      }
+      return updateCharacter(state, characterId, (c) => {
+        const next: typeof c.passiveEquip = [...c.passiveEquip]
+        if (passiveId !== null) {
+          for (let i = 0; i < 4; i++) {
+            if (i !== slotIndex && next[i] === passiveId) next[i] = null
+          }
+        }
+        next[slotIndex] = passiveId
+        return { ...c, passiveEquip: next }
+      })
+    }
+    case 'SELL_UNBOUND_PASSIVE': {
+      if (!inHub(state)) return state
+      if (!assertHubActionAllowed(state, 'shop')) return state
+      const passive = state.chest.unboundPassives.find((p) => p.id === action.passiveId)
+      if (!passive) return state
+      const price = sellPriceForPassive()
+      if (price <= 0) return state
+      return {
+        ...state,
+        gold: state.gold + price,
+        chest: {
+          ...state.chest,
+          unboundPassives: state.chest.unboundPassives.filter(
+            (p) => p.id !== action.passiveId,
+          ),
+        },
       }
     }
     case 'SELL_CHEST_ITEM': {

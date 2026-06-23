@@ -34,6 +34,10 @@ import { resolveCarrierTags } from '../mods/carrierTags'
 import { milestoneThreshold, rollbackCarrierLevel } from '../memento/modSlots'
 import { MOD_SLOT_MILESTONES } from '../config/modSlotMilestones'
 import { SKILL_ACQUISITION } from '../config/skillAcquisition'
+import { createPassiveInstance } from '../passives/passiveFactory'
+import { PASSIVE_MOD_OFFER_POOL } from '../content/passiveModTemplates'
+import { pickRandomSkillTemplateId, rollBattlePassiveDrop, rollBattleSkillDrop } from '../config/skillAcquisition'
+import { seededRng } from '../tavern/generateCandidates'
 import type { ModOffer, ModSlotState } from '../types'
 
 function withClassicTestCards(s: CampaignState): CampaignState {
@@ -2098,5 +2102,201 @@ describe('chest and shop offers', () => {
     s = applyRunAction(s, { type: 'SELL_CHEST_CARD', cardId: 'chest-fb' })
     expect(s.chest.unboundCards).toHaveLength(0)
     expect(s.gold).toBe(50)
+  })
+})
+
+function findBattleAttemptIdWithDualDrops(): number {
+  for (let id = 1; id < 5000; id++) {
+    const dropRng = seededRng(id * 9973 + 13)
+    const skillDrop = rollBattleSkillDrop(dropRng())
+    if (skillDrop) pickRandomSkillTemplateId(dropRng)
+    const passiveDrop = rollBattlePassiveDrop(dropRng())
+    if (skillDrop && passiveDrop) return id
+  }
+  throw new Error('no dual drop seed found')
+}
+
+describe('passive hub actions', () => {
+  it('BIND_PASSIVE_TO_CHARACTER moves passive from chest to character', () => {
+    const passive = createPassiveInstance('warrior_fortitude', 'unbound-p1')
+    let s: CampaignState = {
+      ...initialCampaignState(),
+      chest: { items: [], unboundCards: [], unboundPassives: [passive] },
+    }
+    s = applyRunAction(s, {
+      type: 'BIND_PASSIVE_TO_CHARACTER',
+      passiveId: 'unbound-p1',
+      characterId: HERO_ID,
+    })
+    expect(s.chest.unboundPassives).toHaveLength(0)
+    expect(hero(s).passives.some((p) => p.id === 'unbound-p1')).toBe(true)
+    expect(s.codexDiscovered).toContain('passive:warrior_fortitude')
+  })
+
+  it('BIND_PASSIVE_TO_CHARACTER rejects fifth passive', () => {
+    const passives = Array.from({ length: 4 }, (_, i) =>
+      createPassiveInstance('warrior_vigor', `bound-p${i}`),
+    )
+    const unbound = createPassiveInstance('warrior_fortitude', 'unbound-p5')
+    let s = withHero(initialCampaignState(), { passives })
+    s = {
+      ...s,
+      chest: { items: [], unboundCards: [], unboundPassives: [unbound] },
+    }
+    const next = applyRunAction(s, {
+      type: 'BIND_PASSIVE_TO_CHARACTER',
+      passiveId: 'unbound-p5',
+      characterId: HERO_ID,
+    })
+    expect(next).toBe(s)
+    expect(s.chest.unboundPassives).toHaveLength(1)
+  })
+
+  it('SET_PASSIVE_EQUIP rejects duplicate stat_flat defense stacking', () => {
+    const fortitude = createPassiveInstance('warrior_fortitude', 'p-fort')
+    const aegis = createPassiveInstance('paladin_aegis', 'p-aegis')
+    let s = withHero(initialCampaignState(), {
+      passives: [fortitude, aegis],
+      passiveEquip: ['p-fort', null, null, null],
+    })
+    const next = applyRunAction(s, {
+      type: 'SET_PASSIVE_EQUIP',
+      characterId: HERO_ID,
+      slotIndex: 1,
+      passiveId: 'p-aegis',
+    })
+    expect(next).toBe(s)
+    expect(hero(next).passiveEquip[1]).toBeNull()
+  })
+
+  it('SET_PASSIVE_EQUIP equips owned passive when no conflict', () => {
+    const fortitude = createPassiveInstance('warrior_fortitude', 'p-fort')
+    const vigor = createPassiveInstance('warrior_vigor', 'p-vigor')
+    let s = withHero(initialCampaignState(), {
+      passives: [fortitude, vigor],
+      passiveEquip: [null, null, null, null],
+    })
+    s = applyRunAction(s, {
+      type: 'SET_PASSIVE_EQUIP',
+      characterId: HERO_ID,
+      slotIndex: 0,
+      passiveId: 'p-fort',
+    })
+    expect(hero(s).passiveEquip[0]).toBe('p-fort')
+  })
+
+  it('SELL_UNBOUND_PASSIVE adds gold and removes from chest', () => {
+    const passive = createPassiveInstance('warrior_fortitude', 'sell-p1')
+    let s: CampaignState = {
+      ...initialCampaignState(),
+      gold: 0,
+      chest: { items: [], unboundCards: [], unboundPassives: [passive] },
+    }
+    s = applyRunAction(s, { type: 'SELL_UNBOUND_PASSIVE', passiveId: 'sell-p1' })
+    expect(s.chest.unboundPassives).toHaveLength(0)
+    expect(s.gold).toBe(50)
+  })
+
+  function passiveModOffer(seed: number): ModOffer {
+    return generateOffer(
+      PASSIVE_MOD_OFFER_POOL,
+      resolveCarrierTags('passive', 'warrior_fortitude'),
+      [],
+      0,
+      seed,
+    )
+  }
+
+  it('PICK_MOD_OFFER fills passive mod slot', () => {
+    const offer = passiveModOffer(77)
+    const passive = {
+      ...createPassiveInstance('warrior_fortitude', 'p-mod'),
+      global_level: MOD_SLOT_MILESTONES.firstThreshold,
+      modSlots: [{ status: 'empty' as const, offer }],
+    }
+    let s = withHero(initialCampaignState(), { passives: [passive] })
+    const modId = offer.modIds[0]!
+
+    s = applyRunAction(s, {
+      type: 'PICK_MOD_OFFER',
+      characterId: HERO_ID,
+      carrierKind: 'passive',
+      carrierId: 'p-mod',
+      slotIndex: 0,
+      modTemplateId: modId,
+    })
+
+    const updated = hero(s).passives.find((p) => p.id === 'p-mod')!
+    expect(updated.modSlots[0]).toEqual({ status: 'filled', templateId: modId, lm: 0 })
+  })
+})
+
+describe('passive drops and tavern', () => {
+  function victoryState(battleAttemptId: number): CampaignState {
+    const init = initialCampaignState()
+    const b = makeBattle({ phase: 'victory' })
+    return {
+      ...init,
+      phase: 'victory',
+      battle: b,
+      battleAttemptId,
+      battleAttemptSnapshot: battleSnapshotFromHero(init),
+    }
+  }
+
+  it('FINALIZE_VICTORY can drop both skill and passive with separate rolls', () => {
+    const attemptId = findBattleAttemptIdWithDualDrops()
+    let s = victoryState(attemptId)
+    s = applyRunAction(s, {
+      type: 'FINALIZE_VICTORY',
+      itemLevelRolls: [],
+      playerUnitLevelRoll: 100,
+    })
+    expect(s.chest.unboundCards.length).toBeGreaterThanOrEqual(1)
+    expect(s.chest.unboundPassives.length).toBeGreaterThanOrEqual(1)
+    expect(s.pendingHubNotice?.kind).toBe('skill_drop')
+  })
+
+  it('FINALIZE_VICTORY passive-only drop sets passive_drop notice', () => {
+    let attemptId = -1
+    for (let id = 1; id < 5000; id++) {
+      const dropRng = seededRng(id * 9973 + 13)
+      const skillDrop = rollBattleSkillDrop(dropRng())
+      if (skillDrop) pickRandomSkillTemplateId(dropRng)
+      const passiveDrop = rollBattlePassiveDrop(dropRng())
+      if (!skillDrop && passiveDrop) {
+        attemptId = id
+        break
+      }
+    }
+    expect(attemptId).toBeGreaterThan(0)
+
+    let s = victoryState(attemptId)
+    s = applyRunAction(s, {
+      type: 'FINALIZE_VICTORY',
+      itemLevelRolls: [],
+      playerUnitLevelRoll: 100,
+    })
+    expect(s.chest.unboundPassives).toHaveLength(1)
+    expect(s.pendingHubNotice).toEqual({
+      kind: 'passive_drop',
+      templateId: s.chest.unboundPassives[0]!.templateId,
+    })
+  })
+
+  it('HIRE_TAVERN_CANDIDATE grants starter passive equipped in slot 0', () => {
+    const refreshed = applyRunAction(
+      { ...initialCampaignState(), gold: 200 },
+      { type: 'REFRESH_TAVERN', seed: 42 },
+    )
+    const candidate = refreshed.tavernCandidates![0]!
+    const next = applyRunAction(refreshed, {
+      type: 'HIRE_TAVERN_CANDIDATE',
+      candidateId: candidate.candidateId,
+    })
+    const hired = next.characters.find((c) => c.id !== HERO_ID)!
+    expect(hired.passives).toHaveLength(1)
+    expect(hired.passiveEquip[0]).toBe(hired.passives[0]!.id)
+    expect(next.codexDiscovered).toContain(`passive:${hired.passives[0]!.templateId}`)
   })
 })

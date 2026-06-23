@@ -159,7 +159,8 @@ describe('afterCarrierLevelChange for passives', () => {
   it('uses passive mod pool when kind is passive', () => {
     const carrier = {
       global_level: 49,
-      modSlots: [{ status: 'locked' as const }],
+      uses_count: 0,
+      modSlots: [] as import('../types').ModSlotState[],
     }
     const next = afterCarrierLevelChange(
       carrier,
@@ -170,7 +171,7 @@ describe('afterCarrierLevelChange for passives', () => {
     )
     const offer = next.modSlots[0]
     expect(offer?.status).toBe('empty')
-    if (offer?.status !== 'empty') return
+    if (offer?.status !== 'empty' || !offer.offer) return
     for (const modId of offer.offer.modIds) {
       expect(PASSIVE_MOD_OFFER_POOL.some((m) => m.id === modId)).toBe(true)
       expect(MOD_OFFER_POOL.some((m) => m.id === modId)).toBe(false)
