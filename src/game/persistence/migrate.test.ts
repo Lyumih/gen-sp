@@ -418,7 +418,7 @@ describe('migrate v8 → v9 passives and loadout', () => {
     const v8 = { version: 8 as const, campaign: v8CampaignWithoutPassives(initialCampaignState()) }
     const out = migrateFromUnknown(v8)
     expect(out).not.toBeNull()
-    expect(SAVE_VERSION).toBe(10)
+    expect(SAVE_VERSION).toBe(11)
     expect(hero(out!).passives).toEqual([])
     expect(hero(out!).passiveEquip).toEqual([null, null, null, null, null])
     expect(hero(out!).battleLoadout).toHaveLength(4)
@@ -482,6 +482,24 @@ describe('migrate v8 → v9 passives and loadout', () => {
     const out = migrateFromUnknown({ version: 10, campaign: initialCampaignState() })
     expect(out).not.toBeNull()
     expect(hero(out!).specializationId).toBeNull()
+  })
+
+  it('migrateFromUnknown v10 adds onboarding; graduates if scenarioIndex > 0', () => {
+    const fresh = initialCampaignState()
+    expect(migrateFromUnknown({ version: 10, campaign: fresh })!.onboarding.graduated).toBe(
+      false,
+    )
+
+    const progressed = { ...fresh, scenarioIndex: 2 }
+    const migrated = migrateFromUnknown({ version: 10, campaign: progressed })!
+    expect(migrated.onboarding.graduated).toBe(true)
+    expect(migrated.onboarding.guidedTutorialDone).toBe(true)
+  })
+
+  it('migrateFromUnknown accepts version 11 saves', () => {
+    const out = migrateFromUnknown({ version: 11, campaign: initialCampaignState() })
+    expect(out).not.toBeNull()
+    expect(out!.onboarding.graduated).toBe(false)
   })
 })
 

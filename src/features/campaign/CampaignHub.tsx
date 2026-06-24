@@ -1,13 +1,20 @@
-import { useEffect, useState } from 'react'
-import { App, Space } from 'antd'
+import { useEffect, useMemo, useState } from 'react'
+import { App, Drawer, Space } from 'antd'
 import { SCENARIOS } from '../../game/campaign/scenarios'
 import { unreadCodexEntryIds } from '../../game/codex/discovery'
 import { getCardDisplayLabel } from '../../game/descriptions/cardText'
 import { getPassiveTemplate } from '../../game/content/passiveTemplates'
 import { getSpecializationTemplate } from '../../game/specialization/specializationTemplates'
 import { getCharacter } from '../../game/character/selectors'
+import { coachMarkById } from '../../game/onboarding/coachMarks'
+import { hasCompletedStep } from '../../game/onboarding/onboardingState'
+import { shouldShowCoachMarks } from '../../game/onboarding/selectors'
 import type { EquipmentSlot } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
+import { OnboardingChecklist } from '../onboarding/OnboardingChecklist'
+import { OnboardingCoachModal } from '../onboarding/OnboardingCoachModal'
+import { PostBattleDebriefModal } from '../onboarding/PostBattleDebriefModal'
+import { WelcomeModal } from '../onboarding/WelcomeModal'
 import { CampaignBattleTab } from './CampaignBattleTab'
 import { CampaignCharacterTab } from './CampaignCharacterTab'
 import { CampaignCodexTab } from '../codex/CampaignCodexTab'
@@ -24,12 +31,60 @@ export function CampaignHub() {
   const dispatchRun = useGameStore((s) => s.dispatchRun)
   const activeTab = useGameStore((s) => s.hubActiveTab)
   const setHubActiveTab = useGameStore((s) => s.setHubActiveTab)
+  const setChecklistExpanded = useGameStore((s) => s.setChecklistExpanded)
+  const checklistExpanded = useGameStore((s) => s.onboardingUi.checklistExpanded)
+  const dismissedCoachMarkIds = useGameStore((s) => s.onboardingUi.dismissedCoachMarkIds)
+  const dismissCoachMark = useGameStore((s) => s.dismissCoachMark)
+  const [goalsDrawerOpen, setGoalsDrawerOpen] = useState(false)
   const [replaySlot, setReplaySlot] = useState(0)
   const done = campaign.scenarioIndex >= SCENARIOS.length
   const scenario = SCENARIOS[campaign.scenarioIndex]
   const inBattle = campaign.battle !== null
   const expeditionActive = campaign.expedition !== null
   const unreadCodexCount = unreadCodexEntryIds(campaign).length
+  const onboarding = campaign.onboarding
+
+  const showWelcome =
+    !onboarding.skipMode &&
+    !onboarding.graduated &&
+    !hasCompletedStep(onboarding, 'welcome_seen')
+
+  const showVictoryDebrief =
+    hasCompletedStep(onboarding, 'first_battle_won') &&
+    !hasCompletedStep(onboarding, 'hub_after_first_win')
+
+  const activeCoachId = useMemo(() => {
+    if (!shouldShowCoachMarks(onboarding)) return null
+    if (!hasCompletedStep(onboarding, 'welcome_seen')) return null
+
+    const dismissed = new Set(dismissedCoachMarkIds)
+    const pick = (id: string) => (dismissed.has(id) ? null : id)
+
+    if (!hasCompletedStep(onboarding, 'first_battle_started')) {
+      return activeTab === 'battle' ? pick('battle-start-solo') : pick('hub-battle-btn')
+    }
+    if (
+      hasCompletedStep(onboarding, 'hub_after_first_win') &&
+      !hasCompletedStep(onboarding, 'expedition_started')
+    ) {
+      if (activeTab === 'battle') {
+        return pick('expedition-start') ?? pick('expedition-unlock')
+      }
+      if (!hasCompletedStep(onboarding, 'shop_visited')) {
+        return pick('hub-shop-tab')
+      }
+      return pick('hub-gold')
+    }
+    if (
+      hasCompletedStep(onboarding, 'first_battle_won') &&
+      !hasCompletedStep(onboarding, 'hub_after_first_win')
+    ) {
+      return pick('hub-gold')
+    }
+    return null
+  }, [activeTab, dismissedCoachMarkIds, onboarding])
+
+  const activeCoach = activeCoachId ? coachMarkById(activeCoachId) : undefined
 
   useEffect(() => {
     const notice = campaign.pendingHubNotice
@@ -56,7 +111,16 @@ export function CampaignHub() {
     if (tab === 'codex') {
       dispatchRun({ type: 'MARK_CODEX_SEEN' })
     }
+    if (tab === 'shop') {
+      dispatchRun({ type: 'MARK_ONBOARDING_STEP', stepId: 'shop_visited' })
+    }
     setHubActiveTab(tab)
+  }
+
+  const skipOnboarding = () => {
+    dispatchRun({ type: 'SET_ONBOARDING_SKIP' })
+    dispatchRun({ type: 'MARK_ONBOARDING_STEP', stepId: 'welcome_seen' })
+    setChecklistExpanded(false)
   }
 
   const refreshShop = (free?: boolean) => {
@@ -208,6 +272,37 @@ export function CampaignHub() {
 
   return (
     <GameShell>
+      <WelcomeModal
+        open={showWelcome}
+        onStart={() => {
+          dispatchRun({ type: 'MARK_ONBOARDING_STEP', stepId: 'welcome_seen' })
+          setHubActiveTab('battle')
+        }}
+        onSkip={skipOnboarding}
+      />
+
+      <PostBattleDebriefModal
+        kind="first_victory"
+        open={showVictoryDebrief}
+        onClose={() =>
+          dispatchRun({ type: 'MARK_ONBOARDING_STEP', stepId: 'hub_after_first_win' })
+        }
+        onGoShop={() => {
+          dispatchRun({ type: 'MARK_ONBOARDING_STEP', stepId: 'shop_visited' })
+          setHubActiveTab('shop')
+        }}
+      />
+
+      {activeCoach ? (
+        <OnboardingCoachModal
+          open
+          title={activeCoach.title}
+          text={activeCoach.text}
+          onNext={() => dismissCoachMark(activeCoach.id)}
+          onSkipAll={skipOnboarding}
+        />
+      ) : null}
+
       <GameHeader
         campaign={campaign}
         activeTab={activeTab}
@@ -217,9 +312,23 @@ export function CampaignHub() {
         shopDisabled={expeditionActive}
         tavernDisabled={expeditionActive}
         onBattleClick={() => handleTabChange('battle')}
+        onGoalsClick={() => setGoalsDrawerOpen(true)}
+        showGoalsButton={onboarding.graduated || onboarding.skipMode}
       />
 
+      <Drawer
+        title="Цели"
+        open={goalsDrawerOpen}
+        onClose={() => setGoalsDrawerOpen(false)}
+        size="small"
+      >
+        <OnboardingChecklist campaign={campaign} />
+      </Drawer>
+
       <Space orientation="vertical" size="small" style={{ width: '100%' }}>
+        {checklistExpanded && !onboarding.skipMode && !onboarding.graduated ? (
+          <OnboardingChecklist campaign={campaign} />
+        ) : null}
         {activeTab === 'battle' ? (
           <CampaignBattleTab
             campaign={campaign}

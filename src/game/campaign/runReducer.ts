@@ -118,6 +118,19 @@ import {
 } from '../specialization/loadoutCaps'
 import { EMPTY_CHEST } from './chestDefaults'
 import type { Expedition } from '../types'
+import type { OnboardingStepId } from '../onboarding/types'
+import {
+  applyOnboardingSkip,
+  completeStep,
+  graduateOnboarding,
+  DEFAULT_ONBOARDING,
+} from '../onboarding/onboardingState'
+import {
+  campaignFullyCompleteScenarioIndex,
+  isCompletingOnboardingExpedition,
+  isOnboardingExpeditionPending,
+  soloTutorialVictoryJustAchieved,
+} from '../onboarding/selectors'
 
 export type RunAction =
   | { type: 'START_OR_CONTINUE_BATTLE' }
@@ -214,10 +227,20 @@ export type RunAction =
   | { type: 'SELL_CHEST_ITEM'; itemId: string }
   | { type: 'SELL_CHEST_CARD'; cardId: string }
   | { type: 'MARK_HUB_NOTICE_SEEN' }
+  | { type: 'MARK_ONBOARDING_STEP'; stepId: OnboardingStepId }
+  | { type: 'SET_ONBOARDING_SKIP' }
+  | { type: 'SET_GUIDED_TUTORIAL_DONE' }
 
 export { afterCarrierLevelChange }
 
 export { cloneCards, cloneItems, clonePassives }
+
+function withOnboarding(
+  state: CampaignState,
+  fn: (onboarding: CampaignState['onboarding']) => CampaignState['onboarding'],
+): CampaignState {
+  return { ...state, onboarding: fn(state.onboarding) }
+}
 
 function inHub(state: CampaignState): boolean {
   return state.battle === null
@@ -492,6 +515,10 @@ function startBattleFromScenario(state: CampaignState): CampaignState {
     battle,
     battleAttemptSnapshot: snapshot,
     battleAttemptId: state.battleAttemptId + 1,
+    onboarding:
+      state.scenarioIndex === 0
+        ? completeStep(state.onboarding, 'first_battle_started')
+        : state.onboarding,
   }
 }
 
@@ -602,7 +629,9 @@ function finalizeVictory(
   const base: CampaignState = {
     ...state,
     worldPower: b.worldPower,
-    scenarioIndex: nextScenarioIndex,
+    scenarioIndex: isCompletingOnboardingExpedition(state)
+      ? campaignFullyCompleteScenarioIndex()
+      : nextScenarioIndex,
     battle: null,
     phase: 'hub',
     battleAttemptSnapshot: null,
@@ -613,6 +642,16 @@ function finalizeVictory(
     ),
     chest,
     pendingHubNotice,
+    onboarding: (() => {
+      let o = state.onboarding
+      if (soloTutorialVictoryJustAchieved(state, scenarioSlot)) {
+        o = completeStep(o, 'first_battle_won')
+      }
+      if (isCompletingOnboardingExpedition(state)) {
+        o = graduateOnboarding(o)
+      }
+      return o
+    })(),
   }
   if (codexDiscoveries.length > 0) {
     return withCodexDiscoveries(base, codexDiscoveries)
@@ -1352,15 +1391,29 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         if (!getCharacter(state, id)) return state
       }
 
-      const expedition = buildExpeditionSnapshot(
-        state,
-        chain,
-        selectedCharacterIds,
-        rng,
-        partySize,
+      const expedition = (() => {
+        let built = buildExpeditionSnapshot(
+          state,
+          chain,
+          selectedCharacterIds,
+          rng,
+          partySize,
+        )
+        if (
+          chain.id === 'campaign-main' &&
+          isOnboardingExpeditionPending(state)
+        ) {
+          built = { ...built, battleIndex: 1, battleCount: 2 }
+        }
+        return built
+      })()
+
+      const withExpeditionStarted = withOnboarding(
+        { ...state },
+        (o) => completeStep(o, 'expedition_started'),
       )
 
-      return startExpeditionBattle({ ...state, expedition }, expedition)
+      return startExpeditionBattle(withExpeditionStarted, expedition)
     }
     case 'ADVANCE_EXPEDITION_BATTLE': {
       if (state.phase !== 'inter_battle' || !state.expedition || state.battle !== null) {
@@ -1721,6 +1774,12 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       return state.pendingHubNotice === null
         ? state
         : { ...state, pendingHubNotice: null }
+    case 'MARK_ONBOARDING_STEP':
+      return withOnboarding(state, (o) => completeStep(o, action.stepId))
+    case 'SET_ONBOARDING_SKIP':
+      return withOnboarding(state, applyOnboardingSkip)
+    case 'SET_GUIDED_TUTORIAL_DONE':
+      return withOnboarding(state, (o) => ({ ...o, guidedTutorialDone: true }))
     case 'RENAME_CHARACTER': {
       if (!assertHubActionAllowed(state, 'equip')) return state
       const hero = getCharacter(state, action.characterId)
@@ -1789,5 +1848,6 @@ export function initialCampaignState(): CampaignState {
     shopOffers: null,
     shopRefreshSeed: 0,
     pendingHubNotice: null,
+    onboarding: { ...DEFAULT_ONBOARDING },
   }
 }

@@ -1,4 +1,4 @@
-import { PlayCircleOutlined } from '@ant-design/icons'
+import { FlagOutlined, PlayCircleOutlined } from '@ant-design/icons'
 import { Button, Space, Tooltip, Typography } from 'antd'
 import type { CampaignState } from '../../game/types'
 import { UI_DNA, UI_GOLD, UI_WORLD_POWER } from '../../game/ui/labels'
@@ -19,6 +19,8 @@ type GameHeaderProps = {
   tabsDisabled?: boolean
   onBattleClick: () => void
   battleScreenActive?: boolean
+  onGoalsClick?: () => void
+  showGoalsButton?: boolean
 }
 
 function HeaderResource({
@@ -53,6 +55,8 @@ export function GameHeader({
   tabsDisabled = false,
   onBattleClick,
   battleScreenActive = false,
+  onGoalsClick,
+  showGoalsButton = false,
 }: GameHeaderProps) {
   const battleContextActive = isBattleContextActive(campaign)
   const battleHighlighted = activeTab === 'battle' || battleContextActive
@@ -93,6 +97,16 @@ export function GameHeader({
               value={campaign.worldPower}
               tooltip={WORLD_POWER_TOOLTIP}
             />
+            {showGoalsButton ? (
+              <Tooltip title="Цели обучения" mouseEnterDelay={0.3}>
+                <Button
+                  size="small"
+                  icon={<FlagOutlined aria-hidden />}
+                  aria-label="Цели"
+                  onClick={onGoalsClick}
+                />
+              </Tooltip>
+            ) : null}
             <Tooltip title={battleTooltip} mouseEnterDelay={0.3}>
               <Button
                 type="primary"

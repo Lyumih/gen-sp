@@ -13,8 +13,19 @@ export type GameStoreState = {
   campaign: CampaignState
   hubActiveTab: CampaignHubTab
   autoBattleEnabled: boolean
+  onboardingUi: {
+    checklistExpanded: boolean
+    activeCoachMarkId: string | null
+    guidedBattleStep: number
+    dismissedCoachMarkIds: string[]
+  }
   setHubActiveTab: (tab: CampaignHubTab) => void
   setAutoBattleEnabled: (enabled: boolean) => void
+  setChecklistExpanded: (expanded: boolean) => void
+  setActiveCoachMarkId: (id: string | null) => void
+  setGuidedBattleStep: (step: number) => void
+  resetGuidedBattleStep: () => void
+  dismissCoachMark: (id: string) => void
   dispatchRun: (action: RunAction) => void
   dispatchBattle: (action: BattleAction) => void
   hydrateFromStorage: () => void
@@ -35,8 +46,30 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   campaign: readInitialCampaign(),
   hubActiveTab: 'character',
   autoBattleEnabled: false,
+  onboardingUi: {
+    checklistExpanded: true,
+    activeCoachMarkId: null,
+    guidedBattleStep: 0,
+    dismissedCoachMarkIds: [],
+  },
   setHubActiveTab: (tab) => set({ hubActiveTab: tab }),
   setAutoBattleEnabled: (enabled) => set({ autoBattleEnabled: enabled }),
+  setChecklistExpanded: (checklistExpanded) =>
+    set((s) => ({ onboardingUi: { ...s.onboardingUi, checklistExpanded } })),
+  setActiveCoachMarkId: (activeCoachMarkId) =>
+    set((s) => ({ onboardingUi: { ...s.onboardingUi, activeCoachMarkId } })),
+  setGuidedBattleStep: (guidedBattleStep) =>
+    set((s) => ({ onboardingUi: { ...s.onboardingUi, guidedBattleStep } })),
+  resetGuidedBattleStep: () =>
+    set((s) => ({ onboardingUi: { ...s.onboardingUi, guidedBattleStep: 0 } })),
+  dismissCoachMark: (id) =>
+    set((s) => ({
+      onboardingUi: {
+        ...s.onboardingUi,
+        dismissedCoachMarkIds: [...s.onboardingUi.dismissedCoachMarkIds, id],
+        activeCoachMarkId: null,
+      },
+    })),
   dispatchRun: (action) => {
     set((s) => ({ campaign: applyRunAction(s.campaign, action) }))
   },

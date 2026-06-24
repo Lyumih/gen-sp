@@ -342,6 +342,8 @@ export type BattleAttemptSnapshot = {
   party: readonly PartyMemberBattleSnapshot[]
 }
 
+import type { OnboardingState } from './onboarding/types'
+
 /** Снимок кампании: цепочка сценариев и мета-прогресс. */
 export type CampaignState = {
   scenarioIndex: number
@@ -366,4 +368,5 @@ export type CampaignState = {
   shopOffers: ShopOffer[] | null
   shopRefreshSeed: number
   pendingHubNotice: HubNotice | null
+  onboarding: OnboardingState
 }

@@ -12,6 +12,8 @@ import {
   resolveExpeditionParty,
 } from '../../game/expedition/resolveExpeditionParty'
 import type { CampaignState } from '../../game/types'
+import { hasCompletedStep } from '../../game/onboarding/onboardingState'
+import { isExpeditionPanelVisible } from '../../game/onboarding/selectors'
 import { GameColumns } from '../layout/GameColumns'
 import { GamePanel } from '../layout/GamePanel'
 import { SquadAssemblyDnd } from '../character/SquadAssemblyDnd'
@@ -70,6 +72,10 @@ export function CampaignBattleTab({
   const squadOk = occupied >= selectedChain.partyMin
   const hasFighters = selectedCharacterIds.length >= 1
   const canStartExpedition = !expeditionDisabled && squadOk && hasFighters
+  const soloCtaLabel = hasCompletedStep(campaign.onboarding, 'first_battle_won')
+    ? 'Начать / продолжить бой'
+    : 'Начать первый бой'
+  const showExpeditionPanel = isExpeditionPanelVisible(campaign)
 
   const handleToggleMark = (characterId: string) => {
     setMarkedIds((prev) =>
@@ -141,7 +147,7 @@ export function CampaignBattleTab({
                 onStartOrContinue()
               }}
             >
-              Начать / продолжить бой
+              {soloCtaLabel}
             </Button>
           )}
           <Typography.Text>
@@ -152,6 +158,7 @@ export function CampaignBattleTab({
         </Space>
       </GamePanel>
 
+      {showExpeditionPanel ? (
       <GamePanel title="Экспедиция">
         <Space orientation="vertical" size="small" style={{ width: '100%' }}>
           <SquadAssemblyDnd
@@ -187,6 +194,7 @@ export function CampaignBattleTab({
           </Button>
         </Space>
       </GamePanel>
+      ) : null}
     </GameColumns>
     </div>
   )

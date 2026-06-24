@@ -3,6 +3,8 @@ import { Alert, App, Button, Card, Space, Tag, Typography } from 'antd'
 import { getExpeditionBattleCharacterId } from '../../game/campaign/battleSnapshot'
 import { getCharacter } from '../../game/campaign/selectors'
 import { getExpeditionChainById } from '../../game/expedition/config'
+import { coachMarkById } from '../../game/onboarding/coachMarks'
+import { shouldShowCoachMarks } from '../../game/onboarding/selectors'
 import { UI_LEVEL } from '../../game/ui/labels'
 import type { CharacterBattleSnapshot, CharacterMetaStatus } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
@@ -40,6 +42,9 @@ export function InterBattleScreen() {
   const { message } = App.useApp()
   const campaign = useGameStore((s) => s.campaign)
   const dispatchRun = useGameStore((s) => s.dispatchRun)
+  const dismissCoachMark = useGameStore((s) => s.dismissCoachMark)
+  const dismissedCoachMarkIds = useGameStore((s) => s.onboardingUi.dismissedCoachMarkIds)
+  const campCoach = coachMarkById('inter-battle-camp')
   const expedition = campaign.expedition
 
   if (!expedition) return null
@@ -53,6 +58,10 @@ export function InterBattleScreen() {
   const canAdvance = getExpeditionBattleCharacterId(expedition) !== null
   const campReviveEnabled = expedition.interBattleReviveAllDowned === true
   const showReviveButton = campReviveEnabled && downedCount > 0
+  const showCampCoach =
+    shouldShowCoachMarks(campaign.onboarding) &&
+    campCoach !== undefined &&
+    !dismissedCoachMarkIds.includes('inter-battle-camp')
 
   const handleRevive = () => {
     dispatchRun({ type: 'INTER_BATTLE_REVIVE_ALL' })
@@ -82,6 +91,20 @@ export function InterBattleScreen() {
           {' · '}
           Бой {battleLabel}
         </Typography.Text>
+
+        {showCampCoach && campCoach ? (
+          <Alert
+            type="info"
+            showIcon
+            title={campCoach.title}
+            description={campCoach.text}
+            action={
+              <Button size="small" onClick={() => dismissCoachMark('inter-battle-camp')}>
+                Понятно
+              </Button>
+            }
+          />
+        ) : null}
 
         {campReviveEnabled ? (
           <Alert

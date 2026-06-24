@@ -39,6 +39,7 @@ import {
   aggregateGearStrikeDamageMult,
 } from '../equipment/aggregates'
 import { getItemTemplate } from '../content/itemTemplates'
+import { DEFAULT_ONBOARDING } from '../onboarding/onboardingState'
 
 /** v2 campaign with flat hero fields before Character roster migration. */
 export type LegacyCampaignStateV2 = Omit<
@@ -716,7 +717,29 @@ export function normalizeLoadedCampaign(c: CampaignState): CampaignState {
   out = withLegacyCodexFields(out)
   out = discoverClassesFromRoster(out)
   out = withLegacyCardModTemplateIds(out)
+  out = withDefaultOnboarding(out)
   return out
+}
+
+function withDefaultOnboarding(c: CampaignState): CampaignState {
+  if (c.onboarding !== undefined) return c
+  return { ...c, onboarding: { ...DEFAULT_ONBOARDING } }
+}
+
+export function migrateV10CampaignToV11(c: CampaignState): CampaignState {
+  const withOnboarding: CampaignState =
+    c.onboarding !== undefined ? c : { ...c, onboarding: { ...DEFAULT_ONBOARDING } }
+  if (withOnboarding.scenarioIndex > 0 && !withOnboarding.onboarding.graduated) {
+    return {
+      ...withOnboarding,
+      onboarding: {
+        ...withOnboarding.onboarding,
+        graduated: true,
+        guidedTutorialDone: true,
+      },
+    }
+  }
+  return withOnboarding
 }
 
 export function migrateV2CampaignToV3(c: LegacyCampaignStateV2): CampaignState {
@@ -1019,10 +1042,11 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
     version !== 7 &&
     version !== 8 &&
     version !== 9 &&
-    version !== 10
+    version !== 10 &&
+    version !== 11
   ) {
     console.warn(
-      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, 4, 5, 6, 7, 8, 9, or 10`,
+      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, or 11`,
     )
     return null
   }
@@ -1051,6 +1075,7 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
   if (version <= 9) {
     campaign = migrateV9CampaignToV10(campaign)
   }
+  campaign = migrateV10CampaignToV11(campaign)
   return campaign
 }
 

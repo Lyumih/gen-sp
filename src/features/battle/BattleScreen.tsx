@@ -42,6 +42,13 @@ import { formatBattleLogEntry } from '../../game/battle/battleLog'
 import { getCurrentActorId } from '../../game/battle/reducer'
 import { getActorPlayerCards } from '../../game/battle/playerCards'
 import { cellKey, wallSet } from '../../game/battle/grid'
+import { hasCompletedStep } from '../../game/onboarding/onboardingState'
+import { isGuidedTutorialActive } from '../../game/onboarding/selectors'
+import {
+  GuidedBattleOverlay,
+  isGuidedModeAllowed,
+} from '../onboarding/GuidedBattleOverlay'
+import { PostBattleDebriefModal } from '../onboarding/PostBattleDebriefModal'
 import {
   aggregateEnemyThreatCells,
   attackRangeCells,
@@ -170,7 +177,11 @@ export function BattleScreen() {
   const dispatchBattle = useGameStore((s) => s.dispatchBattle)
   const autoBattleEnabled = useGameStore((s) => s.autoBattleEnabled)
   const setAutoBattleEnabled = useGameStore((s) => s.setAutoBattleEnabled)
+  const guidedBattleStep = useGameStore((s) => s.onboardingUi.guidedBattleStep)
+  const setGuidedBattleStep = useGameStore((s) => s.setGuidedBattleStep)
+  const resetGuidedBattleStep = useGameStore((s) => s.resetGuidedBattleStep)
   const battle = campaign.battle
+  const guidedActive = isGuidedTutorialActive(campaign)
   const [mode, setMode] = useState<ActionMode>('move')
   const [profileOpen, setProfileOpen] = useState(false)
   const [hoverCell, setHoverCell] = useState<{ x: number; y: number } | null>(null)
@@ -182,6 +193,55 @@ export function BattleScreen() {
   const [highlightedUnitId, setHighlightedUnitId] = useState<string | null>(null)
   const logEndRef = useRef<HTMLDivElement>(null)
   const [trackedTurnId, setTrackedTurnId] = useState<string | undefined>(undefined)
+  const [defeatDebriefOpen, setDefeatDebriefOpen] = useState(false)
+
+  useEffect(() => {
+    if (!guidedActive || !battle) return
+    if (battle.phase === 'victory') {
+      dispatchRun({ type: 'SET_GUIDED_TUTORIAL_DONE' })
+      return
+    }
+    if (battle.phase === 'defeat') {
+      resetGuidedBattleStep()
+      if (
+        !campaign.onboarding.skipMode &&
+        !hasCompletedStep(campaign.onboarding, 'memento_defeat_debrief')
+      ) {
+        setDefeatDebriefOpen(true)
+      }
+    }
+  }, [battle?.phase, guidedActive, campaign.onboarding, dispatchRun, resetGuidedBattleStep])
+
+  useEffect(() => {
+    if (!guidedActive || !battle || battle.phase !== 'ongoing') return
+    const player = battle.units.find((u) => u.side === 'player' && u.hp > 0)
+    const enemy = battle.units.find((u) => u.side === 'enemy' && u.hp > 0)
+    if (!player || !enemy) return
+
+    if (guidedBattleStep === 1 && player.x > 0) {
+      setGuidedBattleStep(2)
+    }
+    if (
+      guidedBattleStep === 2 &&
+      Math.abs(player.x - enemy.x) + Math.abs(player.y - enemy.y) <= 1
+    ) {
+      setGuidedBattleStep(3)
+    }
+    const lastLog = battle.battleLog[battle.battleLog.length - 1]
+    if (
+      guidedBattleStep === 3 &&
+      lastLog &&
+      lastLog.type === 'strike' &&
+      lastLog.attackerId === player.id
+    ) {
+      setGuidedBattleStep(4)
+    }
+  }, [
+    battle,
+    guidedActive,
+    guidedBattleStep,
+    setGuidedBattleStep,
+  ])
 
   const currentId = battle ? getCurrentActorId(battle) : undefined
   const currentTurnIndex =
@@ -495,7 +555,13 @@ export function BattleScreen() {
   })
 
   const actionsDisabled =
-    battle.phase !== 'ongoing' || !actor || currentId !== actor.id || autoBattleEnabled
+    battle.phase !== 'ongoing' ||
+    !actor ||
+    currentId !== actor.id ||
+    autoBattleEnabled ||
+    (guidedActive && guidedBattleStep === 0)
+  const guidedModeBlocked = (candidate: ActionMode) =>
+    guidedActive && !isGuidedModeAllowed(guidedBattleStep, candidate)
   const basicMode: ActionMode | undefined =
     mode === 'move' || mode === 'melee' || mode === 'ranged' ? mode : undefined
 
@@ -715,6 +781,14 @@ export function BattleScreen() {
 
   return (
     <Space orientation="vertical" size="small" style={{ width: '100%' }}>
+      <PostBattleDebriefModal
+        kind="first_defeat"
+        open={defeatDebriefOpen}
+        onClose={() => {
+          setDefeatDebriefOpen(false)
+          dispatchRun({ type: 'MARK_ONBOARDING_STEP', stepId: 'memento_defeat_debrief' })
+        }}
+      />
       {battle.phase === 'defeat' && (
         <Alert
           type="error"
@@ -953,6 +1027,12 @@ export function BattleScreen() {
             </Space>
           }
         >
+          {guidedActive ? (
+            <GuidedBattleOverlay
+              stepIndex={guidedBattleStep}
+              onAck={() => setGuidedBattleStep(1)}
+            />
+          ) : null}
           <Typography.Text style={{ display: 'block', marginBottom: 8, fontSize: 13 }}>
             {battle.phase === 'victory' ? (
               <>Победа — пролистайте журнал.</>
@@ -983,7 +1063,7 @@ export function BattleScreen() {
                 <Switch
                   checked={autoBattleEnabled}
                   onChange={setAutoBattleEnabled}
-                  disabled={battle.phase !== 'ongoing'}
+                  disabled={battle.phase !== 'ongoing' || guidedActive}
                 />
                 <Typography.Text>
                   <RobotOutlined aria-hidden /> Автобой
@@ -1000,19 +1080,19 @@ export function BattleScreen() {
                 disabled={actionsDisabled}
               >
                 <Space wrap>
-                  <Radio.Button value="move">
+                  <Radio.Button value="move" disabled={actionsDisabled || guidedModeBlocked('move')}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                       <DragOutlined aria-hidden />
                       {`Ход (≤${HERO_MOVE_RANGE}${UI_CELL})`}
                     </span>
                   </Radio.Button>
-                  <Radio.Button value="melee">
+                  <Radio.Button value="melee" disabled={actionsDisabled || guidedModeBlocked('melee')}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                       <ThunderboltOutlined aria-hidden />
                       {`Удар (1${UI_CELL}) — ${HERO_BASIC_MELEE_DAMAGE}${UI_DAMAGE}`}
                     </span>
                   </Radio.Button>
-                  <Radio.Button value="ranged" disabled={actionsDisabled || heroRangedOnCd}>
+                  <Radio.Button value="ranged" disabled={actionsDisabled || heroRangedOnCd || guidedModeBlocked('ranged')}>
                     <span
                       style={{
                         display: 'inline-flex',
@@ -1039,7 +1119,7 @@ export function BattleScreen() {
                     setMode('card')
                     setSelectedCardPickId(e.target.value)
                   }}
-                  disabled={actionsDisabled || actorCards.length === 0}
+                  disabled={actionsDisabled || actorCards.length === 0 || guidedModeBlocked('card')}
                 >
                   {actorCards.map((c) => {
                     const tmpl = getCardAttackTemplate(c.templateId)
