@@ -78,7 +78,7 @@ export function CampaignHubNav({
               aria-selected={activeTab === tab}
               aria-label={TAB_LABEL[tab]}
               type={activeTab === tab ? 'primary' : 'text'}
-              size="small"
+              size="large"
               icon={TAB_ICON[tab]}
               disabled={
                 isTabDisabled(

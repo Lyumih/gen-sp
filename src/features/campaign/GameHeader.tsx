@@ -100,7 +100,7 @@ export function GameHeader({
             {showGoalsButton ? (
               <Tooltip title="Цели обучения" mouseEnterDelay={0.3}>
                 <Button
-                  size="small"
+                  size="large"
                   icon={<FlagOutlined aria-hidden />}
                   aria-label="Цели"
                   onClick={onGoalsClick}
@@ -110,7 +110,7 @@ export function GameHeader({
             <Tooltip title={battleTooltip} mouseEnterDelay={0.3}>
               <Button
                 type="primary"
-                size="small"
+                size="large"
                 icon={<PlayCircleOutlined aria-hidden />}
                 disabled={battleScreenActive}
                 onClick={onBattleClick}
