@@ -1,4 +1,4 @@
-import { MedicineBoxOutlined, TeamOutlined, ThunderboltOutlined } from '@ant-design/icons'
+import { FlagOutlined, MedicineBoxOutlined, TeamOutlined, ThunderboltOutlined } from '@ant-design/icons'
 import { Alert, App, Button, Card, Space, Tag, Typography } from 'antd'
 import { getExpeditionBattleCharacterId } from '../../game/campaign/battleSnapshot'
 import { getCharacter } from '../../game/campaign/selectors'
@@ -39,9 +39,10 @@ function SquadMemberRow({
 }
 
 export function InterBattleScreen() {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const campaign = useGameStore((s) => s.campaign)
   const dispatchRun = useGameStore((s) => s.dispatchRun)
+  const setHubActiveTab = useGameStore((s) => s.setHubActiveTab)
   const dismissCoachMark = useGameStore((s) => s.dismissCoachMark)
   const dismissedCoachMarkIds = useGameStore((s) => s.onboardingUi.dismissedCoachMarkIds)
   const campCoach = coachMarkById('inter-battle-camp')
@@ -70,10 +71,25 @@ export function InterBattleScreen() {
 
   const handleNextBattle = () => {
     if (!canAdvance) {
-      message.error('Весь отряд выведен из строя — восстановите бойцов')
+      message.error('Весь отряд выведен из строя — восстановите бойцов или завершите экспедицию')
       return
     }
     dispatchRun({ type: 'ADVANCE_EXPEDITION_BATTLE' })
+  }
+
+  const confirmFinishExpedition = () => {
+    modal.confirm({
+      title: 'Завершить экспедицию?',
+      content:
+        'Экспедиция будет прервана. Незавершённые бои не засчитаются; награды за них не начислятся. Состав отряда снова станет доступен в хабе.',
+      okText: 'Завершить',
+      cancelText: 'Отмена',
+      okButtonProps: { danger: true },
+      onOk: () => {
+        setHubActiveTab('battle')
+        dispatchRun({ type: 'FINISH_EXPEDITION' })
+      },
+    })
   }
 
   return (
@@ -153,7 +169,7 @@ export function InterBattleScreen() {
             description={
               campReviveEnabled
                 ? 'Все бойцы выведены из строя. Используйте восстановление в лагере.'
-                : 'Все бойцы выведены из строя. Следующий бой недоступен.'
+                : 'Все бойцы выведены из строя. Следующий бой недоступен — завершите экспедицию, чтобы вернуться в хаб.'
             }
           />
         ) : null}
@@ -171,6 +187,9 @@ export function InterBattleScreen() {
             onClick={handleNextBattle}
           >
             Следующий бой
+          </Button>
+          <Button danger icon={<FlagOutlined aria-hidden />} onClick={confirmFinishExpedition}>
+            Завершить экспедицию
           </Button>
         </Space>
       </Space>
