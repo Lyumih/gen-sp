@@ -69,6 +69,7 @@ import { occupiedEquipmentSlotsInOrder } from '../../game/equipment/equipmentOrd
 import { getCharacter, getPrimaryCharacter } from '../../game/campaign/selectors'
 import { randomInt1to100 } from '../../game/rng'
 import { cellBackgroundStyle, OVERLAY_LEGEND } from './cellOverlayStyle'
+import { ActorPassivesPanel } from './ActorPassivesPanel'
 import { TurnOrderStrip } from './TurnOrderStrip'
 import { pickEnemyAiAction } from './enemyAi'
 import { pickPlayerAiAction } from './playerAi'
@@ -208,6 +209,8 @@ export function BattleScreen() {
     battle?.units ?? [],
     battle?.phase === 'ongoing',
   )
+  const animationPlaying =
+    battleAnim.activeStep !== null || battleAnim.queueLength > 0
 
   useEffect(() => {
     if (!guidedActive || !battle) return
@@ -1113,6 +1116,15 @@ export function BattleScreen() {
                   </Radio.Button>
                 </Space>
               </Radio.Group>
+              {actor && !autoBattleEnabled ? (
+                <Button
+                  style={{ marginTop: 8 }}
+                  disabled={actionsDisabled || animationPlaying}
+                  onClick={() => dispatchBattle({ type: 'end_turn' })}
+                >
+                  Завершить ход
+                </Button>
+              ) : null}
             </div>
             <div>
               <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>
@@ -1178,6 +1190,11 @@ export function BattleScreen() {
                 })}
               </Space>
             </div>
+            <ActorPassivesPanel
+              passives={battle.passivesByUnitId?.[currentId ?? ''] ?? []}
+              character={actorCharacter}
+              campaign={campaign}
+            />
           </Space>
 
           <div style={{ marginTop: 8 }}>
