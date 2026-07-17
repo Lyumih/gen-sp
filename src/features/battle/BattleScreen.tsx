@@ -323,6 +323,7 @@ export function BattleScreen() {
 
   useEffect(() => {
     if (!battle || battle.phase !== 'ongoing' || !currentId) return
+    if (animationPlaying) return
     const actor = battle.units.find((u) => u.id === currentId)
     if (!actor || actor.side !== 'enemy' || actor.hp <= 0) return
 
@@ -354,10 +355,11 @@ export function BattleScreen() {
       cancelled = true
       window.clearTimeout(t)
     }
-  }, [battle, currentId, battle?.currentTurnIndex, battle?.roundNumber, battle?.battleLog.length])
+  }, [battle, currentId, battle?.currentTurnIndex, battle?.roundNumber, battle?.battleLog.length, animationPlaying])
 
   useEffect(() => {
     if (!autoBattleEnabled || !battle || battle.phase !== 'ongoing') return
+    if (animationPlaying) return
     const actor = battle.units.find((u) => u.id === getCurrentActorId(battle))
     if (!actor || actor.side !== 'player') return
     const t = window.setTimeout(() => {
@@ -400,7 +402,7 @@ export function BattleScreen() {
       }
     }, HERO_AI_DELAY_MS)
     return () => window.clearTimeout(t)
-  }, [battle, autoBattleEnabled])
+  }, [battle, autoBattleEnabled, animationPlaying])
 
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
