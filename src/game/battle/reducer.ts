@@ -590,6 +590,8 @@ function applySingleStrike(
     return { state: next, killed: null }
   }
 
+  const damageBeforeTargetMitigation = damage
+
   const damageTags = params.fromCard
     ? resolveCardDamageTags(params.fromCard.templateId)
     : [params.attackKind]
@@ -625,7 +627,10 @@ function applySingleStrike(
   const strikeTarget = getUnit(next, params.targetId)
   if (!isAliveUnit(strikeTarget)) return { state: next, killed: null }
 
-  const updated = withDamage(strikeTarget, damage)
+  const finalDamage = damage
+  const absorbedDamage = Math.max(0, damageBeforeTargetMitigation - finalDamage)
+
+  const updated = withDamage(strikeTarget, finalDamage)
   const wasKill = updated.hp <= 0 && strikeTarget.hp > 0
   next = updateUnit(next, params.targetId, updated)
   const log: BattleLogEntry[] = [
@@ -633,9 +638,10 @@ function applySingleStrike(
       type: 'strike',
       attackerId: params.attackerId,
       targetId: params.targetId,
-      damage,
+      damage: finalDamage,
       attackKind: params.attackKind,
       targetKilled: wasKill,
+      ...(absorbedDamage > 0 ? { absorbedDamage } : {}),
       ...(params.fromCard ? { fromCard: params.fromCard } : {}),
     },
   ]

@@ -172,6 +172,7 @@ export type BattleLogEntry =
       damage: number
       attackKind: 'melee' | 'ranged' | 'aoe'
       targetKilled: boolean
+      absorbedDamage?: number
       fromCard?: { cardId: string; templateId: string }
     }
   | {

@@ -198,6 +198,93 @@ describe('applyAction attack', () => {
     })
   })
 
+  it('strike log includes absorbedDamage when target mitigates', () => {
+    const s = battle({
+      units: [
+        unit({
+          id: HERO_ID,
+          side: 'player',
+          x: 1,
+          y: 0,
+          hp: 10,
+          maxHp: 10,
+          unitLevel: 1,
+        }),
+        unit({
+          id: 'e1',
+          side: 'enemy',
+          x: 2,
+          y: 0,
+          hp: 30,
+          maxHp: 30,
+          unitLevel: 1,
+          baseStats: TEST_BASE_STATS,
+          statusEffects: [
+            {
+              id: 'def-up',
+              kind: 'defense_up',
+              remainingTurns: 2,
+              magnitude: 5,
+            },
+          ],
+        }),
+      ],
+      currentTurnIndex: 0,
+      turnOrder: [HERO_ID, 'e1'],
+    })
+    const hit = applyAction(s, {
+      type: 'attack',
+      attackerId: HERO_ID,
+      targetId: 'e1',
+      damage: 10,
+      kind: 'melee',
+    })
+    const last = hit.battleLog[hit.battleLog.length - 1]
+    expect(last).toMatchObject({
+      type: 'strike',
+      damage: 5,
+      absorbedDamage: 5,
+    })
+    expect((last as { absorbedDamage?: number }).absorbedDamage).toBeGreaterThan(0)
+  })
+
+  it('strike log omits absorbedDamage when zero', () => {
+    const adjacent = battle({
+      units: [
+        unit({
+          id: HERO_ID,
+          side: 'player',
+          x: 1,
+          y: 0,
+          hp: 10,
+          maxHp: 10,
+          unitLevel: 1,
+        }),
+        unit({
+          id: 'e1',
+          side: 'enemy',
+          x: 2,
+          y: 0,
+          hp: 5,
+          maxHp: 5,
+          unitLevel: 1,
+        }),
+      ],
+      currentTurnIndex: 0,
+      turnOrder: [HERO_ID, 'e1'],
+    })
+    const hit = applyAction(adjacent, {
+      type: 'attack',
+      attackerId: HERO_ID,
+      targetId: 'e1',
+      damage: 2,
+      kind: 'melee',
+    })
+    const last = hit.battleLog[hit.battleLog.length - 1]
+    expect(last).toMatchObject({ type: 'strike', damage: 2 })
+    expect((last as { absorbedDamage?: number }).absorbedDamage).toBeUndefined()
+  })
+
   it('ranged when manhattan in [1, maxRange] (no LOS MVP)', () => {
     const s = battle({
       units: [
