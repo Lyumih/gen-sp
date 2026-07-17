@@ -208,6 +208,7 @@ export function BattleScreen() {
     battle?.battleLog ?? [],
     battle?.units ?? [],
     Boolean(battle),
+    battle ? campaign.battleAttemptId : null,
   )
   const animationPlaying =
     battleAnim.activeStep !== null || battleAnim.queueLength > 0

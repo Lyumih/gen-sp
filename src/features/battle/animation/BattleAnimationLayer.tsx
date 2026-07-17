@@ -10,6 +10,7 @@ import {
 } from './cellGeometry'
 import { FloatingCombatText } from './FloatingCombatText'
 import { formatDamageFloat, formatHealFloat, formatStatusFloat } from './floatTextMap'
+import { FLOAT_READ_MS } from './presetRegistry'
 import type { AnimationStep, Cell } from './types'
 import '../battle.css'
 import './battle-animation.css'
@@ -345,7 +346,11 @@ export function BattleAnimationLayer({
   if (!activeStep) return null
 
   return (
-    <div className="battle-anim-layer" aria-hidden>
+    <div
+      className="battle-anim-layer"
+      style={{ ['--float-read-ms' as string]: `${FLOAT_READ_MS}ms` }}
+      aria-hidden
+    >
       {renderStep(activeStep, units, getUnitDisplay)}
     </div>
   )

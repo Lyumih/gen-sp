@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from 'react'
+import { useEffect, useReducer, useRef, useState } from 'react'
 import type { BattleLogEntry, Unit } from '../../../game/types'
 import {
   clearQueue,
@@ -41,6 +41,7 @@ type AnimState = {
 
 type AnimAction =
   | { type: 'reset' }
+  | { type: 'catch_up'; logLength: number }
   | { type: 'sync_log'; battleLog: readonly BattleLogEntry[]; units: readonly Unit[] }
   | { type: 'step_complete' }
 
@@ -49,10 +50,12 @@ function maybeStartNext(queue: AnimationQueueState): AnimationQueueState {
   return queue
 }
 
-function animReducer(state: AnimState, action: AnimAction): AnimState {
+export function battleAnimationReducer(state: AnimState, action: AnimAction): AnimState {
   switch (action.type) {
     case 'reset':
       return { cursor: 0, queue: clearQueue() }
+    case 'catch_up':
+      return { cursor: action.logLength, queue: clearQueue() }
     case 'sync_log': {
       const newEntries = diffNewLogEntries(action.battleLog, state.cursor)
       if (newEntries.length === 0) return state
@@ -79,20 +82,27 @@ export function useBattleAnimationQueue(
   battleLog: readonly BattleLogEntry[],
   units: readonly Unit[],
   enabled: boolean,
+  battleKey: number | null,
 ): BattleAnimationController {
   const reducedMotion = usePrefersReducedMotion()
-  const [state, dispatch] = useReducer(animReducer, undefined, () => ({
+  const trackedBattleKey = useRef<number | null>(null)
+  const [state, dispatch] = useReducer(battleAnimationReducer, undefined, () => ({
     cursor: 0,
     queue: createEmptyQueue(),
   }))
 
   useEffect(() => {
     if (!enabled) {
+      trackedBattleKey.current = null
       dispatch({ type: 'reset' })
       return
     }
+    if (battleKey !== null && trackedBattleKey.current !== battleKey) {
+      trackedBattleKey.current = battleKey
+      dispatch({ type: 'catch_up', logLength: battleLog.length })
+    }
     dispatch({ type: 'sync_log', battleLog, units })
-  }, [enabled, battleLog, units])
+  }, [enabled, battleKey, battleLog, units])
 
   useEffect(() => {
     if (!enabled || !state.queue.active) return

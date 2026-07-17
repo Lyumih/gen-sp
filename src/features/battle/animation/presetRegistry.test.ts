@@ -31,7 +31,7 @@ describe('hasFloatText', () => {
 })
 
 describe('getPresetDurationMs with float', () => {
-  it('returns FLOAT_READ_MS for strike_melee (700 > 220)', () => {
+  it('returns FLOAT_READ_MS for strike_melee', () => {
     expect(getPresetDurationMs({
       kind: 'strike_melee',
       attackerId: 'h',
@@ -49,13 +49,13 @@ describe('getPresetDurationMs with float', () => {
     }, false)).toBe(280)
   })
 
-  it('returns 700 for heal (700 > 240)', () => {
+  it('returns FLOAT_READ_MS for heal', () => {
     expect(getPresetDurationMs({
       kind: 'heal',
       healerId: 'h',
       targetId: 'h',
       amount: 5,
-    }, false)).toBe(700)
+    }, false)).toBe(FLOAT_READ_MS)
   })
 })
 

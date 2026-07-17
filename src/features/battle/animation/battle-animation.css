@@ -191,7 +191,7 @@
   }
   to {
     opacity: 0;
-    transform: translate(-50%, calc(-50% - 20px));
+    transform: translate(-50%, calc(-50% - 28px));
   }
 }
 
@@ -208,10 +208,10 @@
 .battle-anim--float {
   position: absolute;
   pointer-events: none;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
   white-space: nowrap;
-  animation: battle-anim-float-rise 700ms ease-out forwards;
+  animation: battle-anim-float-rise var(--float-read-ms, 1000ms) ease-out forwards;
   z-index: 3;
 }
 
@@ -225,14 +225,15 @@
 
 .battle-anim--float--absorb {
   color: #8c8c8c;
-  font-size: 10px;
+  font-size: 14px;
+  font-weight: 600;
   margin-top: 2px;
-  margin-left: 8px;
+  margin-left: 10px;
 }
 
 .battle-anim--float--buff {
   color: #1677ff;
-  font-size: 14px;
+  font-size: 20px;
 }
 
 .battle-anim--float--buff--holy {
@@ -241,15 +242,15 @@
 
 .battle-anim--float--debuff {
   color: #722ed1;
-  font-size: 14px;
+  font-size: 20px;
 }
 
 /* legacy alias — remove inline heal-float from BattleAnimationLayer in Task 5 */
 .battle-anim--heal-float {
-  animation: battle-anim-float-rise 700ms ease-out forwards;
+  animation: battle-anim-float-rise var(--float-read-ms, 1000ms) ease-out forwards;
   color: #389e0d;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
 }
 
 @keyframes battle-anim-resurrect {

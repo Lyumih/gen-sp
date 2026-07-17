@@ -1,6 +1,6 @@
 import type { AnimationStep } from './types'
 
-export const FLOAT_READ_MS = 700
+export const FLOAT_READ_MS = 1000
 
 const DURATIONS: Record<AnimationStep['kind'], number> = {
   move: 280,
