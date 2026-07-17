@@ -95,6 +95,40 @@ describe('mapLogEntryToSteps strike', () => {
       cellKeys: ['3,0'],
     })
   })
+
+  it('passes absorbedDamage on melee strike', () => {
+    const entry: BattleLogEntry = {
+      type: 'strike',
+      attackerId: 'hero',
+      targetId: 'e1',
+      damage: 3,
+      absorbedDamage: 7,
+      attackKind: 'melee',
+      targetKilled: false,
+    }
+    expect(mapLogEntryToSteps(entry, ctx)[0]).toMatchObject({
+      kind: 'strike_melee',
+      damage: 3,
+      absorbedDamage: 7,
+    })
+  })
+
+  it('passes damage and absorbedDamage on aoe strike', () => {
+    const entry: BattleLogEntry = {
+      type: 'strike',
+      attackerId: 'hero',
+      targetId: 'e1',
+      damage: 4,
+      absorbedDamage: 2,
+      attackKind: 'aoe',
+      targetKilled: false,
+    }
+    expect(mapLogEntryToSteps(entry, ctx)[0]).toMatchObject({
+      kind: 'aoe_burst',
+      damage: 4,
+      absorbedDamage: 2,
+    })
+  })
 })
 
 describe('mapLogEntryToSteps support', () => {

@@ -43,12 +43,18 @@ export function mapLogEntryToSteps(
         return [{ kind: 'cast', casterId: entry.attackerId, targetId: entry.targetId }]
       }
       let steps: AnimationStep[]
+      const absorbed =
+        entry.absorbedDamage !== undefined && entry.absorbedDamage > 0
+          ? entry.absorbedDamage
+          : undefined
+
       if (entry.attackKind === 'melee') {
         steps = [{
           kind: 'strike_melee',
           attackerId: entry.attackerId,
           targetId: entry.targetId,
           damage: entry.damage,
+          ...(absorbed !== undefined ? { absorbedDamage: absorbed } : {}),
         }]
       } else if (entry.attackKind === 'aoe') {
         const at = unitCell(ctx, entry.targetId)
@@ -56,6 +62,8 @@ export function mapLogEntryToSteps(
           kind: 'aoe_burst',
           center: at ?? { x: 0, y: 0 },
           cellKeys: at ? [cellKey(at.x, at.y)] : [],
+          damage: entry.damage,
+          ...(absorbed !== undefined ? { absorbedDamage: absorbed } : {}),
         }]
       } else {
         steps = [{
@@ -65,6 +73,7 @@ export function mapLogEntryToSteps(
           damage: entry.damage,
           attackKind: 'ranged',
           projectileEmoji: projectileEmojiFromCard(entry.fromCard),
+          ...(absorbed !== undefined ? { absorbedDamage: absorbed } : {}),
         }]
       }
       return entry.targetKilled ? appendDeath(steps, entry.targetId, ctx) : steps
