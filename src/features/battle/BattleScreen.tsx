@@ -40,7 +40,7 @@ import { BattleAnimationLayer } from './animation/BattleAnimationLayer'
 import { useBattleAnimationQueue } from './animation/useBattleAnimationQueue'
 import { getUnitDisplay } from '../../game/character/display'
 import { turnBadgeLabel } from '../../game/battle/turnBadge'
-import { formatBattleLogEntry } from '../../game/battle/battleLog'
+import { BattleLogLine } from './BattleLogLine'
 import { getCurrentActorId } from '../../game/battle/reducer'
 import { getActorPlayerCards } from '../../game/battle/playerCards'
 import { cellKey, wallSet } from '../../game/battle/grid'
@@ -265,6 +265,11 @@ export function BattleScreen() {
       return unit ? getUnitDisplay(unit, campaign) : undefined
     }
   }, [battle, campaign])
+
+  const unitSideLookup = useMemo(() => {
+    if (!battle) return () => undefined
+    return (unitId: string) => battle.units.find((u) => u.id === unitId)?.side
+  }, [battle])
 
   const excludedNames = useMemo(() => {
     const ids = battle?.excludedCharacterIds ?? []
@@ -1213,9 +1218,12 @@ export function BattleScreen() {
                 <Typography.Text type="secondary">Пока пусто</Typography.Text>
               ) : (
                 battle.battleLog.map((entry, i) => (
-                  <div key={i} style={{ marginBottom: 4 }}>
-                    {formatBattleLogEntry(entry, unitLogLookup)}
-                  </div>
+                  <BattleLogLine
+                    key={i}
+                    entry={entry}
+                    unitSideLookup={unitSideLookup}
+                    unitLogLookup={unitLogLookup}
+                  />
                 ))
               )}
               <div ref={logEndRef} />

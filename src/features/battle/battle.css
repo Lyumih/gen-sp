@@ -50,3 +50,26 @@
   box-shadow: 0 0 0 2px #1677ff, 0 0 10px rgba(22, 119, 255, 0.35);
   transition: box-shadow 180ms ease;
 }
+
+.battle-log-line {
+  margin-bottom: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.battle-log--hero {
+  color: #1677ff;
+  background: #e6f4ff;
+}
+
+.battle-log--enemy {
+  color: #cf1322;
+  background: #fff1f0;
+}
+
+.battle-log--neutral {
+  color: #8c8c8c;
+  background: transparent;
+}
