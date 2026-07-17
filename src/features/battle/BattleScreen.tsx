@@ -69,7 +69,7 @@ import { occupiedEquipmentSlotsInOrder } from '../../game/equipment/equipmentOrd
 import { getCharacter, getPrimaryCharacter } from '../../game/campaign/selectors'
 import { randomInt1to100 } from '../../game/rng'
 import { cellBackgroundStyle, OVERLAY_LEGEND } from './cellOverlayStyle'
-import { InitiativeQueue } from './InitiativeQueue'
+import { TurnOrderStrip } from './TurnOrderStrip'
 import { pickEnemyAiAction } from './enemyAi'
 import { pickPlayerAiAction } from './playerAi'
 import './battle.css'
@@ -567,12 +567,6 @@ export function BattleScreen() {
   const unitAt = (x: number, y: number) =>
     battle.units.find((u) => u.hp > 0 && u.x === x && u.y === y)
 
-  const unitsHealthOrder = [...battle.units].sort((a, b) => {
-    if (a.side === 'player' && b.side !== 'player') return -1
-    if (a.side !== 'player' && b.side === 'player') return 1
-    return 0
-  })
-
   const actionsDisabled =
     battle.phase !== 'ongoing' ||
     !actor ||
@@ -856,32 +850,17 @@ export function BattleScreen() {
         <div className="game-battle-field">
           <div>
             <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>
-              Инициатива
+              Очерёдность хода
             </Typography.Text>
-            <InitiativeQueue
+            <TurnOrderStrip
               turnOrder={battle.turnOrder}
-              currentActorId={currentId}
+              currentTurnIndex={battle.currentTurnIndex}
               units={battle.units}
               campaign={campaign}
+              worldPower={battle.worldPower}
               highlightedUnitId={highlightedUnitId}
               onHighlight={setHighlightedUnitId}
             />
-          </div>
-
-          <div>
-            <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>
-              Здоровье
-            </Typography.Text>
-            <Space wrap size="small">
-              {unitsHealthOrder.map((u) => {
-                const d = getUnitDisplay(u, campaign)
-                return (
-                  <Typography.Text key={u.id} style={{ fontSize: 12 }}>
-                    {d.emoji} {d.name}: {UI_HEART} {u.hp}/{u.maxHp}
-                  </Typography.Text>
-                )
-              })}
-            </Space>
           </div>
 
           <GameScrollX>
