@@ -2,10 +2,13 @@ import type { UnitStatusKind } from '../../../game/battle/unitStatus'
 import {
   UI_ATTACK,
   UI_DAMAGE,
+  UI_DEBUFF,
   UI_DEFENSE,
+  UI_DOT,
   UI_HEAL,
   UI_HEART,
   UI_MAGIC,
+  UI_ROOTED,
 } from '../../../game/ui/labels'
 
 export type FloatVariant = 'damage' | 'heal' | 'absorb' | 'buff' | 'debuff'
@@ -25,15 +28,15 @@ const STATUS_EMOJI: Partial<Record<UnitStatusKind, string>> = {
   card_damage_up: UI_DAMAGE,
   regen: UI_HEAL,
   elemental_resist: UI_MAGIC,
-  dot: '🔥',
-  rooted: '⛓',
+  dot: UI_DOT,
+  rooted: UI_ROOTED,
   damage_reduction: UI_DEFENSE,
 }
 
 export function statusKindEmoji(statusKind: string, polarity: 'buff' | 'debuff'): string {
   const mapped = STATUS_EMOJI[statusKind as UnitStatusKind]
   if (mapped) return mapped
-  return polarity === 'buff' ? '✨' : '💀'
+  return polarity === 'buff' ? UI_MAGIC : UI_DEBUFF
 }
 
 export function formatDamageFloat(damage: number, absorbedDamage?: number): FloatLine[] {

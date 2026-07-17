@@ -18,6 +18,12 @@ export const UI_MANA = '🔮'
 
 export const UI_HEAL = '💚'
 
+export const UI_DOT = '🔥'
+
+export const UI_ROOTED = '⛓'
+
+export const UI_DEBUFF = '💀'
+
 export const UI_SPEED = '👟'
 
 export const UI_INITIATIVE = '⚡'
