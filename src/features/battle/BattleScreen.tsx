@@ -207,7 +207,7 @@ export function BattleScreen() {
   const battleAnim = useBattleAnimationQueue(
     battle?.battleLog ?? [],
     battle?.units ?? [],
-    battle?.phase === 'ongoing',
+    Boolean(battle),
   )
   const animationPlaying =
     battleAnim.activeStep !== null || battleAnim.queueLength > 0
