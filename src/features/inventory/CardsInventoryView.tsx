@@ -37,6 +37,7 @@ import { UI_DAMAGE, UI_HEART, UI_LEVEL } from '../../game/ui/labels'
 import { InventoryCell } from './InventoryCell'
 import { InventoryGrid } from './InventoryGrid'
 import { ItemPopoverActions } from './ItemPopoverActions'
+import { firstEmptyCardSlot, firstEmptyPassiveSlot } from '../character/hub/clickEquip'
 import { ModOfferPicker } from './ModOfferPicker'
 import { cardDragId, loadoutDragId, passiveDragId, passiveEquipDragId, parseDragId } from './inventoryDnD'
 import { resolveCardEmoji, resolvePassiveEmoji } from './inventoryEmoji'
@@ -90,6 +91,8 @@ function SortableCardCell({
   modsDisabledTooltip,
   onSell,
   sellPrice,
+  onEquip,
+  onUnequip,
 }: {
   card: CardInstance
   character: NonNullable<ReturnType<typeof getCharacter>>
@@ -101,6 +104,8 @@ function SortableCardCell({
   onConfirmRemove: (card: CardInstance, slotIndex: number) => void
   onSell?: () => void
   sellPrice?: number
+  onEquip?: () => void
+  onUnequip?: () => void
 }) {
   const tmpl = getCardAttackTemplate(card.templateId)
   const loadoutBlocked = tmpl?.enabled === false
@@ -145,21 +150,39 @@ function SortableCardCell({
           />
         </>
       ) : null}
-      {onSell ? (
+      {onEquip || onUnequip || onSell ? (
         <>
-          {sellPrice !== undefined && sellPrice > 0 ? (
+          {onSell && sellPrice !== undefined && sellPrice > 0 ? (
             <Typography.Text style={{ fontSize: 12 }}>{itemPriceLine(sellPrice)}</Typography.Text>
           ) : null}
           <ItemPopoverActions
             inBattle={inBattle}
             actions={[
-              {
-                key: 'sell',
-                label: 'Продать',
-                danger: true,
-                disabled: (sellPrice ?? 0) <= 0,
-                onClick: onSell,
-              },
+              ...(onEquip
+                ? [
+                    {
+                      key: 'equip',
+                      label: 'Надеть',
+                      type: 'primary' as const,
+                      disabled: loadoutBlocked || inBattle,
+                      onClick: onEquip,
+                    },
+                  ]
+                : []),
+              ...(onUnequip
+                ? [{ key: 'unequip', label: 'Снять', onClick: onUnequip }]
+                : []),
+              ...(onSell
+                ? [
+                    {
+                      key: 'sell',
+                      label: 'Продать',
+                      danger: true,
+                      disabled: (sellPrice ?? 0) <= 0,
+                      onClick: onSell,
+                    },
+                  ]
+                : []),
             ]}
           />
         </>
@@ -215,6 +238,7 @@ function LoadoutSlotCell({
   onOpenPicker,
   onConfirmRemove,
   modsDisabledTooltip,
+  onUnequip,
 }: {
   slotIndex: 0 | 1 | 2 | 3
   card: CardInstance | null
@@ -225,6 +249,7 @@ function LoadoutSlotCell({
   modsDisabledTooltip?: string
   onOpenPicker: (carrierId: string, slotIndex: number, offer: ModOffer) => void
   onConfirmRemove: (card: CardInstance, slotIndex: number) => void
+  onUnequip?: () => void
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: loadoutDragId(slotIndex),
@@ -243,6 +268,7 @@ function LoadoutSlotCell({
           modsDisabledTooltip={modsDisabledTooltip}
           onOpenPicker={onOpenPicker}
           onConfirmRemove={onConfirmRemove}
+          onUnequip={onUnequip}
         />
       </div>
     )
@@ -252,7 +278,7 @@ function LoadoutSlotCell({
     <div ref={setNodeRef}>
       <InventoryCell
         state={isOver ? 'dragOver' : 'empty'}
-        ariaLabel={`Слот в бою ${slotIndex + 1}`}
+        ariaLabel={`Слот активного умения ${slotIndex + 1}`}
         emoji="⚔️"
       />
     </div>
@@ -268,6 +294,8 @@ function DraggablePassiveCell({
   onOpenPicker,
   onConfirmRemove,
   modsDisabledTooltip,
+  onEquip,
+  onUnequip,
 }: {
   passive: PassiveInstance
   character: NonNullable<ReturnType<typeof getCharacter>>
@@ -277,6 +305,8 @@ function DraggablePassiveCell({
   modsDisabledTooltip?: string
   onOpenPicker: (carrierId: string, slotIndex: number, offer: ModOffer) => void
   onConfirmRemove: (passive: PassiveInstance, slotIndex: number) => void
+  onEquip?: () => void
+  onUnequip?: () => void
 }) {
   const tmpl = getPassiveTemplate(passive.templateId)
   const stats = describePassiveStats(passive, character, campaign)
@@ -319,6 +349,25 @@ function DraggablePassiveCell({
           />
         </>
       ) : null}
+      {onEquip || onUnequip ? (
+        <ItemPopoverActions
+          inBattle={locked}
+          actions={[
+            ...(onEquip
+              ? [
+                  {
+                    key: 'equip',
+                    label: 'Надеть',
+                    type: 'primary' as const,
+                    disabled: locked,
+                    onClick: onEquip,
+                  },
+                ]
+              : []),
+            ...(onUnequip ? [{ key: 'unequip', label: 'Снять', onClick: onUnequip }] : []),
+          ]}
+        />
+      ) : null}
     </Space>
   )
 
@@ -351,6 +400,7 @@ function PassiveEquipSlotCell({
   onConfirmRemove,
   modsDisabledTooltip,
   dragReject,
+  onUnequip,
 }: {
   slotIndex: 0 | 1 | 2 | 3 | 4
   passive: PassiveInstance | null
@@ -362,6 +412,7 @@ function PassiveEquipSlotCell({
   onOpenPicker: (carrierId: string, slotIndex: number, offer: ModOffer) => void
   onConfirmRemove: (passive: PassiveInstance, slotIndex: number) => void
   dragReject?: boolean
+  onUnequip?: () => void
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: passiveEquipDragId(slotIndex),
@@ -385,6 +436,7 @@ function PassiveEquipSlotCell({
           modsDisabledTooltip={modsDisabledTooltip}
           onOpenPicker={onOpenPicker}
           onConfirmRemove={onConfirmRemove}
+          onUnequip={onUnequip}
         />
       </div>
     )
@@ -394,7 +446,7 @@ function PassiveEquipSlotCell({
     <div ref={setNodeRef}>
       <InventoryCell
         state={dragReject ? 'invalidDrop' : isOver ? 'dragOver' : 'empty'}
-        ariaLabel={`Слот навыка ${slotIndex + 1}`}
+        ariaLabel={`Слот пассивного навыка ${slotIndex + 1}`}
         emoji="✨"
       />
     </div>
@@ -571,6 +623,7 @@ export function CardsInventoryView({
         modsDisabledTooltip={modsDisabledTooltip}
         onOpenPicker={openCardPicker}
         onConfirmRemove={confirmRemoveCardMod}
+        onUnequip={() => onSetBattleLoadout(slotIndex, null)}
       />
     )
   }
@@ -593,14 +646,14 @@ export function CardsInventoryView({
       {hubSection !== 'collection' && hubSection !== 'passives' && hubSection !== 'cards' ? (
         <>
           <Typography.Text strong style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>
-            В бой
+            Активные умения
           </Typography.Text>
           <div className="inventory-loadout-row" style={{ display: 'flex', gap: 4 }}>
             {skillSlotIndices.map(renderLoadoutSlot)}
           </div>
           <Divider style={{ margin: '8px 0 4px' }} />
           <Typography.Text strong style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>
-            Навыки в бою
+            Пассивные навыки
           </Typography.Text>
           <div className="inventory-passive-equip-row" style={{ display: 'flex', gap: 4 }}>
             {passiveEquipSlotIndices.map((slotIndex) => {
@@ -619,6 +672,7 @@ export function CardsInventoryView({
                   onOpenPicker={openPassivePicker}
                   onConfirmRemove={confirmRemovePassiveMod}
                   dragReject={dragRejectSlot === slotIndex}
+                  onUnequip={() => onSetPassiveEquip(slotIndex, null)}
                 />
               )
             })}
@@ -652,6 +706,14 @@ export function CardsInventoryView({
                         onOpenPicker={openCardPicker}
                         onConfirmRemove={confirmRemoveCardMod}
                         {...sellPropsForCard(card)}
+                        onEquip={() => {
+                          const slot = firstEmptyCardSlot(campaign, hero.id)
+                          if (slot === null) {
+                            message.warning('Нет свободных слотов')
+                            return
+                          }
+                          onSetBattleLoadout(slot, card.id)
+                        }}
                       />
                     )
                   }}
@@ -682,6 +744,21 @@ export function CardsInventoryView({
                       modsDisabledTooltip={modsDisabledTooltip}
                       onOpenPicker={openPassivePicker}
                       onConfirmRemove={confirmRemovePassiveMod}
+                      onEquip={() => {
+                        const slot = firstEmptyPassiveSlot(campaign, hero.id)
+                        if (slot === null) {
+                          message.warning('Нет свободных слотов')
+                          return
+                        }
+                        const check = canEquipPassive(hero.passives, hero.passiveEquip, passive.id, slot)
+                        if (!check.ok) {
+                          if (check.reason === 'stat_stack_conflict') {
+                            message.warning('Нельзя надеть: такой бонус к стату уже активен')
+                          }
+                          return
+                        }
+                        onSetPassiveEquip(slot, passive.id)
+                      }}
                     />
                   )
                 }}
