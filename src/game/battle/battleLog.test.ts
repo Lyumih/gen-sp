@@ -31,7 +31,8 @@ describe('formatBattleLogEntry strike absorption', () => {
 })
 
 describe('battleLogEntryTone', () => {
-  const side = (id: string) => (id === 'hero' ? 'player' : 'enemy') as const
+  const side = (id: string): 'player' | 'enemy' | undefined =>
+    id === 'hero' ? 'player' : 'enemy'
 
   it('hero strike is hero tone', () => {
     expect(
