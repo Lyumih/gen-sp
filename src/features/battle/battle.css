@@ -21,6 +21,11 @@
   box-shadow: inset 0 0 0 3px rgba(255, 77, 79, 0.9);
 }
 
+.unit-token__mini-stats {
+  font-size: 9px;
+  line-height: 1.1;
+}
+
 .unit-token--highlighted {
   box-shadow: 0 0 0 2px #1677ff, 0 0 8px rgba(22, 119, 255, 0.45);
   transition:

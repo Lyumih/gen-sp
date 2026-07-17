@@ -20,6 +20,7 @@ import {
   HERO_MOVE_RANGE,
 } from '../../game/battle/combat'
 import { getHeroRangedCooldown } from '../../game/battle/heroRangedCooldown'
+import { unitCombatMiniStats } from '../../game/battle/unitCombatStats'
 import { describeCardCombatStats, getCardDisplayLabel } from '../../game/descriptions/cardText'
 import { UI_CELL, UI_DAMAGE, UI_HEART, UI_LEVEL, UI_WORLD_POWER } from '../../game/ui/labels'
 import { WORLD_POWER_TOOLTIP } from '../campaign/resourceTooltips'
@@ -108,6 +109,7 @@ function BattleUnitCell({
   hiddenByAnimation?: boolean
 }) {
   const display = getUnitDisplay(unit, campaign)
+  const combatStats = unitCombatMiniStats(unit, campaign, worldPower)
   const isAlive = (id: string) => {
     const u = campaign.battle?.units.find((x) => x.id === id)
     return u !== undefined && u.hp > 0
@@ -129,6 +131,7 @@ function BattleUnitCell({
         display={display}
         variant="grid"
         unitLevel={unit.unitLevel}
+        combatStats={combatStats}
         hp={unit.hp}
         maxHp={unit.maxHp}
         highlighted={highlighted}

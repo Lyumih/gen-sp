@@ -2,12 +2,13 @@ import type { CSSProperties, ReactNode } from 'react'
 import { Typography } from 'antd'
 import type { UnitDisplay } from '../../game/character/display'
 import { accentStyle } from '../../game/character/iconCatalog'
-import { UI_HEART } from '../../game/ui/labels'
+import { UI_ATTACK, UI_DEFENSE, UI_HEART } from '../../game/ui/labels'
 
 export type UnitTokenProps = {
   display: UnitDisplay
   variant: 'grid' | 'initiative'
   unitLevel?: number
+  combatStats?: { attack: number; defense: number } | null
   hp?: number
   maxHp?: number
   highlighted?: boolean
@@ -32,7 +33,9 @@ const nameStyle: CSSProperties = {
 export function UnitToken({
   display,
   variant,
+  combatStats,
   hp,
+  maxHp,
   highlighted,
   isCurrentActor,
   isDead,
@@ -131,12 +134,32 @@ export function UnitToken({
       <>
         {nameNode}
         {emojiNode}
+        {combatStats ? (
+          <span style={{ fontSize: 9 }}>
+            {UI_ATTACK}
+            {combatStats.attack} {UI_DEFENSE}
+            {combatStats.defense}
+          </span>
+        ) : null}
+        {hp !== undefined && maxHp !== undefined ? (
+          <span style={{ fontSize: 9 }}>
+            {UI_HEART}
+            {hp}/{maxHp}
+          </span>
+        ) : null}
       </>
     )
   } else {
     inner = (
       <>
         {emojiNode}
+        {combatStats ? (
+          <span className="unit-token__mini-stats">
+            {UI_ATTACK}
+            {combatStats.attack} {UI_DEFENSE}
+            {combatStats.defense}
+          </span>
+        ) : null}
         {hp !== undefined ? (
           <span>
             {UI_HEART}
