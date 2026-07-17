@@ -6,7 +6,7 @@ import { cellKey, manhattan, orthoNeighbors } from './grid'
 import { TEST_BASE_STATS } from '../stats/testFixtures'
 import { appendUnitStatus, statusForSkill } from './unitStatus'
 import { tickHeroCardCooldowns } from './cardCooldown'
-import { applyAction, advanceBattleTurn } from './reducer'
+import { applyAction, advanceBattleTurn, getCurrentActorId } from './reducer'
 
 const HERO_ID = LEGACY_HERO_CHARACTER_ID
 
@@ -803,5 +803,15 @@ describe('applyAction enemy card_attack', () => {
       true,
     )
     expect(next.currentTurnIndex).toBe(1)
+  })
+})
+
+describe('applyAction end_turn', () => {
+  it('end_turn advances to next actor without changing positions', () => {
+    const before = battle()
+    const heroX = before.units.find((u) => u.id === HERO_ID)!.x
+    const next = applyAction(before, { type: 'end_turn' })
+    expect(getCurrentActorId(next)).not.toBe(HERO_ID)
+    expect(next.units.find((u) => u.id === HERO_ID)?.x).toBe(heroX)
   })
 })

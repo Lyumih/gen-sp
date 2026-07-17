@@ -317,6 +317,7 @@ export type BattleAction =
       targetX?: number
       targetY?: number
     }
+  | { type: 'end_turn' }
 
 export type RunPhase = 'hub' | 'battle' | 'victory' | 'defeat' | 'inter_battle'
 

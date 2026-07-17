@@ -28,7 +28,11 @@ export function formatBattleLogEntry(
             ? 'область'
             : 'выстрел'
       const kill = entry.targetKilled ? ', цель уничтожена' : ''
-      return `${formatUnitRef(entry.attackerId, lookup)} → ${formatUnitRef(entry.targetId, lookup)}: ${entry.damage} ${UI_DAMAGE} (${src})${kill}`
+      const absorbed =
+        entry.absorbedDamage !== undefined && entry.absorbedDamage > 0
+          ? ` (поглощено ${entry.absorbedDamage})`
+          : ''
+      return `${formatUnitRef(entry.attackerId, lookup)} → ${formatUnitRef(entry.targetId, lookup)}: ${entry.damage} ${UI_DAMAGE}${absorbed} (${src})${kill}`
     }
     case 'heal': {
       const src = entry.fromCard
@@ -63,6 +67,39 @@ export function formatBattleLogEntry(
     default: {
       const _exhaustive: never = entry
       return String(_exhaustive)
+    }
+  }
+}
+
+export function battleLogEntryTone(
+  entry: BattleLogEntry,
+  unitSideLookup: (unitId: string) => 'player' | 'enemy' | undefined,
+): 'hero' | 'enemy' | 'neutral' {
+  const sideTone = (unitId: string): 'hero' | 'enemy' | 'neutral' => {
+    const side = unitSideLookup(unitId)
+    if (side === 'player') return 'hero'
+    if (side === 'enemy') return 'enemy'
+    return 'neutral'
+  }
+
+  switch (entry.type) {
+    case 'move':
+      return sideTone(entry.unitId)
+    case 'strike':
+      return sideTone(entry.attackerId)
+    case 'heal':
+    case 'resurrect':
+      return sideTone(entry.healerId)
+    case 'passive_proc':
+      return entry.procSuccess ? sideTone(entry.unitId) : 'neutral'
+    case 'status_applied':
+    case 'card_level_up':
+    case 'mod_proc':
+    case 'status_tick':
+      return 'neutral'
+    default: {
+      const _exhaustive: never = entry
+      return _exhaustive
     }
   }
 }

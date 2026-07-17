@@ -1126,6 +1126,14 @@ function tryCardAttack(
   return next
 }
 
+function tryEndTurn(state: BattleState): BattleState {
+  const actorId = getCurrentActorId(state)
+  if (!actorId) return state
+  const actor = getUnit(state, actorId)
+  if (!isAliveUnit(actor) || actor.side !== 'player') return state
+  return advanceBattleTurn(state)
+}
+
 export function applyAction(state: BattleState, action: BattleAction): BattleState {
   if (state.phase !== 'ongoing') return state
   switch (action.type) {
@@ -1139,6 +1147,8 @@ export function applyAction(state: BattleState, action: BattleAction): BattleSta
       return tryHeal(state, action)
     case 'card_attack':
       return tryCardAttack(state, action)
+    case 'end_turn':
+      return tryEndTurn(state)
   }
 }
 
