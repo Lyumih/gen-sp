@@ -85,6 +85,8 @@ function SortableCardCell({
   character,
   campaign,
   inBattle,
+  inventoryLocked = false,
+  actionLockTooltip,
   modsDisabled,
   onOpenPicker,
   onConfirmRemove,
@@ -98,6 +100,8 @@ function SortableCardCell({
   character: NonNullable<ReturnType<typeof getCharacter>>
   campaign: CampaignState
   inBattle: boolean
+  inventoryLocked?: boolean
+  actionLockTooltip?: string
   modsDisabled: boolean
   modsDisabledTooltip?: string
   onOpenPicker: (carrierId: string, slotIndex: number, offer: ModOffer) => void
@@ -110,9 +114,10 @@ function SortableCardCell({
   const tmpl = getCardAttackTemplate(card.templateId)
   const loadoutBlocked = tmpl?.enabled === false
   const stats = describeCardCombatStats(card, character, campaign)
+  const locked = inBattle || inventoryLocked
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: cardDragId(card.id),
-    disabled: inBattle || loadoutBlocked,
+    disabled: locked || loadoutBlocked,
   })
 
   const effectUi = tmpl?.kind === 'heal' ? UI_HEART : UI_DAMAGE
@@ -157,6 +162,8 @@ function SortableCardCell({
           ) : null}
           <ItemPopoverActions
             inBattle={inBattle}
+            actionsLocked={inventoryLocked}
+            disabledTooltip={actionLockTooltip}
             actions={[
               ...(onEquip
                 ? [
@@ -164,7 +171,7 @@ function SortableCardCell({
                       key: 'equip',
                       label: 'Надеть',
                       type: 'primary' as const,
-                      disabled: loadoutBlocked || inBattle,
+                      disabled: loadoutBlocked || locked,
                       onClick: onEquip,
                     },
                   ]
@@ -211,7 +218,7 @@ function SortableCardCell({
       }
       showModPendingBadge={showModBadge}
       slotDots={card.modSlots.length > 0 ? <ModSlotDots modSlots={card.modSlots} /> : undefined}
-      state={inBattle || loadoutBlocked ? 'disabled' : 'filled'}
+      state={locked || loadoutBlocked ? 'disabled' : 'filled'}
       popoverTitle={stats.displayLabel}
       popoverContent={
         <Space orientation="vertical" size="small" style={{ width: '100%' }}>
@@ -234,6 +241,8 @@ function LoadoutSlotCell({
   character,
   campaign,
   inBattle,
+  inventoryLocked = false,
+  actionLockTooltip,
   modsDisabled,
   onOpenPicker,
   onConfirmRemove,
@@ -245,15 +254,18 @@ function LoadoutSlotCell({
   character: NonNullable<ReturnType<typeof getCharacter>>
   campaign: CampaignState
   inBattle: boolean
+  inventoryLocked?: boolean
+  actionLockTooltip?: string
   modsDisabled: boolean
   modsDisabledTooltip?: string
   onOpenPicker: (carrierId: string, slotIndex: number, offer: ModOffer) => void
   onConfirmRemove: (card: CardInstance, slotIndex: number) => void
   onUnequip?: () => void
 }) {
+  const locked = inBattle || inventoryLocked
   const { setNodeRef, isOver } = useDroppable({
     id: loadoutDragId(slotIndex),
-    disabled: inBattle,
+    disabled: locked,
   })
 
   if (card) {
@@ -264,6 +276,8 @@ function LoadoutSlotCell({
           character={character}
           campaign={campaign}
           inBattle={inBattle}
+          inventoryLocked={inventoryLocked}
+          actionLockTooltip={actionLockTooltip}
           modsDisabled={modsDisabled}
           modsDisabledTooltip={modsDisabledTooltip}
           onOpenPicker={onOpenPicker}
@@ -289,7 +303,9 @@ function DraggablePassiveCell({
   passive,
   character,
   campaign,
-  locked,
+  inBattle,
+  inventoryLocked = false,
+  actionLockTooltip,
   modsDisabled,
   onOpenPicker,
   onConfirmRemove,
@@ -300,7 +316,9 @@ function DraggablePassiveCell({
   passive: PassiveInstance
   character: NonNullable<ReturnType<typeof getCharacter>>
   campaign: CampaignState
-  locked: boolean
+  inBattle: boolean
+  inventoryLocked?: boolean
+  actionLockTooltip?: string
   modsDisabled: boolean
   modsDisabledTooltip?: string
   onOpenPicker: (carrierId: string, slotIndex: number, offer: ModOffer) => void
@@ -308,6 +326,7 @@ function DraggablePassiveCell({
   onEquip?: () => void
   onUnequip?: () => void
 }) {
+  const locked = inBattle || inventoryLocked
   const tmpl = getPassiveTemplate(passive.templateId)
   const stats = describePassiveStats(passive, character, campaign)
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -351,7 +370,9 @@ function DraggablePassiveCell({
       ) : null}
       {onEquip || onUnequip ? (
         <ItemPopoverActions
-          inBattle={locked}
+          inBattle={inBattle}
+          actionsLocked={inventoryLocked}
+          disabledTooltip={actionLockTooltip}
           actions={[
             ...(onEquip
               ? [
@@ -394,7 +415,9 @@ function PassiveEquipSlotCell({
   passive,
   character,
   campaign,
-  locked,
+  inBattle,
+  inventoryLocked = false,
+  actionLockTooltip,
   modsDisabled,
   onOpenPicker,
   onConfirmRemove,
@@ -406,7 +429,9 @@ function PassiveEquipSlotCell({
   passive: PassiveInstance | null
   character: NonNullable<ReturnType<typeof getCharacter>>
   campaign: CampaignState
-  locked: boolean
+  inBattle: boolean
+  inventoryLocked?: boolean
+  actionLockTooltip?: string
   modsDisabled: boolean
   modsDisabledTooltip?: string
   onOpenPicker: (carrierId: string, slotIndex: number, offer: ModOffer) => void
@@ -414,6 +439,7 @@ function PassiveEquipSlotCell({
   dragReject?: boolean
   onUnequip?: () => void
 }) {
+  const locked = inBattle || inventoryLocked
   const { setNodeRef, isOver } = useDroppable({
     id: passiveEquipDragId(slotIndex),
     disabled: locked,
@@ -431,7 +457,9 @@ function PassiveEquipSlotCell({
           passive={passive}
           character={character}
           campaign={campaign}
-          locked={locked}
+          inBattle={inBattle}
+          inventoryLocked={inventoryLocked}
+          actionLockTooltip={actionLockTooltip}
           modsDisabled={modsDisabled}
           modsDisabledTooltip={modsDisabledTooltip}
           onOpenPicker={onOpenPicker}
@@ -471,6 +499,11 @@ export function CardsInventoryView({
 }: CardsInventoryViewProps) {
   const { modal, message } = App.useApp()
   const locked = inBattle || inventoryLocked
+  const actionLockTooltip = inBattle
+    ? 'Доступно после боя'
+    : inventoryLocked
+      ? 'Недоступно во время экспедиции'
+      : undefined
   const hero = getCharacter(campaign, characterId)
   const loadout = hero?.battleLoadout ?? [null, null, null, null]
   const passiveEquip = hero?.passiveEquip ?? [null, null, null, null, null]
@@ -618,7 +651,9 @@ export function CardsInventoryView({
         card={card ?? null}
         character={hero!}
         campaign={campaign}
-        inBattle={locked}
+        inBattle={inBattle}
+        inventoryLocked={inventoryLocked}
+        actionLockTooltip={actionLockTooltip}
         modsDisabled={modsDisabled}
         modsDisabledTooltip={modsDisabledTooltip}
         onOpenPicker={openCardPicker}
@@ -666,7 +701,9 @@ export function CardsInventoryView({
                   passive={passive ?? null}
                   character={hero!}
                   campaign={campaign}
-                  locked={locked}
+                  inBattle={inBattle}
+                  inventoryLocked={inventoryLocked}
+                  actionLockTooltip={actionLockTooltip}
                   modsDisabled={modsDisabled}
                   modsDisabledTooltip={modsDisabledTooltip}
                   onOpenPicker={openPassivePicker}
@@ -700,7 +737,9 @@ export function CardsInventoryView({
                         card={card}
                         character={hero!}
                         campaign={campaign}
-                        inBattle={locked}
+                        inBattle={inBattle}
+                        inventoryLocked={inventoryLocked}
+                        actionLockTooltip={actionLockTooltip}
                         modsDisabled={modsDisabled}
                         modsDisabledTooltip={modsDisabledTooltip}
                         onOpenPicker={openCardPicker}
@@ -739,7 +778,9 @@ export function CardsInventoryView({
                       passive={passive}
                       character={hero!}
                       campaign={campaign}
-                      locked={locked}
+                      inBattle={inBattle}
+                      inventoryLocked={inventoryLocked}
+                      actionLockTooltip={actionLockTooltip}
                       modsDisabled={modsDisabled}
                       modsDisabledTooltip={modsDisabledTooltip}
                       onOpenPicker={openPassivePicker}

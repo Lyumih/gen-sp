@@ -13,6 +13,7 @@ import { UnitToken } from './UnitToken'
 export function TurnOrderStrip({
   turnOrder,
   currentTurnIndex,
+  currentActorId,
   units,
   campaign,
   worldPower,
@@ -21,6 +22,7 @@ export function TurnOrderStrip({
 }: {
   turnOrder: readonly string[]
   currentTurnIndex: number
+  currentActorId?: string
   units: readonly Unit[]
   campaign: CampaignState
   worldPower: number
@@ -50,7 +52,7 @@ export function TurnOrderStrip({
       >
         {turnOrder.map((unitId, index) => {
           const unit = units.find((u) => u.id === unitId)
-          const isCurrent = unitId === turnOrder[currentTurnIndex % turnOrder.length]
+          const isCurrent = unitId === currentActorId
           const isDead = unit !== undefined && unit.hp <= 0
           const display = unit
             ? getUnitDisplay(unit, campaign)

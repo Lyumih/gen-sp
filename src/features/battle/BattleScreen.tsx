@@ -858,6 +858,7 @@ export function BattleScreen() {
             <TurnOrderStrip
               turnOrder={battle.turnOrder}
               currentTurnIndex={battle.currentTurnIndex}
+              currentActorId={currentId}
               units={battle.units}
               campaign={campaign}
               worldPower={battle.worldPower}

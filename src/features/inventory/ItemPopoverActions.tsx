@@ -11,12 +11,15 @@ export type PopoverAction = {
 
 export type ItemPopoverActionsProps = {
   inBattle: boolean
+  /** Expedition freeze etc. — disables actions with disabledTooltip, not battle copy */
+  actionsLocked?: boolean
   disabledTooltip?: string
   actions: PopoverAction[]
 }
 
 export function ItemPopoverActions({
   inBattle,
+  actionsLocked = false,
   disabledTooltip,
   actions,
 }: ItemPopoverActionsProps) {
@@ -28,7 +31,7 @@ export function ItemPopoverActions({
           size="small"
           type={a.danger ? 'primary' : (a.type ?? 'default')}
           danger={a.danger}
-          disabled={inBattle || a.disabled}
+          disabled={inBattle || actionsLocked || a.disabled}
           onClick={a.onClick}
         >
           {a.label}
@@ -37,8 +40,11 @@ export function ItemPopoverActions({
     </Space>
   )
 
-  if (inBattle) {
-    return <Tooltip title={disabledTooltip ?? 'Доступно после боя'}>{buttons}</Tooltip>
+  if (inBattle || actionsLocked) {
+    const title =
+      disabledTooltip ??
+      (inBattle ? 'Доступно после боя' : 'Недоступно во время экспедиции')
+    return <Tooltip title={title}>{buttons}</Tooltip>
   }
   return buttons
 }
