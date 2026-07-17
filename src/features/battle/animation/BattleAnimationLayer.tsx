@@ -1,13 +1,15 @@
 import type { CSSProperties } from 'react'
 import type { UnitDisplay } from '../../../game/character/display'
 import type { Unit } from '../../../game/types'
-import { UI_DAMAGE, UI_HEART } from '../../../game/ui/labels'
+import { UI_DAMAGE } from '../../../game/ui/labels'
 import {
   BATTLE_CELL_SIZE_PX,
   cellCenterPx,
   lungeOffset,
   parseCellKey,
 } from './cellGeometry'
+import { FloatingCombatText } from './FloatingCombatText'
+import { formatDamageFloat, formatHealFloat, formatStatusFloat } from './floatTextMap'
 import type { AnimationStep, Cell } from './types'
 import '../battle.css'
 import './battle-animation.css'
@@ -113,6 +115,10 @@ function renderStep(
             }}
           />
           <CellFlash cell={targetCell} className="battle-anim--hit-flash battle-anim--shake" />
+          <FloatingCombatText
+            cell={targetCell}
+            lines={formatDamageFloat(step.damage, step.absorbedDamage)}
+          />
         </>
       )
     }
@@ -137,6 +143,10 @@ function renderStep(
             {step.projectileEmoji ?? UI_DAMAGE}
           </span>
           <CellFlash cell={targetCell} className="battle-anim--hit-flash" />
+          <FloatingCombatText
+            cell={targetCell}
+            lines={formatDamageFloat(step.damage, step.absorbedDamage)}
+          />
         </>
       )
     }
@@ -171,19 +181,29 @@ function renderStep(
       return <>{nodes}</>
     }
     case 'aoe_burst':
-      return step.cellKeys.map((key) => {
-        const cell = parseCellKey(key)
-        if (!cell) return null
-        const c = cellCenterPx(cell.x, cell.y)
-        return (
-          <span
-            key={key}
-            className="battle-anim-cell-flash battle-anim--aoe-burst battle-cell-explosion"
-            style={{ left: c.left, top: c.top, width: BATTLE_CELL_SIZE_PX, height: BATTLE_CELL_SIZE_PX }}
-            aria-hidden
-          />
-        )
-      })
+      return (
+        <>
+          {step.cellKeys.map((key) => {
+            const cell = parseCellKey(key)
+            if (!cell) return null
+            const c = cellCenterPx(cell.x, cell.y)
+            return (
+              <span
+                key={key}
+                className="battle-anim-cell-flash battle-anim--aoe-burst battle-cell-explosion"
+                style={{ left: c.left, top: c.top, width: BATTLE_CELL_SIZE_PX, height: BATTLE_CELL_SIZE_PX }}
+                aria-hidden
+              />
+            )
+          })}
+          {step.damage !== undefined && step.damage > 0 ? (
+            <FloatingCombatText
+              cell={step.center}
+              lines={formatDamageFloat(step.damage, step.absorbedDamage)}
+            />
+          ) : null}
+        </>
+      )
     case 'heal': {
       const targetCell = unitCell(units, step.targetId)
       const healerCell = unitCell(units, step.healerId)
@@ -191,14 +211,11 @@ function renderStep(
       const targetPos = cellCenterPx(targetCell.x, targetCell.y)
       const nodes = [
         <CellFlash key="pulse" cell={targetCell} className="battle-anim--heal-pulse" />,
-        <span
+        <FloatingCombatText
           key="float"
-          className="battle-anim-overlay battle-anim--heal-float"
-          style={{ left: targetPos.left, top: targetPos.top }}
-          aria-hidden
-        >
-          +{step.amount} {UI_HEART}
-        </span>,
+          cell={targetCell}
+          lines={formatHealFloat(step.amount)}
+        />,
       ]
       if (
         healerCell &&
@@ -232,11 +249,17 @@ function renderStep(
       const emoji = getUnitDisplay(step.targetId)?.emoji ?? '✨'
       const pos = cellCenterPx(targetCell.x, targetCell.y)
       return (
-        <GhostToken
-          emoji={emoji}
-          className="battle-anim--resurrect"
-          style={{ left: pos.left, top: pos.top }}
-        />
+        <>
+          <GhostToken
+            emoji={emoji}
+            className="battle-anim--resurrect"
+            style={{ left: pos.left, top: pos.top }}
+          />
+          <FloatingCombatText
+            cell={targetCell}
+            lines={formatHealFloat(step.hp)}
+          />
+        </>
       )
     }
     case 'buff_aura': {
@@ -244,26 +267,57 @@ function renderStep(
       if (!cell) return null
       const holyClass = step.holy ? ' battle-anim--buff-aura--holy' : ''
       return (
-        <CellFlash
-          cell={cell}
-          className={`battle-anim--buff-aura${holyClass}`}
-        />
+        <>
+          <CellFlash
+            cell={cell}
+            className={`battle-anim--buff-aura${holyClass}`}
+          />
+          <FloatingCombatText
+            cell={cell}
+            lines={formatStatusFloat(step.statusKind, 'buff')}
+            holy={step.holy}
+          />
+        </>
       )
     }
     case 'debuff_aura': {
       const cell = unitCell(units, step.unitId)
       if (!cell) return null
-      return <CellFlash cell={cell} className="battle-anim--debuff-aura" />
+      return (
+        <>
+          <CellFlash cell={cell} className="battle-anim--debuff-aura" />
+          <FloatingCombatText
+            cell={cell}
+            lines={formatStatusFloat(step.statusKind, 'debuff')}
+          />
+        </>
+      )
     }
     case 'status_tick_dot': {
       const cell = unitCell(units, step.unitId)
       if (!cell) return null
-      return <CellFlash cell={cell} className="battle-anim--tick-dot" />
+      return (
+        <>
+          <CellFlash cell={cell} className="battle-anim--tick-dot" />
+          <FloatingCombatText
+            cell={cell}
+            lines={formatDamageFloat(step.damage)}
+          />
+        </>
+      )
     }
     case 'status_tick_regen': {
       const cell = unitCell(units, step.unitId)
       if (!cell) return null
-      return <CellFlash cell={cell} className="battle-anim--tick-regen" />
+      return (
+        <>
+          <CellFlash cell={cell} className="battle-anim--tick-regen" />
+          <FloatingCombatText
+            cell={cell}
+            lines={formatHealFloat(step.amount)}
+          />
+        </>
+      )
     }
     case 'death': {
       const emoji = getUnitDisplay(step.unitId)?.emoji ?? '❓'
