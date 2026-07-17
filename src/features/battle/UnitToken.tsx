@@ -13,6 +13,7 @@ export type UnitTokenProps = {
   highlighted?: boolean
   isCurrentActor?: boolean
   isDead?: boolean
+  hiddenByAnimation?: boolean
   onMouseEnter?: () => void
   onMouseLeave?: () => void
 }
@@ -35,9 +36,20 @@ export function UnitToken({
   highlighted,
   isCurrentActor,
   isDead,
+  hiddenByAnimation,
   onMouseEnter,
   onMouseLeave,
 }: UnitTokenProps) {
+  if (hiddenByAnimation) {
+    return (
+      <span
+        className="unit-token unit-token--anim-hidden"
+        style={{ width: '100%', height: '100%' }}
+        aria-hidden
+      />
+    )
+  }
+
   const ring = accentStyle(display.accent)
   const emojiSize = variant === 'grid' ? 28 : 22
 

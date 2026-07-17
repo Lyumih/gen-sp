@@ -36,6 +36,8 @@ import { UnitToken } from './UnitToken'
 import { HeroProfileModal } from '../profile/HeroProfileModal'
 import type { CampaignState, Unit } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
+import { BattleAnimationLayer } from './animation/BattleAnimationLayer'
+import { useBattleAnimationQueue } from './animation/useBattleAnimationQueue'
 import { getUnitDisplay } from '../../game/character/display'
 import { turnBadgeLabel } from '../../game/battle/turnBadge'
 import { formatBattleLogEntry } from '../../game/battle/battleLog'
@@ -89,6 +91,7 @@ function BattleUnitCell({
   cellStyle,
   onCellClick,
   onCellMouseEnter,
+  hiddenByAnimation,
 }: {
   unit: Unit
   campaign: CampaignState
@@ -102,6 +105,7 @@ function BattleUnitCell({
   cellStyle: CSSProperties
   onCellClick: () => void
   onCellMouseEnter: () => void
+  hiddenByAnimation?: boolean
 }) {
   const display = getUnitDisplay(unit, campaign)
   const isAlive = (id: string) => {
@@ -130,6 +134,7 @@ function BattleUnitCell({
         highlighted={highlighted}
         isCurrentActor={isCurrentActor}
         isDead={unit.hp <= 0}
+        hiddenByAnimation={hiddenByAnimation}
         onMouseEnter={() => onHighlight?.(unit.id)}
         onMouseLeave={() => onHighlight?.(null)}
       />
@@ -194,6 +199,12 @@ export function BattleScreen() {
   const logEndRef = useRef<HTMLDivElement>(null)
   const [trackedTurnId, setTrackedTurnId] = useState<string | undefined>(undefined)
   const [defeatDebriefOpen, setDefeatDebriefOpen] = useState(false)
+
+  const battleAnim = useBattleAnimationQueue(
+    battle?.battleLog ?? [],
+    battle?.units ?? [],
+    battle?.phase === 'ongoing',
+  )
 
   useEffect(() => {
     if (!guidedActive || !battle) return
@@ -866,6 +877,7 @@ export function BattleScreen() {
           </div>
 
           <GameScrollX>
+            <div className="battle-field-root" style={{ position: 'relative', width: 'max-content' }}>
             <div
               onMouseLeave={handleGridMouseLeave}
               style={{
@@ -940,6 +952,7 @@ export function BattleScreen() {
                     cellStyle={sharedButtonStyle}
                     onCellClick={() => onCellClick(x, y)}
                     onCellMouseEnter={() => handleCellMouseEnter(x, y)}
+                    hiddenByAnimation={battleAnim.hiddenUnitIds.has(u.id)}
                   />
                 )
               }
@@ -966,6 +979,12 @@ export function BattleScreen() {
               )
             }),
           )}
+            </div>
+            <BattleAnimationLayer
+              activeStep={battleAnim.activeStep}
+              units={battle.units}
+              getUnitDisplay={(unitId) => unitLogLookup?.(unitId)}
+            />
             </div>
           </GameScrollX>
 

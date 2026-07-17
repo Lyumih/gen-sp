@@ -1,0 +1,310 @@
+.battle-anim-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  overflow: visible;
+}
+
+.battle-anim-ghost {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 28px;
+  line-height: 1;
+  z-index: 3;
+}
+
+.battle-anim-overlay {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.battle-anim-cell-flash {
+  position: absolute;
+  width: 58px;
+  height: 58px;
+  transform: translate(-50%, -50%);
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+@keyframes battle-anim-move {
+  from {
+    transform: translate(-50%, -50%);
+  }
+  to {
+    transform: translate(calc(-50% + var(--move-dx, 0px)), calc(-50% + var(--move-dy, 0px)));
+  }
+}
+
+.battle-anim--move {
+  animation: battle-anim-move 280ms ease-in-out forwards;
+}
+
+@keyframes battle-anim-teleport-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+}
+
+@keyframes battle-anim-teleport-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.battle-anim--teleport-out {
+  animation: battle-anim-teleport-out 100ms ease-in forwards;
+}
+
+.battle-anim--teleport-in {
+  animation: battle-anim-teleport-in 100ms ease-out 100ms forwards;
+  opacity: 0;
+}
+
+@keyframes battle-anim-lunge {
+  0%,
+  100% {
+    transform: translate(-50%, -50%);
+  }
+  50% {
+    transform: translate(calc(-50% + var(--lunge-x, 0px)), calc(-50% + var(--lunge-y, 0px)));
+  }
+}
+
+.battle-anim--strike-lunge {
+  animation: battle-anim-lunge 220ms ease-in-out;
+}
+
+@keyframes battle-anim-hit-flash {
+  0% {
+    box-shadow: inset 0 0 0 0 rgba(255, 77, 79, 0);
+  }
+  40% {
+    box-shadow: inset 0 0 12px 4px rgba(255, 120, 117, 0.95);
+  }
+  100% {
+    box-shadow: inset 0 0 0 0 rgba(255, 77, 79, 0);
+  }
+}
+
+.battle-anim--hit-flash {
+  animation: battle-anim-hit-flash 220ms ease-out;
+}
+
+@keyframes battle-anim-shake {
+  0%,
+  100% {
+    transform: translate(-50%, -50%);
+  }
+  25% {
+    transform: translate(calc(-50% - 2px), -50%);
+  }
+  75% {
+    transform: translate(calc(-50% + 2px), -50%);
+  }
+}
+
+.battle-anim--shake {
+  animation: battle-anim-shake 220ms ease-in-out;
+}
+
+@keyframes battle-anim-projectile {
+  from {
+    transform: translate(-50%, -50%);
+  }
+  to {
+    transform: translate(calc(-50% + var(--proj-dx, 0px)), calc(-50% + var(--proj-dy, 0px)));
+  }
+}
+
+.battle-anim--projectile {
+  animation: battle-anim-projectile 260ms linear forwards;
+  font-size: 22px;
+}
+
+@keyframes battle-anim-cast-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(114, 46, 209, 0);
+  }
+  50% {
+    box-shadow: 0 0 14px 6px rgba(114, 46, 209, 0.55);
+  }
+}
+
+.battle-anim--cast-glow {
+  animation: battle-anim-cast-glow 180ms ease-in-out;
+}
+
+.battle-anim--cast-beam {
+  height: 3px;
+  background: linear-gradient(90deg, rgba(114, 46, 209, 0.8), rgba(114, 46, 209, 0.1));
+  transform-origin: 0 50%;
+  animation: battle-anim-beam-fade 180ms ease-out forwards;
+}
+
+@keyframes battle-anim-beam-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.battle-anim--aoe-burst {
+  animation: battle-explosion-pulse 600ms ease-out;
+}
+
+@keyframes battle-anim-heal-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(82, 196, 26, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 12px 4px rgba(82, 196, 26, 0.9);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(82, 196, 26, 0);
+  }
+}
+
+.battle-anim--heal-pulse {
+  animation: battle-anim-heal-pulse 240ms ease-out;
+}
+
+@keyframes battle-anim-heal-float {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% - 18px));
+  }
+}
+
+.battle-anim--heal-float {
+  animation: battle-anim-heal-float 240ms ease-out forwards;
+  color: #389e0d;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@keyframes battle-anim-resurrect {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.battle-anim--resurrect {
+  animation: battle-anim-resurrect 450ms ease-out forwards;
+}
+
+@keyframes battle-anim-buff-aura {
+  0% {
+    box-shadow: 0 0 0 0 rgba(250, 173, 20, 0.8);
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    box-shadow: 0 0 16px 6px rgba(250, 173, 20, 0.6);
+    transform: translate(-50%, calc(-50% - 4px)) scale(1.08);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(250, 173, 20, 0);
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.battle-anim--buff-aura {
+  animation: battle-anim-buff-aura 260ms ease-out;
+}
+
+.battle-anim--buff-aura--holy {
+  animation-name: battle-anim-buff-aura-holy;
+}
+
+@keyframes battle-anim-buff-aura-holy {
+  0% {
+    box-shadow: 0 0 0 0 rgba(250, 219, 20, 0.85);
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    box-shadow: 0 0 16px 6px rgba(250, 219, 20, 0.65);
+    transform: translate(-50%, calc(-50% - 4px)) scale(1.08);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(250, 219, 20, 0);
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes battle-anim-debuff-aura {
+  0% {
+    box-shadow: 0 0 0 0 rgba(114, 46, 209, 0.75);
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    box-shadow: 0 0 14px 5px rgba(114, 46, 209, 0.55);
+    transform: translate(-50%, calc(-50% + 4px)) scale(0.94);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(114, 46, 209, 0);
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.battle-anim--debuff-aura {
+  animation: battle-anim-debuff-aura 260ms ease-out;
+}
+
+@keyframes battle-anim-death {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+}
+
+.battle-anim--death {
+  animation: battle-anim-death 380ms ease-in forwards;
+}
+
+.battle-anim--tick-dot {
+  animation: battle-anim-hit-flash 120ms ease-out;
+}
+
+.battle-anim--tick-regen {
+  animation: battle-anim-heal-pulse 120ms ease-out;
+}
+
+.unit-token--anim-hidden {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .battle-anim-layer * {
+    animation-duration: 0ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0ms !important;
+  }
+}
