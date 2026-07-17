@@ -184,19 +184,69 @@
   animation: battle-anim-heal-pulse 240ms ease-out;
 }
 
-@keyframes battle-anim-heal-float {
+@keyframes battle-anim-float-rise {
   from {
     opacity: 1;
     transform: translate(-50%, -50%);
   }
   to {
     opacity: 0;
-    transform: translate(-50%, calc(-50% - 18px));
+    transform: translate(-50%, calc(-50% - 20px));
   }
 }
 
+.battle-anim--float-stack {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.battle-anim--float {
+  position: absolute;
+  pointer-events: none;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  animation: battle-anim-float-rise 700ms ease-out forwards;
+  z-index: 3;
+}
+
+.battle-anim--float--damage {
+  color: #cf1322;
+}
+
+.battle-anim--float--heal {
+  color: #389e0d;
+}
+
+.battle-anim--float--absorb {
+  color: #8c8c8c;
+  font-size: 10px;
+  margin-top: 2px;
+  margin-left: 8px;
+}
+
+.battle-anim--float--buff {
+  color: #1677ff;
+  font-size: 14px;
+}
+
+.battle-anim--float--buff--holy {
+  color: #d4b106;
+}
+
+.battle-anim--float--debuff {
+  color: #722ed1;
+  font-size: 14px;
+}
+
+/* legacy alias — remove inline heal-float from BattleAnimationLayer in Task 5 */
 .battle-anim--heal-float {
-  animation: battle-anim-heal-float 240ms ease-out forwards;
+  animation: battle-anim-float-rise 700ms ease-out forwards;
   color: #389e0d;
   font-size: 12px;
   font-weight: 600;
