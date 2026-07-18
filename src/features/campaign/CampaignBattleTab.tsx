@@ -17,6 +17,7 @@ import {
   isFeaturedBattleModesVisible,
 } from '../../game/onboarding/selectors'
 import { GamePanel } from '../layout/GamePanel'
+import { SectionHelp } from '../layout/SectionHelp'
 import { SquadAssemblyDnd } from '../character/SquadAssemblyDnd'
 import { BattleModeList } from './BattleModeList'
 import { buildBattleModeEntries } from './buildBattleModeEntries'
@@ -24,6 +25,7 @@ import { CampaignReplayModal } from './CampaignReplayModal'
 import { ExpeditionOrphanPanel } from './ExpeditionOrphanPanel'
 import { ExpeditionPartyPickModal } from './ExpeditionPartyPickModal'
 import { useGameStore } from '../../store/gameStore'
+import { SQUAD_SECTION_HELP } from './sectionTooltips'
 
 type CampaignBattleTabProps = {
   campaign: CampaignState
@@ -128,7 +130,10 @@ export function CampaignBattleTab({
   return (
     <div role="tabpanel">
       <Space orientation="vertical" size="small" style={{ width: '100%' }}>
-        <GamePanel title="Отряд">
+        <GamePanel
+          title="Отряд"
+          extra={<SectionHelp content={SQUAD_SECTION_HELP} />}
+        >
           <SquadAssemblyDnd
             campaign={campaign}
             disabled={modeDisabled}
