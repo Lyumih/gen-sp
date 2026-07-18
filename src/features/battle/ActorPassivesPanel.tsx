@@ -1,8 +1,10 @@
-import { List, Popover, Typography } from 'antd'
-import { describePassiveStats, getPassiveDisplayLabel } from '../../game/descriptions/passiveText'
+import { Typography } from 'antd'
+import { describePassiveStats } from '../../game/descriptions/passiveText'
 import { getPassiveTemplate } from '../../game/content/passiveTemplates'
 import { resolvePassiveEmoji } from '../inventory/inventoryEmoji'
+import { InventoryCell } from '../inventory/InventoryCell'
 import type { CampaignState, Character, PassiveInstance } from '../../game/types'
+import { UI_LEVEL } from '../../game/ui/labels'
 
 export function ActorPassivesPanel(props: {
   passives: readonly PassiveInstance[]
@@ -16,13 +18,10 @@ export function ActorPassivesPanel(props: {
       <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>
         Пассивные навыки
       </Typography.Text>
-      <List
-        size="small"
-        dataSource={[...passives]}
-        renderItem={(p) => {
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+        {passives.map((p) => {
           const stats = describePassiveStats(p, character, campaign)
           const tmpl = getPassiveTemplate(p.templateId)
-          const summary = stats.lines[0] ?? ''
           const popover = (
             <ul style={{ margin: 0, paddingLeft: 16 }}>
               {stats.lines.map((line, i) => (
@@ -33,16 +32,19 @@ export function ActorPassivesPanel(props: {
             </ul>
           )
           return (
-            <List.Item style={{ padding: '4px 0' }}>
-              <Popover content={popover} trigger="hover" mouseEnterDelay={0.3}>
-                <span style={{ fontSize: 12, cursor: 'default' }}>
-                  {resolvePassiveEmoji(tmpl)} {getPassiveDisplayLabel(p.templateId)} — {summary}
-                </span>
-              </Popover>
-            </List.Item>
+            <InventoryCell
+              key={p.id}
+              emoji={resolvePassiveEmoji(tmpl)}
+              levelBadge={`${UI_LEVEL}${p.global_level}`}
+              state="filled"
+              popoverTitle={stats.displayLabel}
+              popoverContent={popover}
+              popoverTrigger={['hover', 'click']}
+              ariaLabel={`${stats.displayLabel}, ${UI_LEVEL}${p.global_level}`}
+            />
           )
-        }}
-      />
+        })}
+      </div>
     </div>
   )
 }
