@@ -5,6 +5,8 @@ import { BattleModeTile } from './BattleModeTile'
 export type BattleModeGridProps = {
   title?: string
   soon?: boolean
+  sectionId?: string
+  sectionClassName?: string
   chains: readonly ExpeditionChainConfig[]
   disabled?: boolean
   getBadge?: (chain: ExpeditionChainConfig) => string | undefined
@@ -14,6 +16,8 @@ export type BattleModeGridProps = {
 export function BattleModeGrid({
   title,
   soon = false,
+  sectionId,
+  sectionClassName,
   chains,
   disabled = false,
   getBadge,
@@ -21,8 +25,15 @@ export function BattleModeGrid({
 }: BattleModeGridProps) {
   if (chains.length === 0) return null
 
+  const sectionClass = [
+    soon ? 'game-mode-section game-mode-section--soon' : 'game-mode-section',
+    sectionClassName,
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
-    <section className={soon ? 'game-mode-section game-mode-section--soon' : 'game-mode-section'}>
+    <section id={sectionId} className={sectionClass}>
       {title ? <h4 className="game-mode-section__title">{title}</h4> : null}
       <div className="game-mode-grid">
         {chains.map((chain) => (
