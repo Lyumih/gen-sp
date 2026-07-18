@@ -59,13 +59,14 @@ describe('expedition chain UI metadata', () => {
     const featured = getExpeditionChainsByTier('featured')
     const soon = getExpeditionChainsByTier('soon')
     expect(featured.map((c) => c.id)).toEqual([
+      'campaign-main',
       'chaotic-map',
       'tunnel',
       'big-arena',
       'small-skirmish',
       'ambush',
     ])
-    expect(soon.map((c) => c.id)).toEqual(['campaign-main', 'test-single-battle'])
+    expect(soon.map((c) => c.id)).toEqual(['test-single-battle'])
   })
 
   it('every chain has icon and param emoji line', () => {

@@ -10,12 +10,12 @@ describe('BattleModeGrid', () => {
       createElement(BattleModeGrid, {
         title: 'Скоро',
         soon: true,
-        chains: getExpeditionChainsByTier('soon').filter((c) => c.id === 'campaign-main'),
+        chains: getExpeditionChainsByTier('soon'),
         onSelect: () => {},
       }),
     )
     expect(html).toContain('Скоро')
-    expect(html).toContain('Компания')
+    expect(html).toContain('Тест: один бой')
     expect(html).toContain('game-mode-section--soon')
   })
 

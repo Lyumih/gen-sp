@@ -71,7 +71,7 @@ export const EXPEDITION_CHAINS: readonly ExpeditionChainConfig[] = [
     label: 'Компания',
     description: 'Три сценария подряд с воскрешением между боями',
     paramPreview: 'Бойцов: 1 · Боёв: 3',
-    tier: 'soon',
+    tier: 'featured',
     iconEmoji: '📜',
     paramEmojiLine: '👥1  ×3  ♻ между боями',
     partySize: 1,
