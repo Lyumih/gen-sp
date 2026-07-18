@@ -7,10 +7,15 @@ export function isOnboardingActive(onboarding: OnboardingState): boolean {
   return !onboarding.graduated && !onboarding.skipMode
 }
 
-export function isExpeditionPanelVisible(campaign: CampaignState): boolean {
+export function isFeaturedBattleModesVisible(campaign: CampaignState): boolean {
   const o = campaign.onboarding
   if (o.graduated || o.skipMode) return true
   return hasCompletedStep(o, 'first_battle_won')
+}
+
+export function isDevTestModeVisible(campaign: CampaignState): boolean {
+  const o = campaign.onboarding
+  return o.graduated || o.skipMode
 }
 
 export function isGuidedTutorialActive(campaign: CampaignState): boolean {

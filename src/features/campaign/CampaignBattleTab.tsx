@@ -13,7 +13,7 @@ import {
 } from '../../game/expedition/resolveExpeditionParty'
 import type { CampaignState } from '../../game/types'
 import { hasCompletedStep } from '../../game/onboarding/onboardingState'
-import { isExpeditionPanelVisible } from '../../game/onboarding/selectors'
+import { isFeaturedBattleModesVisible } from '../../game/onboarding/selectors'
 import { GameColumns } from '../layout/GameColumns'
 import { GamePanel } from '../layout/GamePanel'
 import { SquadAssemblyDnd } from '../character/SquadAssemblyDnd'
@@ -75,7 +75,7 @@ export function CampaignBattleTab({
   const soloCtaLabel = hasCompletedStep(campaign.onboarding, 'first_battle_won')
     ? 'Начать / продолжить бой'
     : 'Начать первый бой'
-  const showExpeditionPanel = isExpeditionPanelVisible(campaign)
+  const showExpeditionPanel = isFeaturedBattleModesVisible(campaign)
 
   const handleToggleMark = (characterId: string) => {
     setMarkedIds((prev) =>

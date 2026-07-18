@@ -2,20 +2,28 @@ import { describe, expect, it } from 'vitest'
 import { initialCampaignState } from '../campaign/runReducer'
 import { completeStep } from './onboardingState'
 import {
-  isExpeditionPanelVisible,
+  isDevTestModeVisible,
+  isFeaturedBattleModesVisible,
   isGuidedTutorialActive,
   isOnboardingExpeditionPending,
 } from './selectors'
 
 describe('onboarding selectors', () => {
-  it('hides expedition panel until first_battle_won', () => {
+  it('hides featured battle modes until first_battle_won', () => {
     const s = initialCampaignState()
-    expect(isExpeditionPanelVisible(s)).toBe(false)
+    expect(isFeaturedBattleModesVisible(s)).toBe(false)
     const won = {
       ...s,
       onboarding: completeStep(s.onboarding, 'first_battle_won'),
     }
-    expect(isExpeditionPanelVisible(won)).toBe(true)
+    expect(isFeaturedBattleModesVisible(won)).toBe(true)
+  })
+
+  it('shows dev test mode only when graduated or skipMode', () => {
+    const s = initialCampaignState()
+    expect(isDevTestModeVisible(s)).toBe(false)
+    const skip = { ...s, onboarding: { ...s.onboarding, skipMode: true } }
+    expect(isDevTestModeVisible(skip)).toBe(true)
   })
 
   it('guided active only for solo tutorial slot 0', () => {
