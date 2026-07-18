@@ -161,3 +161,50 @@
   font-size: 16px;
   line-height: 1;
 }
+
+.game-mode-section {
+  margin-top: 8px;
+}
+
+.game-mode-section__title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #8c8c8c;
+}
+
+.game-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+.game-mode-tile {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+
+.game-mode-tile:hover:not(:disabled) {
+  border-color: #1677ff;
+}
+
+.game-mode-tile:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.game-mode-section--soon .game-mode-tile {
+  background: #fafafa;
+}
