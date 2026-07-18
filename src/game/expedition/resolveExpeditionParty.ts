@@ -8,6 +8,14 @@ export function countOccupiedSquadSlots(squad: readonly (string | null)[]): numb
   return squad.filter((id): id is string => id !== null).length
 }
 
+export function getOccupiedSquadCharacterIds(squad: readonly (string | null)[]): string[] {
+  const ids: string[] = []
+  for (const id of squad) {
+    if (id !== null) ids.push(id)
+  }
+  return ids
+}
+
 export function resolveExpeditionParty(input: ResolveExpeditionPartyInput): string[] {
   const markedSet = new Set(input.markedIds)
   const candidates: string[] = []
