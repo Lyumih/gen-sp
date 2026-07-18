@@ -17,8 +17,20 @@ export function formatBattleLogEntry(
   lookup?: BattleLogUnitLookup,
 ): string {
   switch (entry.type) {
-    case 'move':
-      return `${formatUnitRef(entry.unitId, lookup)}: (${entry.fromX},${entry.fromY}) → (${entry.toX},${entry.toY})`
+    case 'move': {
+      const who = formatUnitRef(entry.unitId, lookup)
+      const dx = entry.toX - entry.fromX
+      const dy = entry.toY - entry.fromY
+      const steps = Math.abs(dx) + Math.abs(dy)
+      if (steps === 0) return `${who}: на месте`
+      if (steps === 1) {
+        if (dx === 1) return `${who}: шаг вправо`
+        if (dx === -1) return `${who}: шаг влево`
+        if (dy === 1) return `${who}: шаг вниз`
+        if (dy === -1) return `${who}: шаг вверх`
+      }
+      return `${who}: перемещение (${steps} кл.)`
+    }
     case 'strike': {
       const src = entry.fromCard
         ? `карта «${getCardDisplayLabel(entry.fromCard.templateId)}»`

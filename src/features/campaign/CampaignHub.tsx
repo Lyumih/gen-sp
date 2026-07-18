@@ -4,6 +4,7 @@ import { SCENARIOS } from '../../game/campaign/scenarios'
 import { unreadCodexEntryIds } from '../../game/codex/discovery'
 import { getCardDisplayLabel } from '../../game/descriptions/cardText'
 import { getPassiveTemplate } from '../../game/content/passiveTemplates'
+import { getItemTemplate } from '../../game/content/itemTemplates'
 import { getSpecializationTemplate } from '../../game/specialization/specializationTemplates'
 import { getCharacter } from '../../game/character/selectors'
 import { coachMarkById } from '../../game/onboarding/coachMarks'
@@ -99,25 +100,39 @@ export function CampaignHub() {
   useEffect(() => {
     const notice = campaign.pendingHubNotice
     if (!notice) return
+    const duration = 6
     if (notice.kind === 'skill_drop') {
-      message.success(`В сундук попало умение: ${getCardDisplayLabel(notice.templateId)}`)
+      message.success({
+        content: `В сундук попало умение: ${getCardDisplayLabel(notice.templateId)}. Откройте вкладку «Сундук».`,
+        duration,
+      })
     } else if (notice.kind === 'passive_drop') {
       const label = getPassiveTemplate(notice.templateId)?.label ?? notice.templateId
-      message.success(`В сундук попал навык: ${label}`)
+      message.success({
+        content: `В сундук попал навык: ${label}. Откройте вкладку «Сундук».`,
+        duration,
+      })
     } else if (notice.kind === 'dual_drop') {
       const skillLabel = getCardDisplayLabel(notice.skillTemplateId)
       const passiveLabel =
         getPassiveTemplate(notice.passiveTemplateId)?.label ?? notice.passiveTemplateId
-      message.success(`В сундук попали: умение ${skillLabel} и навык ${passiveLabel}`)
+      message.success({
+        content: `В сундук попали: умение ${skillLabel} и навык ${passiveLabel}.`,
+        duration,
+      })
     } else if (notice.kind === 'specialization_reveal') {
       const tmpl = getSpecializationTemplate(notice.specializationId)
-      message.success(`Открыта склонность: ${tmpl?.emoji} ${tmpl?.label}`)
+      message.success({
+        content: `Открыта склонность: ${tmpl?.emoji} ${tmpl?.label}`,
+        duration,
+      })
     }
     dispatchRun({ type: 'MARK_HUB_NOTICE_SEEN' })
   }, [campaign.pendingHubNotice, dispatchRun, message])
 
   const handleTabChange = (tab: CampaignHubTab) => {
     if (tab === activeTab) return
+    setGoalsDrawerOpen(false)
     if (tab === 'codex') {
       dispatchRun({ type: 'MARK_CODEX_SEEN' })
     }
@@ -142,7 +157,32 @@ export function CampaignHub() {
     destination?: 'chest' | 'character',
     characterId?: string,
   ) => {
+    const offer = campaign.shopOffers?.[offerIndex]
+    if (!offer) return
     dispatchRun({ type: 'BUY_SHOP_OFFER', offerIndex, destination, characterId })
+    if (offer.kind === 'item') {
+      const tmpl = getItemTemplate(offer.templateId)
+      const dest = destination ?? 'chest'
+      if (dest === 'chest') {
+        message.success({
+          content: `${tmpl?.label ?? 'Предмет'} куплен → сундук. Наденьте через вкладку «Сундук» или «Персонаж».`,
+          duration: 5,
+        })
+      } else {
+        message.success({
+          content: `${tmpl?.label ?? 'Предмет'} в инвентаре героя. Наденьте в слот экипировки.`,
+          duration: 5,
+        })
+      }
+    } else if (offer.kind === 'skill') {
+      message.success({
+        content: `Умение «${getCardDisplayLabel(offer.templateId)}» → сундук.`,
+        duration: 5,
+      })
+    } else if (offer.kind === 'passive') {
+      const label = getPassiveTemplate(offer.templateId)?.label ?? offer.templateId
+      message.success({ content: `Навык «${label}» → сундук.`, duration: 5 })
+    }
   }
 
   const sellChestItem = (itemId: string) => {
@@ -348,6 +388,7 @@ export function CampaignHub() {
         )}
       </Drawer>
 
+      <div className="game-hub-content">
       <Space orientation="vertical" size="small" style={{ width: '100%' }}>
         {checklistExpanded && !onboarding.skipMode && !onboarding.graduated ? (
           <OnboardingChecklist campaign={campaign} />
@@ -438,6 +479,7 @@ export function CampaignHub() {
 
         {activeTab === 'help' ? <CampaignHelpTab /> : null}
       </Space>
+      </div>
     </GameShell>
   )
 }

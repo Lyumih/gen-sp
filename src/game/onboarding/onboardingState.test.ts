@@ -21,10 +21,11 @@ describe('onboardingState', () => {
     expect(twice.completedSteps).toEqual(['welcome_seen'])
   })
 
-  it('applyOnboardingSkip sets skipMode and guidedTutorialDone', () => {
+  it('applyOnboardingSkip sets skipMode, guidedTutorialDone, and graduated', () => {
     const next = applyOnboardingSkip(DEFAULT_ONBOARDING)
     expect(next.skipMode).toBe(true)
     expect(next.guidedTutorialDone).toBe(true)
+    expect(next.graduated).toBe(true)
   })
 
   it('graduateOnboarding sets graduated', () => {

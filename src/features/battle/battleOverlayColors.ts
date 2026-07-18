@@ -1,4 +1,4 @@
-export const OVERLAY_MOVE = 'rgba(145, 202, 255, 0.35)'
+export const OVERLAY_MOVE = 'rgba(183, 235, 143, 0.50)'
 export const OVERLAY_ACTION_RANGE = 'rgba(255, 213, 145, 0.40)'
 export const OVERLAY_AOE = 'rgba(255, 120, 117, 0.45)'
 export const OVERLAY_VALID_TARGET = 'rgba(183, 235, 143, 0.50)'

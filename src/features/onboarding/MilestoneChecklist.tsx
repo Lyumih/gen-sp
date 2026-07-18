@@ -27,14 +27,24 @@ export function MilestoneChecklist({ campaign }: MilestoneChecklistProps) {
             const active = !done && index === firstOpenIndex
             return (
               <List.Item style={{ padding: '2px 0', border: 'none' }}>
-                <Typography.Text
-                  delete={done}
-                  strong={active}
-                  type={done ? 'secondary' : undefined}
-                >
-                  {done ? '✓ ' : active ? '→ ' : '○ '}
-                  {milestone.label}
-                </Typography.Text>
+                <div>
+                  <Typography.Text
+                    delete={done}
+                    strong={active}
+                    type={done ? 'secondary' : undefined}
+                  >
+                    {done ? '✓ ' : active ? '→ ' : '○ '}
+                    {milestone.label}
+                  </Typography.Text>
+                  {active && milestone.hint ? (
+                    <Typography.Text
+                      type="secondary"
+                      style={{ display: 'block', fontSize: 12, marginTop: 2 }}
+                    >
+                      {milestone.hint}
+                    </Typography.Text>
+                  ) : null}
+                </div>
               </List.Item>
             )
           }}

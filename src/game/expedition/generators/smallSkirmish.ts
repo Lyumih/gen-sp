@@ -20,10 +20,11 @@ export function generateSmallSkirmish(ctx: ExpeditionGeneratorContext): BattleSc
     heroBaseHpStat: 20,
     enemySpawns: [
       {
-        kind: 'pool',
-        poolTags: ['arena', 'melee'],
-        count: 1,
-        spawnZone: { xMin: enemyX, xMax: enemyX, yMin: enemyY, yMax: enemyY },
+        kind: 'fixed',
+        archetypeId: 'grunt',
+        x: enemyX,
+        y: enemyY,
+        unitLevel: 1,
       },
     ],
   }

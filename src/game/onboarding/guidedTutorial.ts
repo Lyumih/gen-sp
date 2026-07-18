@@ -17,7 +17,7 @@ export const GUIDED_TUTORIAL_STEPS: readonly GuidedTutorialStep[] = [
     allowedModes: ['move'],
   },
   {
-    hint: 'Подойдите вплотную, если ещё не рядом (зелёные клетки = ход).',
+    hint: 'Подойдите вплотную, если ещё не рядом (подсвеченные клетки = ход).',
     allowedModes: ['move'],
   },
   {

@@ -11,10 +11,11 @@ describe('onboarding reducer', () => {
     expect(hasCompletedStep(next.onboarding, 'welcome_seen')).toBe(true)
   })
 
-  it('SET_ONBOARDING_SKIP enables skipMode', () => {
+  it('SET_ONBOARDING_SKIP enables skipMode and graduates', () => {
     const next = applyRunAction(initialCampaignState(), { type: 'SET_ONBOARDING_SKIP' })
     expect(next.onboarding.skipMode).toBe(true)
     expect(next.onboarding.guidedTutorialDone).toBe(true)
+    expect(next.onboarding.graduated).toBe(true)
   })
 
   it('START_OR_CONTINUE_BATTLE at scenarioIndex 0 marks first_battle_started', () => {

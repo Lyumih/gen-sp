@@ -2,6 +2,18 @@ import { describe, expect, it } from 'vitest'
 import { battleLogEntryTone, formatBattleLogEntry } from './battleLog'
 
 describe('formatBattleLogEntry strike absorption', () => {
+  it('formats move as readable direction', () => {
+    const text = formatBattleLogEntry({
+      type: 'move',
+      unitId: 'hero',
+      fromX: 0,
+      fromY: 2,
+      toX: 1,
+      toY: 2,
+    })
+    expect(text).toBe('Героя: шаг вправо')
+  })
+
   it('appends поглощено when absorbedDamage > 0', () => {
     const text = formatBattleLogEntry({
       type: 'strike',

@@ -27,7 +27,12 @@ export function completeStep(
 }
 
 export function applyOnboardingSkip(onboarding: OnboardingState): OnboardingState {
-  return { ...onboarding, skipMode: true, guidedTutorialDone: true }
+  return {
+    ...onboarding,
+    skipMode: true,
+    guidedTutorialDone: true,
+    graduated: true,
+  }
 }
 
 export function graduateOnboarding(onboarding: OnboardingState): OnboardingState {

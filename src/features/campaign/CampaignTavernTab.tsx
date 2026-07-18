@@ -133,6 +133,9 @@ export function CampaignTavernTab({
                           .join('; ')
                       : 'нет'}
                   </Typography.Text>
+                  <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+                    Наведите на имя класса — бонусы и роль.
+                  </Typography.Text>
                   <Button
                     type="primary"
                     icon={<UserAddOutlined />}

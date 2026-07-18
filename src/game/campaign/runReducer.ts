@@ -69,7 +69,7 @@ import {
 } from './battleSnapshot'
 import { mergeBattleCardsToParty } from '../battle/playerCards'
 import { applyVictoryModRollsToPartyBattle } from './applyVictoryModRolls'
-import { goldForScenarioVictory } from './scenarioRewards'
+import { computeVictoryGoldGain } from './victoryRewards'
 import { getScenarioById, getScenarioIndexById, SCENARIOS, battleStateFromScenario, resolveScenarioForCampaignSlot, type BattleScenario } from './scenarios'
 import {
   findFirstEmptySquadSlotIndex,
@@ -578,7 +578,7 @@ function finalizeVictory(
 
   const scenarioSlot =
     state.battleAttemptSnapshot?.scenarioSlotIndex ?? state.scenarioIndex
-  const goldGain = goldForScenarioVictory(scenarioSlot)
+  const goldGain = computeVictoryGoldGain(state, scenarioSlot)
   const nextScenarioIndex =
     state.expedition !== null
       ? state.scenarioIndex

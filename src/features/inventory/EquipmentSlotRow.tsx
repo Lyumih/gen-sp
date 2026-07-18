@@ -1,6 +1,9 @@
 import { Space, Typography } from 'antd'
 import { getItemTemplate } from '../../game/content/itemTemplates'
-import { itemInstanceDescriptionLinesFromInstance } from '../../game/descriptions/itemText'
+import {
+  equipmentSlotLabelRu,
+  itemInstanceDescriptionLinesFromInstance,
+} from '../../game/descriptions/itemText'
 import { EQUIPMENT_ROLL_ORDER } from '../../game/equipment/equipmentOrder'
 import type { Character, EquipmentSlot } from '../../game/types'
 import { UI_LEVEL } from '../../game/ui/labels'
@@ -27,7 +30,7 @@ export function EquipmentSlotRow({ character, inBattle, onUnequip }: EquipmentSl
               key={slot}
               emoji={SLOT_EMOJI[slot]}
               state="empty"
-              ariaLabel={`${slot}: пусто`}
+              ariaLabel={`${equipmentSlotLabelRu(slot)} — пусто`}
             />
           )
         }

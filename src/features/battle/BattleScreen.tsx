@@ -19,7 +19,9 @@ import {
 } from '../../game/battle/combat'
 import { getHeroRangedCooldown } from '../../game/battle/heroRangedCooldown'
 import { unitCombatMiniStats } from '../../game/battle/unitCombatStats'
-import { UI_CELL, UI_DAMAGE, UI_WORLD_POWER } from '../../game/ui/labels'
+import { UI_CELL, UI_DAMAGE, UI_GOLD, UI_WORLD_POWER } from '../../game/ui/labels'
+import { computeVictoryGoldGain } from '../../game/campaign/victoryRewards'
+import { battleGridScale } from './battleCellLayout'
 import { worldPowerTooltip } from '../campaign/resourceTooltips'
 import { GamePanel } from '../layout/GamePanel'
 import '../layout/game-layout.css'
@@ -797,6 +799,10 @@ export function BattleScreen() {
   const wpBefore = campaign.battleAttemptSnapshot?.worldPower ?? campaign.worldPower
   const wpAfter = battle.worldPower
   const wpDelta = wpAfter - wpBefore
+  const scenarioSlot =
+    campaign.battleAttemptSnapshot?.scenarioSlotIndex ?? campaign.scenarioIndex
+  const goldGain = computeVictoryGoldGain(campaign, scenarioSlot)
+  const gridScale = battleGridScale(battle.width, battle.height)
 
   return (
     <Space orientation="vertical" size="small" style={{ width: '100%' }}>
@@ -845,6 +851,17 @@ export function BattleScreen() {
               Просмотрите журнал и поле боя. Награды кампании и переход дальше произойдут только после вашего выбора.
               <br />
               Сила мира: {wpBefore} → {wpAfter} (+{wpDelta} за бой)
+              <br />
+              {UI_GOLD} +{goldGain} золота
+              {!campaign.completedMilestones.includes('milestone_first_trial_win') &&
+              campaign.expedition !== null ? (
+                <>
+                  <br />
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    Совет: загляните в магазин и наденьте экипировку из сундука перед следующим боем.
+                  </Typography.Text>
+                </>
+              ) : null}
             </>
           }
           action={
@@ -876,8 +893,17 @@ export function BattleScreen() {
             />
           </div>
 
-          <div className="game-battle-field-scroll">
-            <div className="battle-field-root" style={{ position: 'relative', width: 'max-content' }}>
+          <div
+            className={`game-battle-field-scroll${gridScale > 1 ? ' game-battle-field-scroll--compact' : ''}`}
+          >
+            <div
+              className="battle-field-root"
+              style={
+                gridScale > 1
+                  ? { transform: `scale(${gridScale})`, transformOrigin: 'center' }
+                  : undefined
+              }
+            >
             <div
               onMouseLeave={handleGridMouseLeave}
               style={{

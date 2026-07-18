@@ -96,6 +96,7 @@ export function ShopHubLayout({
         </Button>
       </Space>
       <ShopOffersGrid
+        campaign={campaign}
         offers={campaign.shopOffers ?? []}
         gold={campaign.gold}
         inBattle={inBattle}

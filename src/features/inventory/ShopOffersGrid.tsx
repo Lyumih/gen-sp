@@ -11,13 +11,15 @@ import {
   itemPriceLine,
 } from '../../game/descriptions/itemText'
 import { getItemTemplate } from '../../game/content/itemTemplates'
-import type { ShopOffer } from '../../game/types'
+import type { CampaignState, ShopOffer } from '../../game/types'
 import { ItemPopoverActions } from './ItemPopoverActions'
 import { InventoryCell } from './InventoryCell'
 import { InventoryGrid } from './InventoryGrid'
 import { resolveCardEmoji, resolveItemEmoji, resolvePassiveEmoji } from './inventoryEmoji'
+import { ShopEquipPreview } from './ShopEquipPreview'
 
 type ShopOffersGridProps = {
+  campaign: CampaignState
   offers: ShopOffer[]
   gold: number
   inBattle: boolean
@@ -39,6 +41,8 @@ function ItemBuyPopover({
   destination,
   onDestinationChange,
   onBuy,
+  campaign,
+  characterId,
 }: {
   templateId: string
   inBattle: boolean
@@ -47,6 +51,8 @@ function ItemBuyPopover({
   destination: 'chest' | 'character'
   onDestinationChange: (d: 'chest' | 'character') => void
   onBuy: () => void
+  campaign: CampaignState
+  characterId: string
 }) {
   const t = getItemTemplate(templateId)!
   return (
@@ -58,14 +64,18 @@ function ItemBuyPopover({
           </Typography.Text>
         </li>
       </ul>
+      <ShopEquipPreview campaign={campaign} characterId={characterId} templateId={templateId} />
       <Typography.Text style={{ fontSize: 12 }}>{itemPriceLine(t.shopPrice)}</Typography.Text>
+      <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+        На персонажа — в инвентарь; наденьте в слот вручную. Сундук — общий склад.
+      </Typography.Text>
       <Radio.Group
         value={destination}
         onChange={(e) => onDestinationChange(e.target.value)}
         style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
       >
-        <Radio value="chest">Сундук</Radio>
         <Radio value="character">Персонаж: {selectedCharacterName}</Radio>
+        <Radio value="chest">Сундук</Radio>
       </Radio.Group>
       <ItemPopoverActions
         inBattle={inBattle}
@@ -84,6 +94,7 @@ function ItemBuyPopover({
 }
 
 export function ShopOffersGrid({
+  campaign,
   offers,
   gold,
   inBattle,
@@ -92,7 +103,7 @@ export function ShopOffersGrid({
   selectedCharacterId,
   onInsufficientGold,
 }: ShopOffersGridProps) {
-  const [itemDestination, setItemDestination] = useState<'chest' | 'character'>('chest')
+  const [itemDestination, setItemDestination] = useState<'chest' | 'character'>('character')
 
   if (offers.length === 0) {
     return (
@@ -227,6 +238,8 @@ export function ShopOffersGrid({
                 selectedCharacterName={selectedCharacterName}
                 destination={itemDestination}
                 onDestinationChange={setItemDestination}
+                campaign={campaign}
+                characterId={selectedCharacterId}
                 onBuy={() => {
                   if (!canBuy) {
                     onInsufficientGold()
