@@ -4,10 +4,16 @@ import './battle-mode-picker.css'
 
 export type BattleModePlaceholderTileProps = {
   mode: PlaceholderModeDef
+  categoryLabel?: string
 }
 
-export function BattleModePlaceholderTile({ mode }: BattleModePlaceholderTileProps) {
-  const ariaLabel = `${mode.label}. Скоро. ${mode.description}. ${mode.paramEmojiLine}`
+export function BattleModePlaceholderTile({
+  mode,
+  categoryLabel,
+}: BattleModePlaceholderTileProps) {
+  const ariaLabel = categoryLabel
+    ? `${categoryLabel}. ${mode.label}. Скоро. ${mode.description}. ${mode.paramEmojiLine}`
+    : `${mode.label}. Скоро. ${mode.description}. ${mode.paramEmojiLine}`
 
   return (
     <button
@@ -19,6 +25,11 @@ export function BattleModePlaceholderTile({ mode }: BattleModePlaceholderTilePro
       <span className="game-mode-tile__icon" aria-hidden>
         {mode.iconEmoji}
       </span>
+      {categoryLabel ? (
+        <Typography.Text type="secondary" style={{ fontSize: 11 }}>
+          {categoryLabel}
+        </Typography.Text>
+      ) : null}
       <Typography.Text strong>{mode.label}</Typography.Text>
       <Typography.Text type="secondary" style={{ fontSize: 11 }}>
         Скоро

@@ -17,4 +17,17 @@ describe('BattleModeTile', () => {
     expect(html).toContain('👥1–4')
     expect(html).toContain('button')
   })
+
+  it('renders categoryLabel and includes it in aria-label', () => {
+    const chain = getExpeditionChainById('chaotic-map')!
+    const html = renderToStaticMarkup(
+      createElement(BattleModeTile, {
+        chain,
+        categoryLabel: 'Испытание',
+        onClick: () => {},
+      }),
+    )
+    expect(html).toContain('Испытание')
+    expect(html).toContain('aria-label="Испытание.')
+  })
 })
