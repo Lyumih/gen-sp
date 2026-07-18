@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import {
   AimOutlined,
   CheckCircleOutlined,
-  CreditCardOutlined,
   DragOutlined,
   IdcardOutlined,
   LogoutOutlined,
@@ -20,17 +19,15 @@ import {
 } from '../../game/battle/combat'
 import { getHeroRangedCooldown } from '../../game/battle/heroRangedCooldown'
 import { unitCombatMiniStats } from '../../game/battle/unitCombatStats'
-import { describeCardCombatStats, getCardDisplayLabel } from '../../game/descriptions/cardText'
-import { UI_CELL, UI_DAMAGE, UI_HEART, UI_LEVEL, UI_WORLD_POWER } from '../../game/ui/labels'
+import { UI_CELL, UI_DAMAGE, UI_WORLD_POWER } from '../../game/ui/labels'
 import { worldPowerTooltip } from '../campaign/resourceTooltips'
 import { GamePanel } from '../layout/GamePanel'
-import { GameScrollX } from '../layout/GameScrollX'
 import '../layout/game-layout.css'
 import { computeEffectiveStats, computeGearStatBonuses } from '../../game/stats/effectiveStats'
 import { aggregatePassiveSkillStatBonuses } from '../../game/passives/passiveStatBonuses'
 import { computePassiveRangedRangeBonus } from '../../game/passives/passiveEngine'
 import { getItemTemplate } from '../../game/content/itemTemplates'
-import { BattleCardPopover } from './BattleCardPopover'
+import { BattleSkillCell } from './BattleSkillCell'
 import { BattleUnitTooltip } from './BattleUnitTooltip'
 import { UnitToken } from './UnitToken'
 import { HeroProfileModal } from '../profile/HeroProfileModal'
@@ -863,7 +860,7 @@ export function BattleScreen() {
 
       <div className="game-battle-layout">
         <div className="game-battle-field">
-          <div>
+          <div className="game-battle-turn-order">
             <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>
               Очерёдность хода
             </Typography.Text>
@@ -879,7 +876,7 @@ export function BattleScreen() {
             />
           </div>
 
-          <GameScrollX>
+          <div className="game-battle-field-scroll">
             <div className="battle-field-root" style={{ position: 'relative', width: 'max-content' }}>
             <div
               onMouseLeave={handleGridMouseLeave}
@@ -989,7 +986,7 @@ export function BattleScreen() {
               getUnitDisplay={(unitId) => unitLogLookup?.(unitId)}
             />
             </div>
-          </GameScrollX>
+          </div>
 
           {overlayActive && (
             <Space wrap size="small" style={{ marginTop: 8 }}>
@@ -1146,67 +1143,27 @@ export function BattleScreen() {
             </div>
             <div>
               <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>
-                Умения и карты
+                Умения
               </Typography.Text>
-              <Space wrap align="center">
-                <Radio.Group
-                  value={mode === 'card' ? selectedCardId : undefined}
-                  onChange={(e) => {
-                    setMode('card')
-                    setSelectedCardPickId(e.target.value)
-                  }}
-                  disabled={actionsDisabled || actorCards.length === 0 || guidedModeBlocked('card')}
-                >
-                  {actorCards.map((c) => {
-                    const tmpl = getCardAttackTemplate(c.templateId)
-                    const cardStats = describeCardCombatStats(
-                      c,
-                      actorCharacter,
-                      campaign,
-                      actor,
-                    )
-                    const effect = cardStats.expectedDamage
-                    const effectUi = tmpl?.kind === 'heal' ? UI_HEART : UI_DAMAGE
-                    const onCd = c.cooldownRemaining > 0
-                    const aoeHint =
-                      tmpl?.kind === 'aoe' && tmpl.aoeSize !== undefined
-                        ? ` · AoE ${tmpl.aoeSize}×${tmpl.aoeSize}`
-                        : ''
-                    const cdHint = onCd ? ` · CD ${c.cooldownRemaining}` : ''
-                    return (
-                      <BattleCardPopover
-                        key={c.id}
-                        card={c}
-                        character={actorCharacter}
-                        campaign={campaign}
-                        actor={actor}
-                      >
-                        <Radio.Button
-                          value={c.id}
-                          disabled={actionsDisabled || onCd}
-                          style={onCd ? { opacity: 0.5 } : undefined}
-                        >
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            <CreditCardOutlined aria-hidden />
-                            {`${getCardDisplayLabel(c.templateId)}${effect !== null ? ` — ${String(effect)}${effectUi}` : ''}${aoeHint}${cdHint}`}
-                          </span>
-                        </Radio.Button>
-                      </BattleCardPopover>
-                    )
-                  })}
-                </Radio.Group>
-                {actorCards.map((c) => {
-                  const cardStats = describeCardCombatStats(c, actorCharacter, campaign, actor)
-                  const dmg = cardStats.expectedDamage
-                  return (
-                    <Typography.Text key={c.id} type="secondary" style={{ fontSize: 12 }}>
-                      {getCardDisplayLabel(c.templateId)} {UI_LEVEL}
-                      {c.global_level}
-                      {dmg !== null ? ` · ${String(dmg)}${UI_DAMAGE}` : ''}
-                    </Typography.Text>
-                  )
-                })}
-              </Space>
+              {actorCards.length > 0 ? (
+                <div className="battle-skill-row" style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                  {actorCards.map((c) => (
+                    <BattleSkillCell
+                      key={c.id}
+                      card={c}
+                      character={actorCharacter!}
+                      campaign={campaign}
+                      actor={actor}
+                      selected={mode === 'card' && selectedCardId === c.id}
+                      disabled={actionsDisabled || guidedModeBlocked('card')}
+                      onSelect={() => {
+                        setMode('card')
+                        setSelectedCardPickId(c.id)
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : null}
             </div>
             <ActorPassivesPanel
               passives={battle.passivesByUnitId?.[currentId ?? ''] ?? []}
