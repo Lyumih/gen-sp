@@ -33,7 +33,7 @@ export const COACH_MARKS: readonly CoachMarkDef[] = [
   {
     id: 'expedition-start',
     title: 'Старт экспедиции',
-    text: 'Выберите «Основная кампания» и подтвердите состав отряда.',
+    text: 'Нажмите плитку «Компания» в секции «Скоро», чтобы начать экспедицию.',
   },
   {
     id: 'inter-battle-camp',

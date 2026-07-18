@@ -11,6 +11,6 @@ export const ONBOARDING_STEPS: readonly OnboardingStepDef[] = [
   { id: 'first_battle_won', label: 'Победить в обучающем бою' },
   { id: 'hub_after_first_win', label: 'Узнать о прогрессе Memento' },
   { id: 'shop_visited', label: 'Заглянуть в магазин' },
-  { id: 'expedition_started', label: 'Начать экспедицию «Основная кампания»' },
+  { id: 'expedition_started', label: 'Начать экспедицию «Компания»' },
   { id: 'expedition_completed', label: 'Завершить экспедицию (2 боя)' },
 ]
