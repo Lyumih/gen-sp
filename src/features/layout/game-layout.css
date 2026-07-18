@@ -76,6 +76,19 @@
   min-width: 0;
 }
 
+.game-battle-turn-order {
+  margin-bottom: 16px;
+}
+
+.game-battle-field-scroll {
+  /* header + turn order + action panel estimate */
+  max-height: calc(100vh - 280px);
+  overflow: auto;
+  max-width: 100%;
+  border: 1px solid #f0f0f0;
+  border-radius: 4px;
+}
+
 .game-tavern-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
