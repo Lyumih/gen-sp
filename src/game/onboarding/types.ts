@@ -15,4 +15,5 @@ export type OnboardingState = {
   guidedTutorialDone: boolean
   graduated: boolean
   tutorialCompleteSeen: boolean
+  dismissedCoachMarkIds: readonly string[]
 }

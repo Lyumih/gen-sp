@@ -419,7 +419,7 @@ describe('migrate v8 → v9 passives and loadout', () => {
     const v8 = { version: 8 as const, campaign: v8CampaignWithoutPassives(initialCampaignState()) }
     const out = migrateFromUnknown(v8)
     expect(out).not.toBeNull()
-    expect(SAVE_VERSION).toBe(12)
+    expect(SAVE_VERSION).toBe(13)
     expect(hero(out!).passives).toEqual([])
     expect(hero(out!).passiveEquip).toEqual([null, null, null, null, null])
     expect(hero(out!).battleLoadout).toHaveLength(4)
@@ -534,6 +534,22 @@ describe('migrate v11 → v12 tutorialCompleteSeen and completedMilestones', () 
     }
     const out = migrateFromUnknown({ version: 11, campaign: legacy })
     expect(out!.onboarding.tutorialCompleteSeen).toBe(true)
+  })
+})
+
+describe('migrate v12 → v13 dismissedCoachMarkIds', () => {
+  it('adds empty dismissedCoachMarkIds for in-progress onboarding', () => {
+    const out = migrateFromUnknown({ version: 12, campaign: initialCampaignState() })
+    expect(out!.onboarding.dismissedCoachMarkIds).toEqual([])
+  })
+
+  it('auto-dismisses trials-intro for graduated saves', () => {
+    const legacy = {
+      ...initialCampaignState(),
+      onboarding: { ...DEFAULT_ONBOARDING, graduated: true },
+    }
+    const out = migrateFromUnknown({ version: 12, campaign: legacy })
+    expect(out!.onboarding.dismissedCoachMarkIds).toContain('trials-intro')
   })
 })
 

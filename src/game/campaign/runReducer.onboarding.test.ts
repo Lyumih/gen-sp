@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { applyRunAction, initialCampaignState } from './runReducer'
 import { SCENARIOS } from './scenarios'
 import { completeStep, hasCompletedStep } from '../onboarding/onboardingState'
+import { COACH_MARKS } from '../onboarding/coachMarks'
 import { LEGACY_HERO_CHARACTER_ID } from '../character/constants'
 
 describe('onboarding reducer', () => {
@@ -16,6 +17,15 @@ describe('onboarding reducer', () => {
     expect(next.onboarding.skipMode).toBe(true)
     expect(next.onboarding.guidedTutorialDone).toBe(true)
     expect(next.onboarding.graduated).toBe(true)
+    expect(next.onboarding.dismissedCoachMarkIds).toEqual(COACH_MARKS.map((mark) => mark.id))
+  })
+
+  it('DISMISS_COACH_MARK persists dismissed id in campaign onboarding', () => {
+    const next = applyRunAction(initialCampaignState(), {
+      type: 'DISMISS_COACH_MARK',
+      coachMarkId: 'trials-intro',
+    })
+    expect(next.onboarding.dismissedCoachMarkIds).toEqual(['trials-intro'])
   })
 
   it('START_OR_CONTINUE_BATTLE at scenarioIndex 0 marks first_battle_started', () => {

@@ -14,6 +14,20 @@ describe('serialize / parse round-trip', () => {
     expect(back!.worldPower).toBe(s.worldPower)
     expect(getPrimaryCharacter(back!).cards).toEqual(getPrimaryCharacter(s).cards)
     expect(back!.battleAttemptSnapshot).toBeNull()
+    expect(back!.onboarding.dismissedCoachMarkIds).toEqual([])
+  })
+
+  it('round-trips dismissed coach mark ids', () => {
+    let s = initialCampaignState()
+    s = {
+      ...s,
+      onboarding: {
+        ...s.onboarding,
+        dismissedCoachMarkIds: ['trials-intro'],
+      },
+    }
+    const back = parseSave(serializeCampaign(s))
+    expect(back!.onboarding.dismissedCoachMarkIds).toEqual(['trials-intro'])
   })
 })
 

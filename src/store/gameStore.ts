@@ -9,7 +9,6 @@ import {
 import { syncCompletedMilestones } from '../game/milestones/evaluateMilestones'
 import { createDebouncedSave, loadSave } from '../game/persistence/localStorage'
 import { STORAGE_KEY } from '../game/persistence/schema'
-import { COACH_MARKS } from '../game/onboarding/coachMarks'
 import { isOnboardingActive } from '../game/onboarding/selectors'
 
 export type GameStoreState = {
@@ -21,7 +20,6 @@ export type GameStoreState = {
     checklistExpanded: boolean
     activeCoachMarkId: string | null
     guidedBattleStep: number
-    dismissedCoachMarkIds: string[]
   }
   setHubActiveTab: (tab: CampaignHubTab) => void
   setHubBattleFocusSection: (section: 'trials' | null) => void
@@ -31,7 +29,6 @@ export type GameStoreState = {
   setGuidedBattleStep: (step: number) => void
   resetGuidedBattleStep: () => void
   dismissCoachMark: (id: string) => void
-  dismissAllCoachMarks: () => void
   dispatchRun: (action: RunAction) => void
   dispatchBattle: (action: BattleAction) => void
   hydrateFromStorage: () => void
@@ -65,7 +62,6 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     checklistExpanded: true,
     activeCoachMarkId: null,
     guidedBattleStep: 0,
-    dismissedCoachMarkIds: [],
   },
   setHubActiveTab: (tab) => set({ hubActiveTab: tab }),
   setHubBattleFocusSection: (hubBattleFocusSection) => set({ hubBattleFocusSection }),
@@ -78,22 +74,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     set((s) => ({ onboardingUi: { ...s.onboardingUi, guidedBattleStep } })),
   resetGuidedBattleStep: () =>
     set((s) => ({ onboardingUi: { ...s.onboardingUi, guidedBattleStep: 0 } })),
-  dismissCoachMark: (id) =>
-    set((s) => ({
-      onboardingUi: {
-        ...s.onboardingUi,
-        dismissedCoachMarkIds: [...s.onboardingUi.dismissedCoachMarkIds, id],
-        activeCoachMarkId: null,
-      },
-    })),
-  dismissAllCoachMarks: () =>
-    set((s) => ({
-      onboardingUi: {
-        ...s.onboardingUi,
-        dismissedCoachMarkIds: COACH_MARKS.map((mark) => mark.id),
-        activeCoachMarkId: null,
-      },
-    })),
+  dismissCoachMark: (id) => get().dispatchRun({ type: 'DISMISS_COACH_MARK', coachMarkId: id }),
   dispatchRun: (action) => {
     set((s) => ({ campaign: applyRunAction(s.campaign, action) }))
   },
@@ -122,7 +103,6 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         checklistExpanded: true,
         activeCoachMarkId: null,
         guidedBattleStep: 0,
-        dismissedCoachMarkIds: [],
       },
     })
   },

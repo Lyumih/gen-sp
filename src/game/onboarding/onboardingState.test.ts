@@ -3,9 +3,11 @@ import {
   DEFAULT_ONBOARDING,
   applyOnboardingSkip,
   completeStep,
+  dismissCoachMark,
   graduateOnboarding,
   hasCompletedStep,
 } from './onboardingState'
+import { COACH_MARKS } from './coachMarks'
 
 describe('onboardingState', () => {
   it('DEFAULT_ONBOARDING is empty and not graduated', () => {
@@ -26,6 +28,14 @@ describe('onboardingState', () => {
     expect(next.skipMode).toBe(true)
     expect(next.guidedTutorialDone).toBe(true)
     expect(next.graduated).toBe(true)
+    expect(next.dismissedCoachMarkIds).toEqual(COACH_MARKS.map((mark) => mark.id))
+  })
+
+  it('dismissCoachMark is idempotent', () => {
+    const once = dismissCoachMark(DEFAULT_ONBOARDING, 'trials-intro')
+    const twice = dismissCoachMark(once, 'trials-intro')
+    expect(once.dismissedCoachMarkIds).toEqual(['trials-intro'])
+    expect(twice.dismissedCoachMarkIds).toEqual(['trials-intro'])
   })
 
   it('graduateOnboarding sets graduated', () => {

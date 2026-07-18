@@ -123,6 +123,7 @@ import type { OnboardingStepId } from '../onboarding/types'
 import {
   applyOnboardingSkip,
   completeStep,
+  dismissCoachMark,
   graduateOnboarding,
   DEFAULT_ONBOARDING,
   markTutorialCompleteSeen,
@@ -236,6 +237,7 @@ export type RunAction =
   | { type: 'MARK_HUB_NOTICE_SEEN' }
   | { type: 'MARK_ONBOARDING_STEP'; stepId: OnboardingStepId }
   | { type: 'SET_ONBOARDING_SKIP' }
+  | { type: 'DISMISS_COACH_MARK'; coachMarkId: string }
   | { type: 'SET_GUIDED_TUTORIAL_DONE' }
   | { type: 'MARK_TUTORIAL_COMPLETE_SEEN' }
   | { type: 'RESET_CAMPAIGN' }
@@ -1807,6 +1809,8 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       return withOnboarding(state, (o) => completeStep(o, action.stepId))
     case 'SET_ONBOARDING_SKIP':
       return withOnboarding(state, applyOnboardingSkip)
+    case 'DISMISS_COACH_MARK':
+      return withOnboarding(state, (o) => dismissCoachMark(o, action.coachMarkId))
     case 'SET_GUIDED_TUTORIAL_DONE':
       return withOnboarding(state, (o) => ({ ...o, guidedTutorialDone: true }))
     case 'MARK_TUTORIAL_COMPLETE_SEEN':

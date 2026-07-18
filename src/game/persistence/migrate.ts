@@ -742,6 +742,26 @@ export function migrateV10CampaignToV11(c: CampaignState): CampaignState {
   return withOnboarding
 }
 
+export function migrateV12CampaignToV13(c: CampaignState): CampaignState {
+  const onboarding = {
+    ...DEFAULT_ONBOARDING,
+    ...c.onboarding,
+    dismissedCoachMarkIds: c.onboarding?.dismissedCoachMarkIds ?? [],
+  }
+  if (onboarding.graduated || onboarding.skipMode) {
+    const dismissed = new Set(onboarding.dismissedCoachMarkIds)
+    dismissed.add('trials-intro')
+    return {
+      ...c,
+      onboarding: {
+        ...onboarding,
+        dismissedCoachMarkIds: [...dismissed],
+      },
+    }
+  }
+  return { ...c, onboarding }
+}
+
 export function migrateV11CampaignToV12(c: CampaignState): CampaignState {
   const onboarding = {
     ...DEFAULT_ONBOARDING,
@@ -1063,10 +1083,11 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
     version !== 9 &&
     version !== 10 &&
     version !== 11 &&
-    version !== 12
+    version !== 12 &&
+    version !== 13
   ) {
     console.warn(
-      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, or 12`,
+      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, or 13`,
     )
     return null
   }
@@ -1097,6 +1118,7 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
   }
   campaign = migrateV10CampaignToV11(campaign)
   campaign = migrateV11CampaignToV12(campaign)
+  campaign = migrateV12CampaignToV13(campaign)
   return campaign
 }
 

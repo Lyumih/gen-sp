@@ -44,7 +44,7 @@ export function InterBattleScreen() {
   const dispatchRun = useGameStore((s) => s.dispatchRun)
   const setHubActiveTab = useGameStore((s) => s.setHubActiveTab)
   const dismissCoachMark = useGameStore((s) => s.dismissCoachMark)
-  const dismissedCoachMarkIds = useGameStore((s) => s.onboardingUi.dismissedCoachMarkIds)
+  const dismissedCoachMarkIds = useGameStore((s) => s.campaign.onboarding.dismissedCoachMarkIds)
   const campCoach = coachMarkById('inter-battle-camp')
   const expedition = campaign.expedition
 
