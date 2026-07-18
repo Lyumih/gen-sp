@@ -20,8 +20,11 @@ function cardDetailLines(
 ): string[] {
   const desc = describeCardCombatStats(card, character, campaign, actor)
   const modSummary = describeCardModSummary(card.modSlots)
-  if (!modSummary) return desc.lines
-  return [...desc.lines, `Моды: ${modSummary}`]
+  const lines = modSummary ? [...desc.lines, `Моды: ${modSummary}`] : [...desc.lines]
+  if (card.cooldownRemaining > 0) {
+    lines.push(`CD ${card.cooldownRemaining}`)
+  }
+  return lines
 }
 
 export function BattleCardPopover({
