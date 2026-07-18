@@ -129,7 +129,6 @@ import {
 import {
   campaignFullyCompleteScenarioIndex,
   isCompletingOnboardingExpedition,
-  isOnboardingExpeditionPending,
   soloTutorialVictoryJustAchieved,
 } from '../onboarding/selectors'
 
