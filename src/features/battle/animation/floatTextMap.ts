@@ -63,3 +63,7 @@ export function formatStatusFloat(statusKind: string, polarity: 'buff' | 'debuff
     variant: polarity === 'buff' ? 'buff' : 'debuff',
   }]
 }
+
+export function formatMementoFloat(text: string): FloatLine[] {
+  return [{ text, variant: 'buff' }]
+}

@@ -102,6 +102,10 @@ export function InterBattleScreen() {
       }
     >
       <Space orientation="vertical" size="large" style={{ width: '100%' }}>
+        <Typography.Text type="secondary">
+          Сила мира: {campaign.worldPower} (+{campaign.worldPower}% к базовым статам врагов)
+        </Typography.Text>
+
         <Typography.Text>
           Экспедиция: <strong>{chainLabel}</strong>
           {' · '}

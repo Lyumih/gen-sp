@@ -374,6 +374,11 @@ function afterHpChange(state: BattleState, killedUnit: Unit | null): BattleState
   let next = state
   if (killedUnit && killedUnit.side === 'enemy' && killedUnit.hp <= 0) {
     next = applyEnemyKillRewards(next, killedUnit)
+    next = appendLog(next, [{
+      type: 'world_power_gain',
+      amount: WORLD_POWER_PER_ENEMY_KILL,
+      atUnitId: killedUnit.id,
+    }])
   }
   const enemiesAlive = next.units.some((u) => u.side === 'enemy' && u.hp > 0)
   if (isPartyWipe(next)) return { ...next, phase: 'defeat' }

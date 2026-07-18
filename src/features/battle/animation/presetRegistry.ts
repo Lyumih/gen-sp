@@ -16,6 +16,7 @@ const DURATIONS: Record<AnimationStep['kind'], number> = {
   status_tick_dot: 120,
   status_tick_regen: 120,
   death: 380,
+  memento_float: 240,
 }
 
 export function hasFloatText(step: AnimationStep): boolean {
@@ -29,6 +30,7 @@ export function hasFloatText(step: AnimationStep): boolean {
     case 'status_tick_regen':
     case 'buff_aura':
     case 'debuff_aura':
+    case 'memento_float':
       return true
     case 'aoe_burst':
       return (step.damage ?? 0) > 0

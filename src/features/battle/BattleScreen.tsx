@@ -22,7 +22,7 @@ import { getHeroRangedCooldown } from '../../game/battle/heroRangedCooldown'
 import { unitCombatMiniStats } from '../../game/battle/unitCombatStats'
 import { describeCardCombatStats, getCardDisplayLabel } from '../../game/descriptions/cardText'
 import { UI_CELL, UI_DAMAGE, UI_HEART, UI_LEVEL, UI_WORLD_POWER } from '../../game/ui/labels'
-import { WORLD_POWER_TOOLTIP } from '../campaign/resourceTooltips'
+import { worldPowerTooltip } from '../campaign/resourceTooltips'
 import { GamePanel } from '../layout/GamePanel'
 import { GameScrollX } from '../layout/GameScrollX'
 import '../layout/game-layout.css'
@@ -797,6 +797,10 @@ export function BattleScreen() {
     setHoveredEnemyId(null)
   }
 
+  const wpBefore = campaign.battleAttemptSnapshot?.worldPower ?? campaign.worldPower
+  const wpAfter = battle.worldPower
+  const wpDelta = wpAfter - wpBefore
+
   return (
     <Space orientation="vertical" size="small" style={{ width: '100%' }}>
       <PostBattleDebriefModal
@@ -839,7 +843,13 @@ export function BattleScreen() {
           showIcon
           icon={<CheckCircleOutlined />}
           title="Победа"
-          description="Просмотрите журнал и поле боя. Награды кампании и переход дальше произойдут только после вашего выбора."
+          description={
+            <>
+              Просмотрите журнал и поле боя. Награды кампании и переход дальше произойдут только после вашего выбора.
+              <br />
+              Сила мира: {wpBefore} → {wpAfter} (+{wpDelta} за бой)
+            </>
+          }
           action={
             <Space>
               <Button type="primary" onClick={finalizeVictoryToHub}>
@@ -1065,7 +1075,7 @@ export function BattleScreen() {
               </>
             )}
             {' · '}
-            <Tooltip title={WORLD_POWER_TOOLTIP} mouseEnterDelay={0.3}>
+            <Tooltip title={worldPowerTooltip(battle.worldPower)} mouseEnterDelay={0.3}>
               <span>
                 <span className="game-header__resource-emoji" aria-hidden>
                   {UI_WORLD_POWER}

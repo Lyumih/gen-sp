@@ -5,7 +5,7 @@ import { UI_DNA, UI_GOLD, UI_WORLD_POWER } from '../../game/ui/labels'
 import type { CampaignHubTab } from './campaignHubShared'
 import { isBattleContextActive } from './campaignHubShared'
 import { CampaignHubNav } from './CampaignHubNav'
-import { GOLD_TOOLTIP, WORLD_POWER_TOOLTIP } from './resourceTooltips'
+import { GOLD_TOOLTIP, worldPowerTooltip } from './resourceTooltips'
 import '../layout/game-layout.css'
 
 type GameHeaderProps = {
@@ -95,7 +95,7 @@ export function GameHeader({
             <HeaderResource
               emoji={UI_WORLD_POWER}
               value={campaign.worldPower}
-              tooltip={WORLD_POWER_TOOLTIP}
+              tooltip={worldPowerTooltip(campaign.worldPower)}
             />
             {showGoalsButton ? (
               <Tooltip title="Цели обучения" mouseEnterDelay={0.3}>

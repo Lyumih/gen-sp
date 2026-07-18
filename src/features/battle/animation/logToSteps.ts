@@ -117,6 +117,13 @@ export function mapLogEntryToSteps(
       }
       return []
     }
+    case 'world_power_gain':
+      return [{
+        kind: 'memento_float',
+        atUnitId: entry.atUnitId,
+        text: `+${entry.amount} сила мира`,
+        variant: 'buff',
+      }]
     case 'card_level_up':
     case 'mod_proc':
     case 'passive_proc':

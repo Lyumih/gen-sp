@@ -222,6 +222,11 @@ export type BattleLogEntry =
       hp: number
       fromCard?: { cardId: string; templateId: string }
     }
+  | {
+      type: 'world_power_gain'
+      amount: number
+      atUnitId: string
+    }
 
 /**
  * Тактический бой: сетка, стены как ключи "x,y", очередь ходов по id.

@@ -64,6 +64,8 @@ export function formatBattleLogEntry(
         : ''
       return `✨ ${formatUnitRef(entry.healerId, lookup)} воскрешает ${formatUnitRef(entry.targetId, lookup)} с ${entry.hp} ${UI_HEART}${src}`
     }
+    case 'world_power_gain':
+      return `+${entry.amount} сила мира`
     default: {
       const _exhaustive: never = entry
       return String(_exhaustive)
@@ -96,6 +98,7 @@ export function battleLogEntryTone(
     case 'card_level_up':
     case 'mod_proc':
     case 'status_tick':
+    case 'world_power_gain':
       return 'neutral'
     default: {
       const _exhaustive: never = entry

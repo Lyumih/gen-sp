@@ -198,4 +198,20 @@ describe('mapLogEntryToSteps support', () => {
     }
     expect(mapLogEntryToSteps(entry, ctx)).toEqual([])
   })
+
+  it('maps world_power_gain to memento_float at killed enemy', () => {
+    const entry: BattleLogEntry = {
+      type: 'world_power_gain',
+      amount: 1,
+      atUnitId: 'e1',
+    }
+    expect(mapLogEntryToSteps(entry, ctx)).toEqual([
+      {
+        kind: 'memento_float',
+        atUnitId: 'e1',
+        text: '+1 сила мира',
+        variant: 'buff',
+      },
+    ])
+  })
 })

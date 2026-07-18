@@ -9,7 +9,7 @@ import {
   parseCellKey,
 } from './cellGeometry'
 import { FloatingCombatText } from './FloatingCombatText'
-import { formatDamageFloat, formatHealFloat, formatStatusFloat } from './floatTextMap'
+import { formatDamageFloat, formatHealFloat, formatMementoFloat, formatStatusFloat } from './floatTextMap'
 import { FLOAT_READ_MS } from './presetRegistry'
 import type { AnimationStep, Cell } from './types'
 import '../battle.css'
@@ -328,6 +328,16 @@ function renderStep(
           emoji={emoji}
           className="battle-anim--death"
           style={{ left: pos.left, top: pos.top }}
+        />
+      )
+    }
+    case 'memento_float': {
+      const cell = unitCell(units, step.atUnitId)
+      if (!cell) return null
+      return (
+        <FloatingCombatText
+          cell={cell}
+          lines={formatMementoFloat(step.text)}
         />
       )
     }

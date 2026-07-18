@@ -22,6 +22,7 @@ export type AnimationStep =
   | { kind: 'status_tick_dot'; unitId: string; damage: number }
   | { kind: 'status_tick_regen'; unitId: string; amount: number }
   | { kind: 'death'; unitId: string; at: Cell }
+  | { kind: 'memento_float'; atUnitId: string; text: string; variant: 'buff' }
 
 export type LogToStepsContext = {
   units: readonly import('../../../game/types').Unit[]
