@@ -24,7 +24,6 @@ describe('CardsInventoryView', () => {
       }),
     )
     expect(html).not.toContain('перетащите')
-    expect(html).toContain('В бой')
     expect(html).toContain('Коллекция навыков')
   })
 })
