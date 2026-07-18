@@ -4,7 +4,6 @@ import {
   CheckCircleOutlined,
   CreditCardOutlined,
   DragOutlined,
-  FlagOutlined,
   IdcardOutlined,
   LogoutOutlined,
   RedoOutlined,
@@ -596,40 +595,35 @@ export function BattleScreen() {
   }
 
   const expedition = campaign.expedition
-  const expeditionContinues =
-    expedition !== null && expedition.battleIndex < expedition.battleCount
+  const inExpedition = expedition !== null
 
   const confirmAbandon = () => {
-    const expeditionNote =
-      expedition !== null
-        ? ' Экспедиция продолжится. Вы вернётесь в лагерь; текущий бой не засчитается.'
-        : ''
+    if (inExpedition) {
+      modal.confirm({
+        title: 'Отступить в лагерь?',
+        content:
+          'Текущий бой не засчитается. Мета-прогресс вернётся к состоянию на начало попытки. В лагере можно попробовать снова или завершить экспедицию.',
+        okText: 'В лагерь',
+        cancelText: 'Отмена',
+        okButtonProps: { danger: true },
+        onOk: () => {
+          setHubActiveTab('battle')
+          dispatchRun({ type: 'ABANDON_BATTLE' })
+        },
+      })
+      return
+    }
+
     modal.confirm({
       title: 'Выйти из боя?',
       content:
-        'Прогресс этого боя будет потерян. Мета-прогресс вернётся к состоянию на начало попытки; награды за незавершённый бой не начислятся.' +
-        expeditionNote,
+        'Прогресс этого боя будет потерян. Мета-прогресс вернётся к состоянию на начало попытки; награды за незавершённый бой не начислятся.',
       okText: 'Выйти',
       cancelText: 'Отмена',
       okButtonProps: { danger: true },
       onOk: () => {
         setHubActiveTab('battle')
         dispatchRun({ type: 'ABANDON_BATTLE' })
-      },
-    })
-  }
-
-  const confirmFinishExpedition = () => {
-    modal.confirm({
-      title: 'Завершить экспедицию?',
-      content:
-        'Цепочка будет прервана. Текущий бой не засчитается; награды за незавершённые бои не начислятся. Состав отряда снова станет доступен в хабе.',
-      okText: 'Завершить',
-      cancelText: 'Отмена',
-      okButtonProps: { danger: true },
-      onOk: () => {
-        setHubActiveTab('battle')
-        dispatchRun({ type: 'FINISH_EXPEDITION' })
       },
     })
   }
@@ -1027,20 +1021,25 @@ export function BattleScreen() {
               >
                 Профиль
               </Button>
-              {expeditionContinues ? (
-                <Button
-                  size="small"
-                  danger
-                  icon={<FlagOutlined aria-hidden />}
-                  onClick={confirmFinishExpedition}
-                >
-                  Завершить
-                </Button>
-              ) : null}
               {battle.phase === 'ongoing' || battle.phase === 'defeat' ? (
-                <Button size="small" danger icon={<LogoutOutlined />} onClick={confirmAbandon}>
-                  Выйти
-                </Button>
+                <Tooltip
+                  title={
+                    inExpedition
+                      ? 'Текущий бой не засчитается. Можно попробовать снова или завершить экспедицию в лагере.'
+                      : 'Прогресс боя будет потерян. Награды за незавершённый бой не начислятся.'
+                  }
+                  mouseEnterDelay={0.3}
+                >
+                  <Button
+                    size="small"
+                    danger
+                    icon={<LogoutOutlined aria-hidden />}
+                    aria-label={inExpedition ? 'Отступить в лагерь' : 'Выйти из боя'}
+                    onClick={confirmAbandon}
+                  >
+                    {inExpedition ? 'В лагерь' : 'Выйти из боя'}
+                  </Button>
+                </Tooltip>
               ) : null}
             </Space>
           }
