@@ -9,6 +9,7 @@ import {
 import { syncCompletedMilestones } from '../game/milestones/evaluateMilestones'
 import { createDebouncedSave, loadSave } from '../game/persistence/localStorage'
 import { STORAGE_KEY } from '../game/persistence/schema'
+import { COACH_MARKS } from '../game/onboarding/coachMarks'
 import { isOnboardingActive } from '../game/onboarding/selectors'
 
 export type GameStoreState = {
@@ -30,6 +31,7 @@ export type GameStoreState = {
   setGuidedBattleStep: (step: number) => void
   resetGuidedBattleStep: () => void
   dismissCoachMark: (id: string) => void
+  dismissAllCoachMarks: () => void
   dispatchRun: (action: RunAction) => void
   dispatchBattle: (action: BattleAction) => void
   hydrateFromStorage: () => void
@@ -81,6 +83,14 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       onboardingUi: {
         ...s.onboardingUi,
         dismissedCoachMarkIds: [...s.onboardingUi.dismissedCoachMarkIds, id],
+        activeCoachMarkId: null,
+      },
+    })),
+  dismissAllCoachMarks: () =>
+    set((s) => ({
+      onboardingUi: {
+        ...s.onboardingUi,
+        dismissedCoachMarkIds: COACH_MARKS.map((mark) => mark.id),
         activeCoachMarkId: null,
       },
     })),

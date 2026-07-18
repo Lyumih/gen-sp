@@ -39,6 +39,7 @@ export function CampaignHub() {
   const checklistExpanded = useGameStore((s) => s.onboardingUi.checklistExpanded)
   const dismissedCoachMarkIds = useGameStore((s) => s.onboardingUi.dismissedCoachMarkIds)
   const dismissCoachMark = useGameStore((s) => s.dismissCoachMark)
+  const dismissAllCoachMarks = useGameStore((s) => s.dismissAllCoachMarks)
   const [goalsDrawerOpen, setGoalsDrawerOpen] = useState(false)
   const [helpFocusArticleId, setHelpFocusArticleId] = useState<string | null>(null)
   const [replaySlot, setReplaySlot] = useState(0)
@@ -158,6 +159,7 @@ export function CampaignHub() {
     dispatchRun({ type: 'SET_ONBOARDING_SKIP' })
     dispatchRun({ type: 'MARK_ONBOARDING_STEP', stepId: 'welcome_seen' })
     setChecklistExpanded(false)
+    dismissAllCoachMarks()
   }
 
   const refreshShop = (free?: boolean) => {
@@ -373,6 +375,7 @@ export function CampaignHub() {
           open
           title={activeCoach.title}
           text={activeCoach.text}
+          variant={activeCoach.variant}
           onNext={() => dismissCoachMark(activeCoach.id)}
           onSkipAll={skipOnboarding}
         />

@@ -1,7 +1,10 @@
+export type CoachMarkVariant = 'onboarding' | 'hint'
+
 export type CoachMarkDef = {
   id: string
   title: string
   text: string
+  variant?: CoachMarkVariant
 }
 
 export const COACH_MARKS: readonly CoachMarkDef[] = [
@@ -44,11 +47,13 @@ export const COACH_MARKS: readonly CoachMarkDef[] = [
     id: 'shop-equip-next',
     title: 'Наденьте предмет',
     text: 'Откройте «Сундук» или слот экипировки на «Персонаж» и наденьте предмет.',
+    variant: 'hint',
   },
   {
     id: 'trials-intro',
     title: 'Испытания',
     text: 'Испытания — основной режим после обучения. Выберите любую плитку.',
+    variant: 'hint',
   },
 ]
 
