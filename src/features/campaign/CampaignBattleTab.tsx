@@ -1,23 +1,26 @@
-import { PlayCircleOutlined, RocketOutlined } from '@ant-design/icons'
-import { Alert, App, Button, Select, Space, Typography } from 'antd'
+import { Alert, App, Space } from 'antd'
 import { useMemo, useState } from 'react'
-import { SCENARIOS } from '../../game/campaign/scenarios'
 import {
-  EXPEDITION_CHAINS,
   getChainMaxParty,
   getExpeditionChainById,
+  getExpeditionChainsByTier,
 } from '../../game/expedition/config'
 import {
   countOccupiedSquadSlots,
   resolveExpeditionParty,
 } from '../../game/expedition/resolveExpeditionParty'
+import { shouldOpenPartyPickModal } from '../../game/expedition/partyPick'
 import type { CampaignState } from '../../game/types'
 import { hasCompletedStep } from '../../game/onboarding/onboardingState'
-import { isFeaturedBattleModesVisible } from '../../game/onboarding/selectors'
-import { GameColumns } from '../layout/GameColumns'
+import {
+  isDevTestModeVisible,
+  isFeaturedBattleModesVisible,
+} from '../../game/onboarding/selectors'
 import { GamePanel } from '../layout/GamePanel'
 import { SquadAssemblyDnd } from '../character/SquadAssemblyDnd'
-import { ExpeditionModeList } from './ExpeditionModeList'
+import { BattleModeGrid } from './BattleModeGrid'
+import { CampaignReplayModal } from './CampaignReplayModal'
+import { ExpeditionPartyPickModal } from './ExpeditionPartyPickModal'
 
 type CampaignBattleTabProps = {
   campaign: CampaignState
@@ -38,8 +41,6 @@ export function CampaignBattleTab({
   campaign,
   done,
   inBattle,
-  scenarioIndex,
-  scenarioId,
   replaySlot,
   onReplaySlotChange,
   onStartOrContinue,
@@ -49,153 +50,134 @@ export function CampaignBattleTab({
   onSwapSquadSlots,
 }: CampaignBattleTabProps) {
   const { message } = App.useApp()
-  const [selectedChainId, setSelectedChainId] = useState(
-    () => EXPEDITION_CHAINS[0]?.id ?? 'campaign-main',
-  )
-  const [markedIds, setMarkedIds] = useState<string[]>([])
-
-  const selectedChain = getExpeditionChainById(selectedChainId) ?? EXPEDITION_CHAINS[0]!
-
-  const selectedCharacterIds = useMemo(
-    () =>
-      resolveExpeditionParty({
-        squad: campaign.squad,
-        markedIds,
-        maxParty: getChainMaxParty(selectedChain),
-      }),
-    [campaign.squad, markedIds, selectedChain],
-  )
+  const [partyPickOpen, setPartyPickOpen] = useState(false)
+  const [partyPickChainId, setPartyPickChainId] = useState<string | null>(null)
+  const [replayOpen, setReplayOpen] = useState(false)
 
   const expeditionActive = campaign.expedition !== null
-  const expeditionDisabled = inBattle || expeditionActive
-  const occupied = countOccupiedSquadSlots(campaign.squad)
-  const squadOk = occupied >= selectedChain.partyMin
-  const hasFighters = selectedCharacterIds.length >= 1
-  const canStartExpedition = !expeditionDisabled && squadOk && hasFighters
-  const soloCtaLabel = hasCompletedStep(campaign.onboarding, 'first_battle_won')
-    ? 'Начать / продолжить бой'
-    : 'Начать первый бой'
-  const showExpeditionPanel = isFeaturedBattleModesVisible(campaign)
+  const modeDisabled = inBattle || expeditionActive
+  const showFeaturedModes = isFeaturedBattleModesVisible(campaign)
+  const showDevTestMode = isDevTestModeVisible(campaign)
+  const soonChains = useMemo(
+    () =>
+      getExpeditionChainsByTier('soon').filter(
+        (chain) => chain.id !== 'test-single-battle' || showDevTestMode,
+      ),
+    [showDevTestMode],
+  )
+  const partyPickChain = partyPickChainId ? getExpeditionChainById(partyPickChainId) : undefined
 
-  const handleToggleMark = (characterId: string) => {
-    setMarkedIds((prev) =>
-      prev.includes(characterId)
-        ? prev.filter((id) => id !== characterId)
-        : [...prev, characterId],
-    )
+  const campaignBadge = (chainId: string): string | undefined => {
+    if (chainId !== 'campaign-main' || done) return undefined
+    return hasCompletedStep(campaign.onboarding, 'first_battle_won')
+      ? 'Начать / продолжить бой'
+      : 'Начать первый бой'
   }
 
-  const handleStartExpedition = () => {
-    const chain = getExpeditionChainById(selectedChainId) ?? EXPEDITION_CHAINS[0]!
+  const handleModeSelect = (chainId: string) => {
+    if (modeDisabled) return
+    const chain = getExpeditionChainById(chainId)
+    if (!chain) return
+
+    const occupied = countOccupiedSquadSlots(campaign.squad)
+    if (occupied < chain.partyMin) {
+      message.error('Добавьте хотя бы одного бойца в отряд')
+      return
+    }
+
+    if (chain.id === 'campaign-main') {
+      if (done) {
+        setReplayOpen(true)
+        return
+      }
+      onStartOrContinue()
+      return
+    }
+
     const maxParty = getChainMaxParty(chain)
-    const party = resolveExpeditionParty({
-      squad: campaign.squad,
-      markedIds,
-      maxParty,
-    })
-    onStartExpedition(selectedChainId, party)
+    if (shouldOpenPartyPickModal(occupied, maxParty)) {
+      setPartyPickChainId(chain.id)
+      setPartyPickOpen(true)
+      return
+    }
+
+    const party = resolveExpeditionParty({ squad: campaign.squad, markedIds: [], maxParty })
+    if (party.length < 1) {
+      message.error('Добавьте хотя бы одного бойца в отряд')
+      return
+    }
+    onStartExpedition(chain.id, party)
   }
 
   return (
     <div role="tabpanel">
-      <GameColumns>
-      <GamePanel title="Кампания">
-        <Space orientation="vertical" size="small" style={{ width: '100%' }}>
+      <Space orientation="vertical" size="small" style={{ width: '100%' }}>
+        <GamePanel title="Отряд">
           <SquadAssemblyDnd
             campaign={campaign}
-            disabled={inBattle || expeditionActive}
+            disabled={modeDisabled}
             onSetSquadSlot={onSetSquadSlot}
             onSwapSquadSlots={onSwapSquadSlots}
           />
-          {done ? (
-            <>
-              <Typography.Text type="secondary">
-                Цепочка сценариев пройдена. Можно снова сыграть любой сценарий с текущим
-                прогрессом.
-              </Typography.Text>
-              <Space wrap style={{ width: '100%' }}>
-                <Select
-                  aria-label="Сценарий для повтора"
-                  style={{ minWidth: 200 }}
-                  value={replaySlot}
-                  onChange={onReplaySlotChange}
-                  options={SCENARIOS.map((s, i) => ({
-                    value: i,
-                    label: s.id,
-                  }))}
-                />
-                <Button
-                  type="primary"
-                  disabled={inBattle}
-                  icon={<PlayCircleOutlined />}
-                  onClick={onStartReplay}
-                >
-                  Играть сценарий
-                </Button>
-              </Space>
-            </>
-          ) : (
-            <Button
-              type="primary"
-              disabled={inBattle}
-              icon={<PlayCircleOutlined />}
-              onClick={() => {
-                if (countOccupiedSquadSlots(campaign.squad) === 0) {
-                  message.error('Добавьте хотя бы одного бойца в отряд')
-                  return
-                }
-                onStartOrContinue()
-              }}
-            >
-              {soloCtaLabel}
-            </Button>
-          )}
-          <Typography.Text>
-            Сценарий:{' '}
-            {done ? 'пройдено' : `${scenarioIndex + 1} / ${SCENARIOS.length}`}
-            {scenarioId ? ` — ${scenarioId}` : ''}
-          </Typography.Text>
-        </Space>
-      </GamePanel>
+        </GamePanel>
 
-      {showExpeditionPanel ? (
-      <GamePanel title="Экспедиция">
-        <Space orientation="vertical" size="small" style={{ width: '100%' }}>
-          <SquadAssemblyDnd
+        {expeditionActive ? (
+          <Alert
+            type="info"
+            showIcon
+            message="Недоступно во время экспедиции"
+            description={`Экспедиция активна: ${campaign.expedition!.scenarioChainId}, бой ${
+              campaign.expedition!.battleIndex + 1
+            } / ${campaign.expedition!.battleCount}`}
+          />
+        ) : null}
+
+        {showFeaturedModes ? (
+          <BattleModeGrid
+            chains={getExpeditionChainsByTier('featured')}
+            disabled={modeDisabled}
+            onSelect={handleModeSelect}
+          />
+        ) : null}
+
+        <BattleModeGrid
+          title="Скоро"
+          soon
+          chains={soonChains}
+          disabled={modeDisabled}
+          getBadge={(chain) => campaignBadge(chain.id)}
+          onSelect={handleModeSelect}
+        />
+
+        {partyPickChain ? (
+          <ExpeditionPartyPickModal
+            open={partyPickOpen}
+            chain={partyPickChain}
             campaign={campaign}
-            markedIds={markedIds}
-            disabled={expeditionDisabled}
-            onSetSquadSlot={onSetSquadSlot}
-            onSwapSquadSlots={onSwapSquadSlots}
-            onToggleMark={handleToggleMark}
+            maxParty={getChainMaxParty(partyPickChain)}
+            onCancel={() => {
+              setPartyPickOpen(false)
+              setPartyPickChainId(null)
+            }}
+            onConfirm={(selectedCharacterIds) => {
+              onStartExpedition(partyPickChain.id, selectedCharacterIds)
+              setPartyPickOpen(false)
+              setPartyPickChainId(null)
+            }}
           />
-          {expeditionActive ? (
-            <>
-              <Alert type="info" showIcon title="Недоступно во время экспедиции" />
-              <Typography.Text type="secondary">
-                Экспедиция активна: {campaign.expedition!.scenarioChainId}, бой{' '}
-                {campaign.expedition!.battleIndex + 1} / {campaign.expedition!.battleCount}
-              </Typography.Text>
-            </>
-          ) : null}
-          <ExpeditionModeList
-            chains={EXPEDITION_CHAINS}
-            selectedChainId={selectedChainId}
-            disabled={expeditionDisabled}
-            onSelect={setSelectedChainId}
-          />
-          <Button
-            type="primary"
-            disabled={!canStartExpedition}
-            icon={<RocketOutlined />}
-            onClick={handleStartExpedition}
-          >
-            Начать экспедицию
-          </Button>
-        </Space>
-      </GamePanel>
-      ) : null}
-    </GameColumns>
+        ) : null}
+
+        <CampaignReplayModal
+          open={replayOpen}
+          replaySlot={replaySlot}
+          onReplaySlotChange={onReplaySlotChange}
+          onCancel={() => setReplayOpen(false)}
+          onConfirm={() => {
+            setReplayOpen(false)
+            onStartReplay()
+          }}
+        />
+      </Space>
     </div>
   )
 }
