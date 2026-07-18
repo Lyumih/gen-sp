@@ -90,6 +90,7 @@ import {
 } from '../character/iconCatalog'
 import { assertHubActionAllowed } from '../expedition/freeze'
 import { buildExpeditionSnapshot } from '../expedition/snapshot'
+import { resolveCampaignMainExpeditionBounds } from '../expedition/campaignMainBounds'
 import {
   getExpeditionChainById,
   resolvePartySize,
@@ -1407,11 +1408,9 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
           rng,
           partySize,
         )
-        if (
-          chain.id === 'campaign-main' &&
-          isOnboardingExpeditionPending(state)
-        ) {
-          built = { ...built, battleIndex: 1, battleCount: 2 }
+        if (chain.id === 'campaign-main') {
+          const bounds = resolveCampaignMainExpeditionBounds(state)
+          built = { ...built, ...bounds }
         }
         return built
       })()

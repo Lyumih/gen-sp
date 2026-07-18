@@ -1288,6 +1288,20 @@ describe('expedition state machine', () => {
     return initialCampaignState()
   }
 
+  function winBattle(s: CampaignState): CampaignState {
+    return applyRunAction(s, {
+      type: 'BATTLE_DISPATCH',
+      battleAction: {
+        type: 'attack',
+        attackerId: HERO_ID,
+        targetId: 'e1',
+        damage: 999,
+        kind: 'ranged',
+        maxRange: 10,
+      },
+    })
+  }
+
   function battleSignature(b: BattleState): string {
     return JSON.stringify({
       phase: b.phase,
@@ -1526,6 +1540,26 @@ describe('expedition state machine', () => {
       templateId: 'wooden_sword',
     })
     expect(frozen).toBe(next)
+  })
+
+  it('START_EXPEDITION campaign-main after first_battle_won starts at battleIndex 1', () => {
+    let s = initialCampaignState()
+    s = applyRunAction(s, { type: 'START_OR_CONTINUE_BATTLE' })
+    s = winBattle(s)
+    s = applyRunAction(s, {
+      type: 'FINALIZE_VICTORY',
+      itemLevelRolls: [],
+      playerUnitLevelRoll: 50,
+    })
+    expect(s.scenarioIndex).toBe(1)
+
+    s = applyRunAction(s, {
+      type: 'START_EXPEDITION',
+      chainId: 'campaign-main',
+      selectedCharacterIds: [HERO_ID],
+    })
+    expect(s.expedition!.battleIndex).toBe(1)
+    expect(s.expedition!.battleCount).toBe(2)
   })
 
   it('mid-chain victory enters inter_battle and ADVANCE starts next battle', () => {
