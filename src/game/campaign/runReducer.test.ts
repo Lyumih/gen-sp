@@ -1831,6 +1831,31 @@ describe('expedition state machine', () => {
     expect(next.expedition).toBeNull()
     expect(next.phase).toBe('hub')
   })
+
+  it('FINALIZE_VICTORY after procedural win syncs trial and worldPower milestones', () => {
+    let s = applyRunAction(hubState(), {
+      type: 'START_EXPEDITION',
+      chainId: 'small-skirmish',
+      selectedCharacterIds: [HERO_ID],
+    })
+
+    s = winCurrentBattle(s)
+    expect(s.phase).toBe('victory')
+
+    s = {
+      ...s,
+      battle: s.battle ? { ...s.battle, worldPower: 10 } : null,
+    }
+
+    s = applyRunAction(s, {
+      type: 'FINALIZE_VICTORY',
+      itemLevelRolls: [],
+      playerUnitLevelRoll: 50,
+    })
+
+    expect(s.completedMilestones).toContain('milestone_first_trial_win')
+    expect(s.completedMilestones).toContain('milestone_world_power_10')
+  })
 })
 
 describe('tavern', () => {

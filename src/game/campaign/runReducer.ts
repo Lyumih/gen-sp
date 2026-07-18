@@ -131,6 +131,10 @@ import {
   isCompletingOnboardingExpedition,
   soloTutorialVictoryJustAchieved,
 } from '../onboarding/selectors'
+import {
+  syncCompletedMilestones,
+  victoryExpeditionMilestones,
+} from '../milestones/evaluateMilestones'
 
 export type RunAction =
   | { type: 'START_OR_CONTINUE_BATTLE' }
@@ -462,13 +466,15 @@ function finishExpedition(state: CampaignState): CampaignState {
   }
 
   if (state.battle?.phase === 'ongoing' && snap) {
-    return restorePartyFromSnapshot(
-      { ...base, worldPower: snap.worldPower, gold: snap.gold },
-      snap,
+    return syncCompletedMilestones(
+      restorePartyFromSnapshot(
+        { ...base, worldPower: snap.worldPower, gold: snap.gold },
+        snap,
+      ),
     )
   }
 
-  return base
+  return syncCompletedMilestones(base)
 }
 
 function withBattleSpecializationFlags(
@@ -529,6 +535,8 @@ function finalizeVictory(
   playerUnitLevelRoll: number,
 ): CampaignState {
   if (!state.battle || state.battle.phase !== 'victory') return state
+
+  const expeditionMilestones = victoryExpeditionMilestones(state.expedition)
 
   const hero = getPrimaryCharacter(state)
   const expected = occupiedEquipmentSlotsInOrder(hero.equipment).length
@@ -655,9 +663,12 @@ function finalizeVictory(
     })(),
   }
   if (codexDiscoveries.length > 0) {
-    return withCodexDiscoveries(base, codexDiscoveries)
+    return syncCompletedMilestones(
+      withCodexDiscoveries(base, codexDiscoveries),
+      expeditionMilestones,
+    )
   }
-  return base
+  return syncCompletedMilestones(base, expeditionMilestones)
 }
 
 const GEAR_HIT_SLOTS: readonly EquipmentSlot[] = ['armor', 'accessory']
