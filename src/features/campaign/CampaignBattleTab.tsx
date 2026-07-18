@@ -9,6 +9,7 @@ import {
   countOccupiedSquadSlots,
   resolveExpeditionParty,
 } from '../../game/expedition/resolveExpeditionParty'
+import { getExpeditionChainLabel } from '../../game/expedition/expeditionLabels'
 import { shouldOpenPartyPickModal } from '../../game/expedition/partyPick'
 import type { CampaignState } from '../../game/types'
 import { hasCompletedStep } from '../../game/onboarding/onboardingState'
@@ -20,6 +21,7 @@ import { GamePanel } from '../layout/GamePanel'
 import { SquadAssemblyDnd } from '../character/SquadAssemblyDnd'
 import { BattleModeGrid } from './BattleModeGrid'
 import { CampaignReplayModal } from './CampaignReplayModal'
+import { ExpeditionOrphanPanel } from './ExpeditionOrphanPanel'
 import { ExpeditionPartyPickModal } from './ExpeditionPartyPickModal'
 
 type CampaignBattleTabProps = {
@@ -55,6 +57,8 @@ export function CampaignBattleTab({
   const [replayOpen, setReplayOpen] = useState(false)
 
   const expeditionActive = campaign.expedition !== null
+  const expeditionOrphan =
+    expeditionActive && campaign.phase === 'hub' && !inBattle
   const modeDisabled = inBattle || expeditionActive
   const showFeaturedModes = isFeaturedBattleModesVisible(campaign)
   const showDevTestMode = isDevTestModeVisible(campaign)
@@ -121,14 +125,16 @@ export function CampaignBattleTab({
           />
         </GamePanel>
 
-        {expeditionActive ? (
+        {expeditionOrphan ? <ExpeditionOrphanPanel campaign={campaign} /> : null}
+
+        {expeditionActive && !expeditionOrphan ? (
           <Alert
             type="info"
             showIcon
             message="Недоступно во время экспедиции"
-            description={`Экспедиция активна: ${campaign.expedition!.scenarioChainId}, бой ${
-              campaign.expedition!.battleIndex + 1
-            } / ${campaign.expedition!.battleCount}`}
+            description={`Экспедиция активна: ${getExpeditionChainLabel(
+              campaign.expedition!.scenarioChainId,
+            )}, бой ${campaign.expedition!.battleIndex + 1} / ${campaign.expedition!.battleCount}`}
           />
         ) : null}
 

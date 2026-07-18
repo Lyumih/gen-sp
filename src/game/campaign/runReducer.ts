@@ -164,6 +164,7 @@ export type RunAction =
   | { type: 'SET_BATTLE_LOADOUT'; characterId: string; slotIndex: 0 | 1 | 2 | 3; cardId: string | null }
   | { type: 'RETRY_CURRENT_BATTLE' }
   | { type: 'ABANDON_BATTLE' }
+  | { type: 'RESUME_EXPEDITION_FROM_HUB' }
   | { type: 'FINALIZE_VICTORY'; itemLevelRolls: number[]; playerUnitLevelRoll: number }
   | { type: 'BUY_ITEM'; characterId: string; templateId: string }
   | { type: 'EQUIP_ITEM'; characterId: string; itemId: string; slot: EquipmentSlot }
@@ -1355,17 +1356,24 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
     case 'ABANDON_BATTLE': {
       const snap = state.battleAttemptSnapshot
       if (!state.battle || !snap) return state
-      return restorePartyFromSnapshot(
+      const base = restorePartyFromSnapshot(
         {
           ...state,
           worldPower: snap.worldPower,
           gold: snap.gold,
           battle: null,
-          phase: 'hub',
           battleAttemptSnapshot: null,
         },
         snap,
       )
+      if (base.expedition !== null) {
+        return { ...base, phase: 'inter_battle' }
+      }
+      return { ...base, phase: 'hub' }
+    }
+    case 'RESUME_EXPEDITION_FROM_HUB': {
+      if (!state.expedition || state.battle !== null) return state
+      return { ...state, phase: 'inter_battle' }
     }
     case 'FINALIZE_VICTORY': {
       if (!state.battle || state.battle.phase !== 'victory') return state

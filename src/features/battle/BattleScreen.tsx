@@ -600,10 +600,15 @@ export function BattleScreen() {
     expedition !== null && expedition.battleIndex < expedition.battleCount
 
   const confirmAbandon = () => {
+    const expeditionNote =
+      expedition !== null
+        ? ' Экспедиция продолжится. Вы вернётесь в лагерь; текущий бой не засчитается.'
+        : ''
     modal.confirm({
       title: 'Выйти из боя?',
       content:
-        'Прогресс этого боя будет потерян. Мета-прогресс вернётся к состоянию на начало попытки; награды за незавершённый бой не начислятся.',
+        'Прогресс этого боя будет потерян. Мета-прогресс вернётся к состоянию на начало попытки; награды за незавершённый бой не начислятся.' +
+        expeditionNote,
       okText: 'Выйти',
       cancelText: 'Отмена',
       okButtonProps: { danger: true },

@@ -2,7 +2,7 @@ import { FlagOutlined, MedicineBoxOutlined, TeamOutlined, ThunderboltOutlined } 
 import { Alert, App, Button, Card, Space, Tag, Typography } from 'antd'
 import { getExpeditionBattleCharacterId } from '../../game/campaign/battleSnapshot'
 import { getCharacter } from '../../game/campaign/selectors'
-import { getExpeditionChainById } from '../../game/expedition/config'
+import { getExpeditionChainLabel } from '../../game/expedition/expeditionLabels'
 import { coachMarkById } from '../../game/onboarding/coachMarks'
 import { shouldShowCoachMarks } from '../../game/onboarding/selectors'
 import { UI_LEVEL } from '../../game/ui/labels'
@@ -50,7 +50,7 @@ export function InterBattleScreen() {
 
   if (!expedition) return null
 
-  const chain = getExpeditionChainById(expedition.scenarioChainId)
+  const chainLabel = getExpeditionChainLabel(expedition.scenarioChainId)
   const battleLabel = `${expedition.battleIndex + 1} / ${expedition.battleCount}`
   const squadSlots = expedition.squadSnapshot.filter(
     (slot): slot is CharacterBattleSnapshot => slot !== null,
@@ -103,7 +103,7 @@ export function InterBattleScreen() {
     >
       <Space orientation="vertical" size="large" style={{ width: '100%' }}>
         <Typography.Text>
-          Экспедиция: <strong>{chain?.id ?? expedition.scenarioChainId}</strong>
+          Экспедиция: <strong>{chainLabel}</strong>
           {' · '}
           Бой {battleLabel}
         </Typography.Text>

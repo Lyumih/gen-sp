@@ -1456,6 +1456,35 @@ describe('expedition state machine', () => {
     expect(next.phase).toBe('battle')
   })
 
+  it('ABANDON_BATTLE during expedition returns to inter_battle', () => {
+    let s = applyRunAction(hubState(), {
+      type: 'START_EXPEDITION',
+      chainId: 'small-skirmish',
+      selectedCharacterIds: [HERO_ID],
+    })
+    expect(s.expedition).not.toBeNull()
+    const battleIndex = s.expedition!.battleIndex
+
+    s = applyRunAction(s, { type: 'ABANDON_BATTLE' })
+    expect(s.battle).toBeNull()
+    expect(s.phase).toBe('inter_battle')
+    expect(s.expedition).not.toBeNull()
+    expect(s.expedition!.battleIndex).toBe(battleIndex)
+  })
+
+  it('RESUME_EXPEDITION_FROM_HUB moves orphan hub+expedition to inter_battle', () => {
+    let s = applyRunAction(hubState(), {
+      type: 'START_EXPEDITION',
+      chainId: 'tunnel',
+      selectedCharacterIds: [HERO_ID],
+    })
+    s = { ...s, battle: null, battleAttemptSnapshot: null, phase: 'hub' as const }
+
+    const next = applyRunAction(s, { type: 'RESUME_EXPEDITION_FROM_HUB' })
+    expect(next.phase).toBe('inter_battle')
+    expect(next.expedition).not.toBeNull()
+  })
+
   it('START_EXPEDITION tunnel places both fighters when party size rolls 2', () => {
     const ally = testCreateCharacter({ id: 'ally-tunnel', name: 'Союзник', classId: 'rogue' })
     const base = hubState()
