@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { applyRunAction, initialCampaignState } from './runReducer'
+import { SCENARIOS } from './scenarios'
 import { completeStep, hasCompletedStep } from '../onboarding/onboardingState'
 import { LEGACY_HERO_CHARACTER_ID } from '../character/constants'
 
@@ -33,7 +34,7 @@ describe('onboarding reducer', () => {
       selectedCharacterIds: [LEGACY_HERO_CHARACTER_ID],
     })
     expect(next.expedition?.battleIndex).toBe(1)
-    expect(next.expedition?.battleCount).toBe(2)
+    expect(next.expedition?.battleCount).toBe(SCENARIOS.length)
     expect(hasCompletedStep(next.onboarding, 'expedition_started')).toBe(true)
   })
 })

@@ -6,7 +6,7 @@ import {
   initialCampaignState,
   type RunAction,
 } from '../game/campaign/runReducer'
-import { createDebouncedSave, loadSave } from '../game/persistence/localStorage'
+import { syncCompletedMilestones } from '../game/milestones/evaluateMilestones'
 import { STORAGE_KEY } from '../game/persistence/schema'
 
 export type GameStoreState = {
@@ -40,8 +40,9 @@ function browserStorage(): Storage | null {
 
 function readInitialCampaign(): CampaignState {
   const st = browserStorage()
-  if (!st) return initialCampaignState()
-  return loadSave(st, STORAGE_KEY) ?? initialCampaignState()
+  if (!st) return syncCompletedMilestones(initialCampaignState())
+  const loaded = loadSave(st, STORAGE_KEY)
+  return syncCompletedMilestones(loaded ?? initialCampaignState())
 }
 
 export const useGameStore = create<GameStoreState>((set, get) => ({
@@ -84,7 +85,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const st = browserStorage()
     if (!st) return
     const loaded = loadSave(st, STORAGE_KEY)
-    if (loaded) set({ campaign: loaded })
+    if (loaded) set({ campaign: syncCompletedMilestones(loaded) })
   },
 }))
 

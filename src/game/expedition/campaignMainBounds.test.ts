@@ -16,7 +16,7 @@ describe('resolveCampaignMainExpeditionBounds', () => {
     expect(isOnboardingExpeditionPending(state)).toBe(true)
     expect(resolveCampaignMainExpeditionBounds(state)).toEqual({
       battleIndex: 1,
-      battleCount: 2,
+      battleCount: SCENARIOS.length,
     })
   })
 
@@ -40,7 +40,7 @@ describe('resolveCampaignMainExpeditionBounds', () => {
     }
     expect(resolveCampaignMainExpeditionBounds(state)).toEqual({
       battleIndex: 1,
-      battleCount: SCENARIOS.length - 1,
+      battleCount: SCENARIOS.length,
     })
   })
 })

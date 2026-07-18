@@ -6,12 +6,10 @@ export function resolveCampaignMainExpeditionBounds(state: CampaignState): {
   battleIndex: number
   battleCount: number
 } {
-  if (
-    isOnboardingExpeditionPending(state)
-  ) {
-    return { battleIndex: 1, battleCount: 2 }
+  if (isOnboardingExpeditionPending(state)) {
+    return { battleIndex: 1, battleCount: SCENARIOS.length }
   }
   const battleIndex = state.scenarioIndex
-  const battleCount = SCENARIOS.length - state.scenarioIndex
+  const battleCount = SCENARIOS.length
   return { battleIndex, battleCount }
 }

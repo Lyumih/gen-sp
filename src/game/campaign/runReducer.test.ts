@@ -1559,7 +1559,27 @@ describe('expedition state machine', () => {
       selectedCharacterIds: [HERO_ID],
     })
     expect(s.expedition!.battleIndex).toBe(1)
-    expect(s.expedition!.battleCount).toBe(2)
+    expect(s.expedition!.battleCount).toBe(SCENARIOS.length)
+  })
+
+  it('onboarding campaign-main first expedition win enters inter_battle not final', () => {
+    let s = initialCampaignState()
+    s = applyRunAction(s, { type: 'START_OR_CONTINUE_BATTLE' })
+    s = winBattle(s)
+    s = applyRunAction(s, {
+      type: 'FINALIZE_VICTORY',
+      itemLevelRolls: [],
+      playerUnitLevelRoll: 50,
+    })
+
+    s = applyRunAction(s, {
+      type: 'START_EXPEDITION',
+      chainId: 'campaign-main',
+      selectedCharacterIds: [HERO_ID],
+    })
+    s = winCurrentBattle(s)
+    expect(s.phase).toBe('inter_battle')
+    expect(s.expedition!.battleIndex).toBe(2)
   })
 
   it('mid-chain victory enters inter_battle and ADVANCE starts next battle', () => {
