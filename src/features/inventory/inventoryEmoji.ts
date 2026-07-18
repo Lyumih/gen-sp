@@ -21,7 +21,10 @@ export function resolveItemEmoji(
 }
 
 export function resolveCardEmoji(template: CardAttackTemplate | undefined): string {
-  return template?.emoji ?? CARD_DEFAULT_EMOJI
+  if (!template) return CARD_DEFAULT_EMOJI
+  if (template.emoji) return template.emoji
+  const sem = getSemanticEmoji(template.semanticEmojiId)
+  return sem?.base ?? CARD_DEFAULT_EMOJI
 }
 
 export function resolvePassiveEmoji(template: PassiveTemplate | undefined): string {

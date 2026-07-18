@@ -18,7 +18,6 @@ export const CARD_ATTACK_TEMPLATES: Readonly<Record<string, CardAttackTemplate>>
     cooldownTurns: 3,
     tags: ['skill', 'attack', 'melee'],
     semanticEmojiId: 'sword-red',
-    emoji: '🃏',
   },
   shield_bash: {
     label: 'Удар щитом',

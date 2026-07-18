@@ -15,9 +15,14 @@ describe('resolveItemEmoji', () => {
 })
 
 describe('resolveCardEmoji', () => {
-  it('uses template emoji when set', () => {
-    const t = getCardAttackTemplate('strike')!
-    expect(resolveCardEmoji(t)).toBe('🃏')
+  it('uses explicit template emoji when set', () => {
+    const t = getCardAttackTemplate('heal')!
+    expect(resolveCardEmoji(t)).toBe('💚')
+  })
+
+  it('uses semantic emoji when template has no explicit emoji', () => {
+    const t = getCardAttackTemplate('power_shot')!
+    expect(resolveCardEmoji(t)).toBe('🏹')
   })
 
   it('falls back to card default', () => {
