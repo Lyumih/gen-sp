@@ -29,10 +29,10 @@ export type InventoryCellProps = {
   className?: string
 }
 
-function stateClass(state: InventoryCellState): string {
+function stateClass(state: InventoryCellState, emptyGhost: boolean): string {
   switch (state) {
     case 'empty':
-      return 'inv-cell--empty'
+      return emptyGhost ? 'inv-cell--empty inv-cell--empty-ghost' : 'inv-cell--empty'
     case 'equipped':
       return 'inv-cell--equipped'
     case 'disabled':
@@ -69,13 +69,14 @@ export const InventoryCell = forwardRef<HTMLButtonElement, InventoryCellProps>(
     ref,
   ) {
     const isEmpty = state === 'empty'
+    const emptyGhost = isEmpty && Boolean(emoji)
     const button = (
       <button
         ref={ref}
         type="button"
         className={[
           'inv-cell',
-          stateClass(state),
+          stateClass(state, emptyGhost),
           showModPendingBadge ? 'inv-cell--mod-pending' : '',
           className,
         ]

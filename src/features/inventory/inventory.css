@@ -29,6 +29,16 @@
   cursor: default;
 }
 
+.inv-cell--empty-ghost {
+  background: #f0f0f0;
+  border-style: dashed;
+  cursor: default;
+}
+
+.inv-cell--empty-ghost .inv-cell-emoji {
+  opacity: 0.28;
+}
+
 .inv-cell--equipped {
   border: 2px solid #52c41a;
 }
