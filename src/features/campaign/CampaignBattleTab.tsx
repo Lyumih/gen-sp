@@ -1,22 +1,15 @@
 import { Alert, App, Space } from 'antd'
-import { useEffect, useState } from 'react'
-import { SCENARIOS } from '../../game/campaign/scenarios'
+import { useEffect, useMemo, useState } from 'react'
 import {
   getChainMaxParty,
   getExpeditionChainById,
 } from '../../game/expedition/config'
-import {
-  getDevChains,
-  getTrainingChain,
-  getTrialChains,
-} from '../../game/expedition/chainSections'
 import {
   countOccupiedSquadSlots,
   resolveExpeditionParty,
 } from '../../game/expedition/resolveExpeditionParty'
 import { getExpeditionChainLabel } from '../../game/expedition/expeditionLabels'
 import { shouldOpenPartyPickModal } from '../../game/expedition/partyPick'
-import { getPlaceholderModesBySection } from '../../game/modes/placeholders'
 import type { CampaignState } from '../../game/types'
 import { hasCompletedStep } from '../../game/onboarding/onboardingState'
 import {
@@ -25,19 +18,12 @@ import {
 } from '../../game/onboarding/selectors'
 import { GamePanel } from '../layout/GamePanel'
 import { SquadAssemblyDnd } from '../character/SquadAssemblyDnd'
-import { BattleModeGrid } from './BattleModeGrid'
-import { BattleModePlaceholderGrid } from './BattleModePlaceholderGrid'
+import { BattleModeList } from './BattleModeList'
+import { buildBattleModeEntries } from './buildBattleModeEntries'
 import { CampaignReplayModal } from './CampaignReplayModal'
 import { ExpeditionOrphanPanel } from './ExpeditionOrphanPanel'
 import { ExpeditionPartyPickModal } from './ExpeditionPartyPickModal'
 import { useGameStore } from '../../store/gameStore'
-
-function trainingBadge(campaign: CampaignState, done: boolean): string | undefined {
-  if (done) return 'Пройдено · повторить'
-  const scenario = SCENARIOS[campaign.scenarioIndex]
-  const label = scenario?.id ?? '…'
-  return `Бой ${campaign.scenarioIndex + 1} / ${SCENARIOS.length} — ${label}`
-}
 
 type CampaignBattleTabProps = {
   campaign: CampaignState
@@ -79,12 +65,22 @@ export function CampaignBattleTab({
   const modeDisabled = inBattle || expeditionActive
   const showFeaturedModes = isFeaturedBattleModesVisible(campaign)
   const showDevTestMode = isDevTestModeVisible(campaign)
-  const training = getTrainingChain()
   const partyPickChain = partyPickChainId ? getExpeditionChainById(partyPickChainId) : undefined
+
+  const modeEntries = useMemo(
+    () =>
+      buildBattleModeEntries({
+        campaign,
+        done,
+        showFeaturedModes,
+        showDevTestMode,
+      }),
+    [campaign, done, showFeaturedModes, showDevTestMode],
+  )
 
   useEffect(() => {
     if (hubBattleFocusSection !== 'trials') return
-    document.getElementById('hub-battle-section-trials')?.scrollIntoView({ behavior: 'smooth' })
+    document.getElementById('hub-battle-mode-trials')?.scrollIntoView({ behavior: 'smooth', inline: 'start' })
     setHubBattleFocusSection(null)
   }, [hubBattleFocusSection, setHubBattleFocusSection])
 
@@ -154,42 +150,11 @@ export function CampaignBattleTab({
           />
         ) : null}
 
-        {showFeaturedModes ? (
-          <BattleModeGrid
-            title="Испытания"
-            sectionId="hub-battle-section-trials"
-            chains={getTrialChains()}
-            disabled={modeDisabled}
-            onSelect={handleModeSelect}
-          />
-        ) : null}
-
-        <BattleModeGrid
-          title="Обучение"
-          chains={training ? [training] : []}
+        <BattleModeList
+          entries={modeEntries}
           disabled={modeDisabled}
-          getBadge={() => trainingBadge(campaign, done)}
-          onSelect={handleModeSelect}
+          onSelectChain={handleModeSelect}
         />
-
-        <BattleModePlaceholderGrid
-          title="Roguelike"
-          modes={getPlaceholderModesBySection('roguelike')}
-        />
-
-        <BattleModePlaceholderGrid
-          title="PvP"
-          modes={getPlaceholderModesBySection('pvp')}
-        />
-
-        {showDevTestMode ? (
-          <BattleModeGrid
-            title="Разработка"
-            chains={getDevChains(true)}
-            disabled={modeDisabled}
-            onSelect={handleModeSelect}
-          />
-        ) : null}
 
         {partyPickChain ? (
           <ExpeditionPartyPickModal
