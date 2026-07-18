@@ -403,7 +403,7 @@ function EquipmentSlotCell({
         {...(item && !inBattle ? { ...attributes, ...listeners } : {})}
         emoji={item ? resolveItemEmoji(tmpl, slot) : SLOT_EMOJI[slot]}
         levelBadge={item ? `${UI_LEVEL}${item.itemLevel}` : undefined}
-        contextBadge={SLOT_EMOJI[slot]}
+        contextBadge={item ? SLOT_EMOJI[slot] : undefined}
         showModPendingBadge={Boolean(item && !modsDisabled && hasPendingModOffer(item.modSlots))}
         slotDots={
           item && item.modSlots.length > 0 ? (
@@ -415,9 +415,8 @@ function EquipmentSlotCell({
         popoverTitle={item ? tmpl?.label : SLOT_LABEL[slot]}
         popoverContent={popover}
         ariaLabel={
-          item && tmpl ? itemSelectShortLabel(tmpl, item.itemLevel) : `${SLOT_LABEL[slot]} — перетащи`
+          item && tmpl ? itemSelectShortLabel(tmpl, item.itemLevel) : `${SLOT_LABEL[slot]} — пусто`
         }
-        hintText={item ? undefined : 'перетащи'}
         style={{ opacity: isDragging ? 0.4 : undefined }}
         onClick={onSlotClick}
       />
