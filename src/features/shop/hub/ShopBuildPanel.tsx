@@ -58,7 +58,7 @@ export function ShopBuildPanel({
       />
       <SpecializationLine campaign={campaign} character={hero} />
       <Typography.Text strong style={{ display: 'block', fontSize: 12, marginTop: 8, marginBottom: 4 }}>
-        Надето
+        Экипировка
       </Typography.Text>
       <EquipmentSlotRow character={hero} inBattle={inBattle} onUnequip={onUnequip} />
     </div>
