@@ -12,8 +12,10 @@ import { shouldShowCoachMarks } from '../../game/onboarding/selectors'
 import type { EquipmentSlot } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
 import { OnboardingChecklist } from '../onboarding/OnboardingChecklist'
+import { MilestoneChecklist } from '../onboarding/MilestoneChecklist'
 import { OnboardingCoachModal } from '../onboarding/OnboardingCoachModal'
 import { PostBattleDebriefModal } from '../onboarding/PostBattleDebriefModal'
+import { TutorialCompleteModal } from './TutorialCompleteModal'
 import { WelcomeModal } from '../onboarding/WelcomeModal'
 import { CampaignBattleTab } from './CampaignBattleTab'
 import { CampaignCharacterTab } from './CampaignCharacterTab'
@@ -31,6 +33,7 @@ export function CampaignHub() {
   const dispatchRun = useGameStore((s) => s.dispatchRun)
   const activeTab = useGameStore((s) => s.hubActiveTab)
   const setHubActiveTab = useGameStore((s) => s.setHubActiveTab)
+  const setHubBattleFocusSection = useGameStore((s) => s.setHubBattleFocusSection)
   const setChecklistExpanded = useGameStore((s) => s.setChecklistExpanded)
   const checklistExpanded = useGameStore((s) => s.onboardingUi.checklistExpanded)
   const dismissedCoachMarkIds = useGameStore((s) => s.onboardingUi.dismissedCoachMarkIds)
@@ -52,6 +55,13 @@ export function CampaignHub() {
   const showVictoryDebrief =
     hasCompletedStep(onboarding, 'first_battle_won') &&
     !hasCompletedStep(onboarding, 'hub_after_first_win')
+
+  const showTutorialComplete =
+    done &&
+    !onboarding.tutorialCompleteSeen &&
+    (onboarding.graduated || onboarding.skipMode)
+
+  const showPostGraduationGoals = onboarding.graduated || onboarding.skipMode
 
   const activeCoachId = useMemo(() => {
     if (!shouldShowCoachMarks(onboarding)) return null
@@ -293,6 +303,15 @@ export function CampaignHub() {
         }}
       />
 
+      <TutorialCompleteModal
+        open={showTutorialComplete}
+        onClose={() => dispatchRun({ type: 'MARK_TUTORIAL_COMPLETE_SEEN' })}
+        onGoTrials={() => {
+          setHubActiveTab('battle')
+          setHubBattleFocusSection('trials')
+        }}
+      />
+
       {activeCoach ? (
         <OnboardingCoachModal
           open
@@ -322,7 +341,11 @@ export function CampaignHub() {
         onClose={() => setGoalsDrawerOpen(false)}
         size="small"
       >
-        <OnboardingChecklist campaign={campaign} />
+        {showPostGraduationGoals ? (
+          <MilestoneChecklist campaign={campaign} />
+        ) : (
+          <OnboardingChecklist campaign={campaign} />
+        )}
       </Drawer>
 
       <Space orientation="vertical" size="small" style={{ width: '100%' }}>

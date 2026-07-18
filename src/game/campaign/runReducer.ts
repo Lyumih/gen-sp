@@ -125,6 +125,7 @@ import {
   completeStep,
   graduateOnboarding,
   DEFAULT_ONBOARDING,
+  markTutorialCompleteSeen,
 } from '../onboarding/onboardingState'
 import {
   campaignFullyCompleteScenarioIndex,
@@ -235,6 +236,7 @@ export type RunAction =
   | { type: 'MARK_ONBOARDING_STEP'; stepId: OnboardingStepId }
   | { type: 'SET_ONBOARDING_SKIP' }
   | { type: 'SET_GUIDED_TUTORIAL_DONE' }
+  | { type: 'MARK_TUTORIAL_COMPLETE_SEEN' }
 
 export { afterCarrierLevelChange }
 
@@ -1797,6 +1799,8 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       return withOnboarding(state, applyOnboardingSkip)
     case 'SET_GUIDED_TUTORIAL_DONE':
       return withOnboarding(state, (o) => ({ ...o, guidedTutorialDone: true }))
+    case 'MARK_TUTORIAL_COMPLETE_SEEN':
+      return withOnboarding(state, markTutorialCompleteSeen)
     case 'RENAME_CHARACTER': {
       if (!assertHubActionAllowed(state, 'equip')) return state
       const hero = getCharacter(state, action.characterId)

@@ -2973,3 +2973,12 @@ describe('party meta — drop, shop, sell', () => {
     expect(s.gold).toBe(Math.floor(basePrice * (1 + fraction)))
   })
 })
+
+describe('MARK_TUTORIAL_COMPLETE_SEEN', () => {
+  it('sets tutorialCompleteSeen on onboarding', () => {
+    const s = initialCampaignState()
+    expect(s.onboarding.tutorialCompleteSeen).toBe(false)
+    const next = applyRunAction(s, { type: 'MARK_TUTORIAL_COMPLETE_SEEN' })
+    expect(next.onboarding.tutorialCompleteSeen).toBe(true)
+  })
+})

@@ -1,5 +1,5 @@
 import { Alert, App, Space } from 'antd'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { SCENARIOS } from '../../game/campaign/scenarios'
 import {
   getChainMaxParty,
@@ -30,6 +30,7 @@ import { BattleModePlaceholderGrid } from './BattleModePlaceholderGrid'
 import { CampaignReplayModal } from './CampaignReplayModal'
 import { ExpeditionOrphanPanel } from './ExpeditionOrphanPanel'
 import { ExpeditionPartyPickModal } from './ExpeditionPartyPickModal'
+import { useGameStore } from '../../store/gameStore'
 
 function trainingBadge(campaign: CampaignState, done: boolean): string | undefined {
   if (done) return 'Пройдено · повторить'
@@ -66,6 +67,8 @@ export function CampaignBattleTab({
   onSwapSquadSlots,
 }: CampaignBattleTabProps) {
   const { message } = App.useApp()
+  const hubBattleFocusSection = useGameStore((s) => s.hubBattleFocusSection)
+  const setHubBattleFocusSection = useGameStore((s) => s.setHubBattleFocusSection)
   const [partyPickOpen, setPartyPickOpen] = useState(false)
   const [partyPickChainId, setPartyPickChainId] = useState<string | null>(null)
   const [replayOpen, setReplayOpen] = useState(false)
@@ -78,6 +81,12 @@ export function CampaignBattleTab({
   const showDevTestMode = isDevTestModeVisible(campaign)
   const training = getTrainingChain()
   const partyPickChain = partyPickChainId ? getExpeditionChainById(partyPickChainId) : undefined
+
+  useEffect(() => {
+    if (hubBattleFocusSection !== 'trials') return
+    document.getElementById('hub-battle-section-trials')?.scrollIntoView({ behavior: 'smooth' })
+    setHubBattleFocusSection(null)
+  }, [hubBattleFocusSection, setHubBattleFocusSection])
 
   const handleModeSelect = (chainId: string) => {
     if (modeDisabled) return

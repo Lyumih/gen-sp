@@ -12,6 +12,7 @@ import { STORAGE_KEY } from '../game/persistence/schema'
 export type GameStoreState = {
   campaign: CampaignState
   hubActiveTab: CampaignHubTab
+  hubBattleFocusSection: 'trials' | null
   autoBattleEnabled: boolean
   onboardingUi: {
     checklistExpanded: boolean
@@ -20,6 +21,7 @@ export type GameStoreState = {
     dismissedCoachMarkIds: string[]
   }
   setHubActiveTab: (tab: CampaignHubTab) => void
+  setHubBattleFocusSection: (section: 'trials' | null) => void
   setAutoBattleEnabled: (enabled: boolean) => void
   setChecklistExpanded: (expanded: boolean) => void
   setActiveCoachMarkId: (id: string | null) => void
@@ -45,6 +47,7 @@ function readInitialCampaign(): CampaignState {
 export const useGameStore = create<GameStoreState>((set, get) => ({
   campaign: readInitialCampaign(),
   hubActiveTab: 'character',
+  hubBattleFocusSection: null,
   autoBattleEnabled: false,
   onboardingUi: {
     checklistExpanded: true,
@@ -53,6 +56,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     dismissedCoachMarkIds: [],
   },
   setHubActiveTab: (tab) => set({ hubActiveTab: tab }),
+  setHubBattleFocusSection: (hubBattleFocusSection) => set({ hubBattleFocusSection }),
   setAutoBattleEnabled: (enabled) => set({ autoBattleEnabled: enabled }),
   setChecklistExpanded: (checklistExpanded) =>
     set((s) => ({ onboardingUi: { ...s.onboardingUi, checklistExpanded } })),
