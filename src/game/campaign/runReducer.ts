@@ -130,6 +130,7 @@ import {
 import {
   campaignFullyCompleteScenarioIndex,
   isCompletingOnboardingExpedition,
+  isOnboardingActive,
   soloTutorialVictoryJustAchieved,
 } from '../onboarding/selectors'
 import {
@@ -237,6 +238,7 @@ export type RunAction =
   | { type: 'SET_ONBOARDING_SKIP' }
   | { type: 'SET_GUIDED_TUTORIAL_DONE' }
   | { type: 'MARK_TUTORIAL_COMPLETE_SEEN' }
+  | { type: 'RESET_CAMPAIGN' }
 
 export { afterCarrierLevelChange }
 
@@ -1620,21 +1622,29 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       if (dest === 'character') {
         const characterId = action.characterId
         if (!characterId || !getCharacter(state, characterId)) return state
-        return withCodexDiscoveries(
+        const bought = withCodexDiscoveries(
           updateCharacter(base, characterId, (c) => ({
             ...c,
             items: [...c.items, inst],
           })),
           [codexEntryId('item', offer.templateId)],
         )
+        if (isOnboardingActive(bought.onboarding)) {
+          return withOnboarding(bought, (o) => completeStep(o, 'shop_first_item_bought'))
+        }
+        return bought
       }
-      return withCodexDiscoveries(
+      const chestResult = withCodexDiscoveries(
         {
           ...base,
           chest: { ...state.chest, items: [...state.chest.items, inst] },
         },
         [codexEntryId('item', offer.templateId)],
       )
+      if (isOnboardingActive(chestResult.onboarding)) {
+        return withOnboarding(chestResult, (o) => completeStep(o, 'shop_first_item_bought'))
+      }
+      return chestResult
     }
     case 'MOVE_CHEST_ITEM_TO_CHARACTER': {
       if (!assertHubActionAllowed(state, 'transfer')) return state
@@ -1801,6 +1811,8 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       return withOnboarding(state, (o) => ({ ...o, guidedTutorialDone: true }))
     case 'MARK_TUTORIAL_COMPLETE_SEEN':
       return withOnboarding(state, markTutorialCompleteSeen)
+    case 'RESET_CAMPAIGN':
+      return syncCompletedMilestones(initialCampaignState())
     case 'RENAME_CHARACTER': {
       if (!assertHubActionAllowed(state, 'equip')) return state
       const hero = getCharacter(state, action.characterId)

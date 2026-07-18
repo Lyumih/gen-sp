@@ -40,6 +40,7 @@ export function CampaignHub() {
   const dismissedCoachMarkIds = useGameStore((s) => s.onboardingUi.dismissedCoachMarkIds)
   const dismissCoachMark = useGameStore((s) => s.dismissCoachMark)
   const [goalsDrawerOpen, setGoalsDrawerOpen] = useState(false)
+  const [helpFocusArticleId, setHelpFocusArticleId] = useState<string | null>(null)
   const [replaySlot, setReplaySlot] = useState(0)
   const done = campaign.scenarioIndex >= SCENARIOS.length
   const scenario = SCENARIOS[campaign.scenarioIndex]
@@ -65,11 +66,22 @@ export function CampaignHub() {
   const showPostGraduationGoals = onboarding.graduated || onboarding.skipMode
 
   const activeCoachId = useMemo(() => {
+    const dismissed = new Set(dismissedCoachMarkIds)
+    const pick = (id: string) => (dismissed.has(id) ? null : id)
+
+    if (onboarding.graduated && activeTab === 'battle') {
+      return pick('trials-intro')
+    }
+
     if (!shouldShowCoachMarks(onboarding)) return null
     if (!hasCompletedStep(onboarding, 'welcome_seen')) return null
 
-    const dismissed = new Set(dismissedCoachMarkIds)
-    const pick = (id: string) => (dismissed.has(id) ? null : id)
+    if (
+      hasCompletedStep(onboarding, 'shop_first_item_bought') &&
+      (activeTab === 'character' || activeTab === 'shop')
+    ) {
+      return pick('shop-equip-next')
+    }
 
     if (!hasCompletedStep(onboarding, 'first_battle_started')) {
       return activeTab === 'battle' ? pick('battle-start-solo') : pick('hub-battle-btn')
@@ -223,6 +235,7 @@ export function CampaignHub() {
 
   const equip = (characterId: string, itemId: string, slot: EquipmentSlot) => {
     dispatchRun({ type: 'EQUIP_ITEM', characterId, itemId, slot })
+    dismissCoachMark('shop-equip-next')
   }
 
   const unequip = (characterId: string, slot: EquipmentSlot) => {
@@ -326,7 +339,6 @@ export function CampaignHub() {
         open={showWelcome}
         onStart={() => {
           dispatchRun({ type: 'MARK_ONBOARDING_STEP', stepId: 'welcome_seen' })
-          setHubActiveTab('battle')
         }}
         onSkip={skipOnboarding}
       />
@@ -340,6 +352,10 @@ export function CampaignHub() {
         onGoShop={() => {
           dispatchRun({ type: 'MARK_ONBOARDING_STEP', stepId: 'shop_visited' })
           setHubActiveTab('shop')
+        }}
+        onGoHelp={() => {
+          setHelpFocusArticleId('memento')
+          setHubActiveTab('help')
         }}
       />
 
@@ -477,7 +493,12 @@ export function CampaignHub() {
 
         {activeTab === 'codex' ? <CampaignCodexTab campaign={campaign} /> : null}
 
-        {activeTab === 'help' ? <CampaignHelpTab /> : null}
+        {activeTab === 'help' ? (
+          <CampaignHelpTab
+            focusArticleId={helpFocusArticleId}
+            onFocusConsumed={() => setHelpFocusArticleId(null)}
+          />
+        ) : null}
       </Space>
       </div>
     </GameShell>

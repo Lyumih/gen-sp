@@ -13,7 +13,7 @@ export const GUIDED_TUTORIAL_STEPS: readonly GuidedTutorialStep[] = [
     requiresAck: true,
   },
   {
-    hint: 'Нажмите «Ход» и выберите подсвеченную клетку ближе к врагу.',
+    hint: 'Выберите подсвеченную зелёную клетку ближе к врагу.',
     allowedModes: ['move'],
   },
   {
@@ -23,6 +23,10 @@ export const GUIDED_TUTORIAL_STEPS: readonly GuidedTutorialStep[] = [
   {
     hint: '«Удар» — клик по врагу на соседней клетке.',
     allowedModes: ['melee'],
+  },
+  {
+    hint: 'Если ходить и бить больше нечем — нажмите «Завершить ход».',
+    allowedModes: ['move', 'melee', 'card'],
   },
   {
     hint: 'Повторяйте удары. Умение качается при применении (необязательно).',

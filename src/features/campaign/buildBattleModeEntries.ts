@@ -9,6 +9,7 @@ import type { ExpeditionChainConfig } from '../../game/expedition/config'
 import type { PlaceholderModeDef } from '../../game/modes/placeholders'
 import type { CampaignState } from '../../game/types'
 import { BATTLE_MODE_CATEGORY } from './battleModeCategories'
+import { getScenarioDisplayLabel } from '../../game/campaign/scenarioLabels'
 
 export type BattleModeListEntry =
   | {
@@ -27,7 +28,7 @@ export type BattleModeListEntry =
 function trainingBadge(campaign: CampaignState, done: boolean): string | undefined {
   if (done) return 'Пройдено · повторить'
   const scenario = SCENARIOS[campaign.scenarioIndex]
-  const label = scenario?.id ?? '…'
+  const label = scenario ? getScenarioDisplayLabel(scenario.id) : '…'
   return `Бой ${campaign.scenarioIndex + 1} / ${SCENARIOS.length} — ${label}`
 }
 

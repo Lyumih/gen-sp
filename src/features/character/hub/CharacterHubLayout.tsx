@@ -1,7 +1,9 @@
 import { useReducer, useState, type ReactNode } from 'react'
-import { Modal, Tabs } from 'antd'
+import { Alert, Modal, Tabs } from 'antd'
 import { getActiveCharacter, getCharacter } from '../../../game/character/selectors'
 import { stashItemsFromCampaign } from '../../../game/equipment/stashOrder'
+import { hasCompletedStep } from '../../../game/onboarding/onboardingState'
+import { isOnboardingActive } from '../../../game/onboarding/selectors'
 import type { CampaignState, EquipmentSlot } from '../../../game/types'
 import { EquipmentInventoryView } from '../../inventory/EquipmentInventoryView'
 import { CardsInventoryView } from '../../inventory/CardsInventoryView'
@@ -136,6 +138,9 @@ export function CharacterHubLayout({
   const passiveCount = selectedCharacter.passives.length
 
   const narrow = useNarrowViewport()
+  const showPreShopPlaceholder =
+    isOnboardingActive(campaign.onboarding) &&
+    !hasCompletedStep(campaign.onboarding, 'shop_visited')
 
   const stashTabLabelNode = (tab: 'items' | 'cards' | 'passives' | 'chest', count: number) => (
     <span aria-label={stashTabAriaLabel(tab, count)}>
@@ -159,7 +164,19 @@ export function CharacterHubLayout({
       activeKey={stashTab}
       onChange={(key) => setStashTab(key as StashTabKey)}
       items={[
-        { key: 'items', label: stashTabLabelNode('items', itemCount), children: itemsPanel },
+        {
+          key: 'items',
+          label: stashTabLabelNode('items', itemCount),
+          children: showPreShopPlaceholder ? (
+            <Alert
+              type="info"
+              showIcon
+              title="Экипировка и предметы появятся после визита в магазин."
+            />
+          ) : (
+            itemsPanel
+          ),
+        },
         {
           key: 'cards',
           label: stashTabLabelNode('cards', cardCount),

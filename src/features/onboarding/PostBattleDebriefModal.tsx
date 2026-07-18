@@ -9,6 +9,7 @@ export type PostBattleDebriefModalProps = {
   open: boolean
   onClose: () => void
   onGoShop?: () => void
+  onGoHelp?: () => void
 }
 
 export function PostBattleDebriefModal({
@@ -16,8 +17,13 @@ export function PostBattleDebriefModal({
   open,
   onClose,
   onGoShop,
+  onGoHelp,
 }: PostBattleDebriefModalProps) {
   const copy = kind === 'first_victory' ? FIRST_VICTORY_DEBRIEF : FIRST_DEFEAT_DEBRIEF
+  const helpLinkLabel =
+    kind === 'first_victory'
+      ? FIRST_VICTORY_DEBRIEF.helpLinkLabel
+      : FIRST_DEFEAT_DEBRIEF.helpLinkLabel
 
   return (
     <Modal
@@ -50,6 +56,11 @@ export function PostBattleDebriefModal({
           {line}
         </Typography.Paragraph>
       ))}
+      {onGoHelp ? (
+        <Button type="link" size="small" style={{ padding: 0 }} onClick={onGoHelp}>
+          {helpLinkLabel}
+        </Button>
+      ) : null}
     </Modal>
   )
 }

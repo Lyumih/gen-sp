@@ -9,6 +9,7 @@ import {
 import { syncCompletedMilestones } from '../game/milestones/evaluateMilestones'
 import { createDebouncedSave, loadSave } from '../game/persistence/localStorage'
 import { STORAGE_KEY } from '../game/persistence/schema'
+import { isOnboardingActive } from '../game/onboarding/selectors'
 
 export type GameStoreState = {
   campaign: CampaignState
@@ -32,6 +33,7 @@ export type GameStoreState = {
   dispatchRun: (action: RunAction) => void
   dispatchBattle: (action: BattleAction) => void
   hydrateFromStorage: () => void
+  resetCampaign: () => void
 }
 
 function browserStorage(): Storage | null {
@@ -46,9 +48,15 @@ function readInitialCampaign(): CampaignState {
   return syncCompletedMilestones(loaded ?? initialCampaignState())
 }
 
+function initialHubTab(campaign: CampaignState): CampaignHubTab {
+  return isOnboardingActive(campaign.onboarding) ? 'battle' : 'character'
+}
+
+const initialCampaign = readInitialCampaign()
+
 export const useGameStore = create<GameStoreState>((set, get) => ({
-  campaign: readInitialCampaign(),
-  hubActiveTab: 'character',
+  campaign: initialCampaign,
+  hubActiveTab: initialHubTab(initialCampaign),
   hubBattleFocusSection: null,
   autoBattleEnabled: false,
   onboardingUi: {
@@ -86,7 +94,27 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const st = browserStorage()
     if (!st) return
     const loaded = loadSave(st, STORAGE_KEY)
-    if (loaded) set({ campaign: syncCompletedMilestones(loaded) })
+    if (loaded) {
+      const campaign = syncCompletedMilestones(loaded)
+      set({ campaign, hubActiveTab: initialHubTab(campaign) })
+    }
+  },
+  resetCampaign: () => {
+    const st = browserStorage()
+    if (st) st.removeItem(STORAGE_KEY)
+    const campaign = syncCompletedMilestones(initialCampaignState())
+    set({
+      campaign,
+      hubActiveTab: initialHubTab(campaign),
+      hubBattleFocusSection: null,
+      autoBattleEnabled: false,
+      onboardingUi: {
+        checklistExpanded: true,
+        activeCoachMarkId: null,
+        guidedBattleStep: 0,
+        dismissedCoachMarkIds: [],
+      },
+    })
   },
 }))
 

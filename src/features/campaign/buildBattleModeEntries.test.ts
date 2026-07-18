@@ -16,6 +16,7 @@ describe('buildBattleModeEntries', () => {
     if (entries[0]?.kind === 'chain') {
       expect(entries[0].chain.id).toBe('campaign-main')
       expect(entries[0].categoryLabel).toBe('Обучение')
+      expect(entries[0].badge).toContain('Первая схватка')
     }
   })
 

@@ -28,6 +28,7 @@ import { getPrimaryCharacter } from './selectors'
 import { LEGACY_HERO_CHARACTER_ID, MAX_ROSTER_SIZE } from '../character/constants'
 import { getCharacter } from '../character/selectors'
 import { testCreateCharacter } from '../stats/testFixtures'
+import { hasCompletedStep } from '../onboarding/onboardingState'
 import { TAVERN_REFRESH_COST } from '../tavern/generateCandidates'
 import { generateOffer } from '../memento/modOffers'
 import { MOD_OFFER_POOL } from '../content/modTemplates'
@@ -2438,6 +2439,24 @@ describe('chest and shop offers', () => {
     expect(s.chest.items).toHaveLength(1)
     expect(s.chest.items[0]!.templateId).toBe('wooden_sword')
     expect(hero(s).items).toHaveLength(0)
+  })
+
+  it('BUY_SHOP_OFFER item during onboarding marks shop_first_item_bought', () => {
+    let s: CampaignState = {
+      ...initialCampaignState(),
+      gold: 100,
+      shopOffers: [{ kind: 'item' as const, templateId: 'wooden_sword' }],
+    }
+    s = applyRunAction(s, { type: 'BUY_SHOP_OFFER', offerIndex: 0 })
+    expect(hasCompletedStep(s.onboarding, 'shop_first_item_bought')).toBe(true)
+  })
+
+  it('RESET_CAMPAIGN returns fresh campaign state', () => {
+    let s = initialCampaignState()
+    s = applyRunAction(s, { type: 'MARK_ONBOARDING_STEP', stepId: 'welcome_seen' })
+    s = applyRunAction(s, { type: 'RESET_CAMPAIGN' })
+    expect(s.onboarding.completedSteps).toEqual([])
+    expect(s.gold).toBe(initialCampaignState().gold)
   })
 
   it('BUY_SHOP_OFFER passive adds passive to chest', () => {

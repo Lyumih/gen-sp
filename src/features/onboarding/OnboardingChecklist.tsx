@@ -30,14 +30,24 @@ export function OnboardingChecklist({ campaign }: OnboardingChecklistProps) {
             const active = !done && index === firstOpenIndex
             return (
               <List.Item style={{ padding: '2px 0', border: 'none' }}>
-                <Typography.Text
-                  delete={done}
-                  strong={active}
-                  type={done ? 'secondary' : undefined}
-                >
-                  {done ? '✓ ' : active ? '→ ' : '○ '}
-                  {step.label}
-                </Typography.Text>
+                <div>
+                  <Typography.Text
+                    delete={done}
+                    strong={active}
+                    type={done ? 'secondary' : undefined}
+                  >
+                    {done ? '✓ ' : active ? '→ ' : '○ '}
+                    {step.label}
+                  </Typography.Text>
+                  {active && step.hint ? (
+                    <Typography.Text
+                      type="secondary"
+                      style={{ display: 'block', fontSize: 12, marginTop: 2 }}
+                    >
+                      {step.hint}
+                    </Typography.Text>
+                  ) : null}
+                </div>
               </List.Item>
             )
           }}

@@ -78,3 +78,19 @@
   color: #8c8c8c;
   background: transparent;
 }
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes guided-move-pulse {
+    0%,
+    100% {
+      box-shadow: 0 0 0 2px rgba(82, 196, 26, 0.9);
+    }
+    50% {
+      box-shadow: 0 0 0 4px rgba(82, 196, 26, 0.45);
+    }
+  }
+
+  .battle-cell--guided-move {
+    animation: guided-move-pulse 1.2s ease-in-out infinite;
+  }
+}

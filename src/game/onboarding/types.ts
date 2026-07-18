@@ -6,6 +6,7 @@ export type OnboardingStepId =
   | 'shop_visited'
   | 'expedition_started'
   | 'expedition_completed'
+  | 'shop_first_item_bought'
   | 'memento_defeat_debrief'
 
 export type OnboardingState = {

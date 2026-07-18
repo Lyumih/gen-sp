@@ -865,12 +865,9 @@ export function BattleScreen() {
             </>
           }
           action={
-            <Space>
-              <Button type="primary" onClick={finalizeVictoryToHub}>
-                Продолжить
-              </Button>
-              <Button onClick={finalizeVictoryToHub}>Закончить</Button>
-            </Space>
+            <Button type="primary" onClick={finalizeVictoryToHub}>
+              Продолжить в хаб
+            </Button>
           }
         />
       )}
@@ -946,7 +943,12 @@ export function BattleScreen() {
                 aoe: overlayActive && overlaySets.aoePreviewCells.has(k),
                 validTarget: showValidTarget,
               })
-              const cellClassName = `${isExploding ? 'battle-cell-explosion' : ''}${isPendingAoe ? ' battle-cell-aoe-pending' : ''}${isUnitHighlighted && u ? ' battle-cell-unit-highlight' : ''}`
+              const isGuidedMove =
+                guidedActive &&
+                mode === 'move' &&
+                overlayActive &&
+                overlaySets.moveCells.has(k)
+              const cellClassName = `${isExploding ? 'battle-cell-explosion' : ''}${isPendingAoe ? ' battle-cell-aoe-pending' : ''}${isUnitHighlighted && u ? ' battle-cell-unit-highlight' : ''}${isGuidedMove ? ' battle-cell--guided-move' : ''}`
               const sharedButtonStyle: CSSProperties = {
                 width: CELL_PX,
                 height: CELL_PX,
@@ -996,6 +998,11 @@ export function BattleScreen() {
                   key={k}
                   type="button"
                   className={cellClassName}
+                  aria-label={
+                    isGuidedMove
+                      ? `Ход: клетка (${x + 1}, ${y + 1})`
+                      : `Пустая клетка (${x + 1}, ${y + 1})`
+                  }
                   onClick={() => onCellClick(x, y)}
                   onMouseEnter={() => handleCellMouseEnter(x, y)}
                   style={sharedButtonStyle}
@@ -1161,7 +1168,12 @@ export function BattleScreen() {
                 <Button
                   style={{ marginTop: 8 }}
                   disabled={actionsDisabled || animationPlaying}
-                  onClick={() => dispatchBattle({ type: 'end_turn' })}
+                  onClick={() => {
+                    dispatchBattle({ type: 'end_turn' })
+                    if (guidedActive && guidedBattleStep === 4) {
+                      setGuidedBattleStep(5)
+                    }
+                  }}
                 >
                   Завершить ход
                 </Button>

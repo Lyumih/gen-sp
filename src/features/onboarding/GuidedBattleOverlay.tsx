@@ -1,4 +1,4 @@
-import { Alert, Button } from 'antd'
+import { Alert, Button, Typography } from 'antd'
 import { GUIDED_TUTORIAL_STEPS } from '../../game/onboarding/guidedTutorial'
 
 export type GuidedBattleOverlayProps = {
@@ -15,7 +15,17 @@ export function GuidedBattleOverlay({ stepIndex, onAck }: GuidedBattleOverlayPro
       type="info"
       showIcon
       title="Обучение"
-      description={step.hint}
+      description={
+        <>
+          {step.hint}
+          <Typography.Text
+            type="secondary"
+            style={{ display: 'block', fontSize: 12, marginTop: 4 }}
+          >
+            Автобой отключён на время обучения.
+          </Typography.Text>
+        </>
+      }
       action={
         step.requiresAck && onAck ? (
           <Button size="small" type="primary" onClick={onAck}>
