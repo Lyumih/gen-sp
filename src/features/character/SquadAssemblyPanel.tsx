@@ -9,10 +9,8 @@ import { getCharacterDisplay } from '../../game/character/display'
 import { getCharacterClass } from '../../game/content/characterClasses'
 import type { CampaignState } from '../../game/types'
 import { UI_LEVEL } from '../../game/ui/labels'
-import { parseDragId, rosterCharacterDragId, squadSlotDragId } from '../inventory/inventoryDnD'
 import { InventoryCell, type InventoryCellState } from '../inventory/InventoryCell'
-import { SectionHelp } from '../layout/SectionHelp'
-import { SQUAD_SECTION_HELP } from '../campaign/sectionTooltips'
+import { parseDragId, rosterCharacterDragId, squadSlotDragId } from '../inventory/inventoryDnD'
 import '../inventory/inventory.css'
 
 export type SquadAssemblyPanelProps = {
@@ -72,7 +70,6 @@ function SquadAssemblySlot({
 
   return (
     <div className="inv-slot-wrap">
-      <Typography.Text className="inv-slot-label">Слот {slotIndex + 1}</Typography.Text>
       <div
         ref={(node) => {
           setNodeRef(node)
@@ -163,31 +160,30 @@ export function SquadAssemblyPanel({
   const markedSet = new Set(markedIds)
 
   return (
-    <div>
-      <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
-        Отряд <SectionHelp content={SQUAD_SECTION_HELP} />
-      </Typography.Text>
-      <div className="inv-slot-row">
-        {campaign.squad.map((characterId, slotIndex) => (
-          <SquadAssemblySlot
-            key={slotIndex}
-            slotIndex={slotIndex}
-            characterId={characterId}
-            campaign={campaign}
-            disabled={disabled}
-            marked={characterId !== null && markedSet.has(characterId)}
-            onToggleMark={onToggleMark}
-            onSetSquadSlot={onSetSquadSlot}
-            activeDragId={activeDragId}
-          />
-        ))}
+    <div className="squad-assembly">
+      <div className="squad-assembly__active">
+        <div className="inv-slot-row">
+          {campaign.squad.map((characterId, slotIndex) => (
+            <SquadAssemblySlot
+              key={slotIndex}
+              slotIndex={slotIndex}
+              characterId={characterId}
+              campaign={campaign}
+              disabled={disabled}
+              marked={characterId !== null && markedSet.has(characterId)}
+              onToggleMark={onToggleMark}
+              onSetSquadSlot={onSetSquadSlot}
+              activeDragId={activeDragId}
+            />
+          ))}
+        </div>
       </div>
-      {reserve.length > 0 ? (
-        <>
-          <Typography.Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 12 }}>
-            Резерв
-          </Typography.Text>
-          <div className="inv-slot-row" style={{ marginTop: 4 }}>
+      <div className="squad-assembly__reserve">
+        <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+          Резерв
+        </Typography.Text>
+        {reserve.length > 0 ? (
+          <div className="squad-assembly__reserve-cells">
             {reserve.map((c) => (
               <ReserveCell
                 key={c.id}
@@ -198,8 +194,12 @@ export function SquadAssemblyPanel({
               />
             ))}
           </div>
-        </>
-      ) : null}
+        ) : (
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            пусто
+          </Typography.Text>
+        )}
+      </div>
     </div>
   )
 }
