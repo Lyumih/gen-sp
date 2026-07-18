@@ -7,6 +7,7 @@ import {
   type RunAction,
 } from '../game/campaign/runReducer'
 import { syncCompletedMilestones } from '../game/milestones/evaluateMilestones'
+import { createDebouncedSave, loadSave } from '../game/persistence/localStorage'
 import { STORAGE_KEY } from '../game/persistence/schema'
 
 export type GameStoreState = {
