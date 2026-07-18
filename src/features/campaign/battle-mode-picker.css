@@ -25,3 +25,15 @@
 .game-mode-section--inactive .game-mode-section__title {
   color: rgba(0, 0, 0, 0.45);
 }
+
+.game-mode-strip {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  padding-bottom: 4px;
+}
+
+.game-mode-strip .game-mode-tile {
+  flex: 0 0 140px;
+  width: 140px;
+}
