@@ -296,40 +296,40 @@ export function CharacterHubLayout({
               canReleaseCharacter={canReleaseCharacter}
             />
           ),
-          buildColumn: (
-            <>
-              <CharacterBuildPanel
-                campaign={campaign}
-                characterId={activeCharacterId}
-                focus={focus}
-                previewItemId={previewItemId}
-              />
-              <CardsInventoryView
-                campaign={campaign}
-                characterId={activeCharacterId}
-                inBattle={inBattle}
-                inventoryLocked={expeditionActive}
-                modsDisabled={modsDisabled}
-                modsDisabledTooltip={modsDisabledTooltip}
-                embedded
-                hubSection="loadout"
-                onReorderCards={cardHandlers.onReorderCards}
-                onSetBattleLoadout={cardHandlers.onSetBattleLoadout}
-                onSetPassiveEquip={cardHandlers.onSetPassiveEquip}
-                onPickModOffer={(carrierKind, carrierId, slotIndex, modTemplateId) =>
-                  onPickModOffer(
-                    activeCharacterId,
-                    carrierKind,
-                    carrierId,
-                    slotIndex,
-                    modTemplateId,
-                  )
-                }
-                onRemoveMod={(carrierKind, carrierId, slotIndex) =>
-                  onRemoveMod(activeCharacterId, carrierKind, carrierId, slotIndex)
-                }
-              />
-            </>
+          buildHeader: (
+            <CharacterBuildPanel
+              campaign={campaign}
+              characterId={activeCharacterId}
+              focus={focus}
+              previewItemId={previewItemId}
+            />
+          ),
+          loadoutPanel: (
+            <CardsInventoryView
+              campaign={campaign}
+              characterId={activeCharacterId}
+              inBattle={inBattle}
+              inventoryLocked={expeditionActive}
+              modsDisabled={modsDisabled}
+              modsDisabledTooltip={modsDisabledTooltip}
+              embedded
+              hubSection="loadout"
+              onReorderCards={cardHandlers.onReorderCards}
+              onSetBattleLoadout={cardHandlers.onSetBattleLoadout}
+              onSetPassiveEquip={cardHandlers.onSetPassiveEquip}
+              onPickModOffer={(carrierKind, carrierId, slotIndex, modTemplateId) =>
+                onPickModOffer(
+                  activeCharacterId,
+                  carrierKind,
+                  carrierId,
+                  slotIndex,
+                  modTemplateId,
+                )
+              }
+              onRemoveMod={(carrierKind, carrierId, slotIndex) =>
+                onRemoveMod(activeCharacterId, carrierKind, carrierId, slotIndex)
+              }
+            />
           ),
           renderStashTabs,
         }}

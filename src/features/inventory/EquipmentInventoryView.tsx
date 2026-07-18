@@ -98,10 +98,11 @@ type EquipmentInventoryViewProps = {
   sideContent?: ReactNode
   dndBeforeContent?: (activeDragId: string | null) => ReactNode
   dndAfterContent?: (activeDragId: string | null) => ReactNode
-  /** 3-column character hub: rail | buildColumn+equip | stash tabs */
+  /** 3-column character hub: rail | buildHeader+equip+loadout | stash tabs */
   characterHub?: {
     rail: ReactNode
-    buildColumn: ReactNode
+    buildHeader: ReactNode
+    loadoutPanel: ReactNode
     renderStashTabs: (itemsPanel: ReactNode) => ReactNode
   }
   /** Card/passive drag when characterHub merges DnD */
@@ -645,14 +646,11 @@ export function EquipmentInventoryView({
 
   const equipSection = (
     <div>
-      {!hideInnerSectionTitles && !characterHub ? (
-        <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+      {!hideInnerSectionTitles ? (
+        <Typography.Text strong style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>
           Экипировка
         </Typography.Text>
       ) : null}
-      <Typography.Text strong style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>
-        Надето
-      </Typography.Text>
       <div className="inv-slot-row">
         {EQUIPMENT_ROLL_ORDER.map((slot) => {
           const equippedId = hero.equipment[slot]
@@ -789,8 +787,9 @@ export function EquipmentInventoryView({
     <div className="game-character-hub">
       {characterHub.rail}
       <Space orientation="vertical" size="small" style={{ width: '100%' }}>
-        {characterHub.buildColumn}
+        {characterHub.buildHeader}
         {equipSection}
+        {characterHub.loadoutPanel}
         {modPicker}
       </Space>
       <div style={{ minWidth: 0 }}>
