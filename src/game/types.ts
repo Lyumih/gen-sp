@@ -345,6 +345,7 @@ export type BattleAttemptSnapshot = {
 }
 
 import type { OnboardingState } from './onboarding/types'
+import type { MilestoneId } from './milestones/types'
 
 /** Снимок кампании: цепочка сценариев и мета-прогресс. */
 export type CampaignState = {
@@ -371,4 +372,5 @@ export type CampaignState = {
   shopRefreshSeed: number
   pendingHubNotice: HubNotice | null
   onboarding: OnboardingState
+  completedMilestones: readonly MilestoneId[]
 }

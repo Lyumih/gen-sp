@@ -14,6 +14,7 @@ import {
   normalizeLoadedCampaign,
 } from './migrate'
 import { SAVE_VERSION } from './schema'
+import { DEFAULT_ONBOARDING } from '../onboarding/onboardingState'
 import { MOD_SLOT_MILESTONES } from '../config/modSlotMilestones'
 import { EMPTY_EQUIPMENT } from '../equipment/equipmentOrder'
 
@@ -418,7 +419,7 @@ describe('migrate v8 → v9 passives and loadout', () => {
     const v8 = { version: 8 as const, campaign: v8CampaignWithoutPassives(initialCampaignState()) }
     const out = migrateFromUnknown(v8)
     expect(out).not.toBeNull()
-    expect(SAVE_VERSION).toBe(11)
+    expect(SAVE_VERSION).toBe(12)
     expect(hero(out!).passives).toEqual([])
     expect(hero(out!).passiveEquip).toEqual([null, null, null, null, null])
     expect(hero(out!).battleLoadout).toHaveLength(4)
@@ -500,6 +501,39 @@ describe('migrate v8 → v9 passives and loadout', () => {
     const out = migrateFromUnknown({ version: 11, campaign: initialCampaignState() })
     expect(out).not.toBeNull()
     expect(out!.onboarding.graduated).toBe(false)
+  })
+})
+
+function minimalCampaignV11(): CampaignState {
+  const c = initialCampaignState()
+  const onboarding = { ...c.onboarding }
+  delete (onboarding as { tutorialCompleteSeen?: boolean }).tutorialCompleteSeen
+  const { completedMilestones: _, ...rest } = c as CampaignState & {
+    completedMilestones?: readonly string[]
+  }
+  return { ...rest, onboarding } as CampaignState
+}
+
+describe('migrate v11 → v12 tutorialCompleteSeen and completedMilestones', () => {
+  it('migrateV11CampaignToV12 adds tutorialCompleteSeen and completedMilestones', () => {
+    const legacy = {
+      ...minimalCampaignV11(),
+      onboarding: { ...DEFAULT_ONBOARDING },
+    }
+    delete (legacy.onboarding as { tutorialCompleteSeen?: boolean }).tutorialCompleteSeen
+    const out = migrateFromUnknown({ version: 11, campaign: legacy })
+    expect(out!.onboarding.tutorialCompleteSeen).toBe(false)
+    expect(out!.completedMilestones).toEqual([])
+  })
+
+  it('migrateV11CampaignToV12 auto-seen for already graduated saves', () => {
+    const legacy = {
+      ...minimalCampaignV11(),
+      scenarioIndex: 3,
+      onboarding: { ...DEFAULT_ONBOARDING, graduated: true },
+    }
+    const out = migrateFromUnknown({ version: 11, campaign: legacy })
+    expect(out!.onboarding.tutorialCompleteSeen).toBe(true)
   })
 })
 

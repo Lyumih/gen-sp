@@ -5,6 +5,7 @@ export const DEFAULT_ONBOARDING: OnboardingState = {
   completedSteps: [],
   guidedTutorialDone: false,
   graduated: false,
+  tutorialCompleteSeen: false,
 }
 
 export function hasCompletedStep(
@@ -35,4 +36,9 @@ export function graduateOnboarding(onboarding: OnboardingState): OnboardingState
     graduated: true,
     guidedTutorialDone: true,
   }
+}
+
+export function markTutorialCompleteSeen(onboarding: OnboardingState): OnboardingState {
+  if (onboarding.tutorialCompleteSeen) return onboarding
+  return { ...onboarding, tutorialCompleteSeen: true }
 }

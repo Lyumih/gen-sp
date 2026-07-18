@@ -13,4 +13,5 @@ export type OnboardingState = {
   completedSteps: readonly OnboardingStepId[]
   guidedTutorialDone: boolean
   graduated: boolean
+  tutorialCompleteSeen: boolean
 }

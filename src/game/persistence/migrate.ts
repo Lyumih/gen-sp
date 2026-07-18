@@ -742,6 +742,25 @@ export function migrateV10CampaignToV11(c: CampaignState): CampaignState {
   return withOnboarding
 }
 
+export function migrateV11CampaignToV12(c: CampaignState): CampaignState {
+  const onboarding = {
+    ...DEFAULT_ONBOARDING,
+    ...c.onboarding,
+    tutorialCompleteSeen: c.onboarding?.tutorialCompleteSeen ?? false,
+  }
+  const graduated = onboarding.graduated
+  const done = c.scenarioIndex >= SCENARIOS.length
+  const autoSeen = graduated || (done && onboarding.skipMode)
+  return {
+    ...c,
+    onboarding: {
+      ...onboarding,
+      tutorialCompleteSeen: autoSeen ? true : onboarding.tutorialCompleteSeen,
+    },
+    completedMilestones: c.completedMilestones ?? [],
+  }
+}
+
 export function migrateV2CampaignToV3(c: LegacyCampaignStateV2): CampaignState {
   const raw = c as Record<string, unknown>
   const heroBaseStats = { ...STARTER_HERO_BASE_STATS }
@@ -1043,10 +1062,11 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
     version !== 8 &&
     version !== 9 &&
     version !== 10 &&
-    version !== 11
+    version !== 11 &&
+    version !== 12
   ) {
     console.warn(
-      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, or 11`,
+      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, or 12`,
     )
     return null
   }
@@ -1076,6 +1096,7 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
     campaign = migrateV9CampaignToV10(campaign)
   }
   campaign = migrateV10CampaignToV11(campaign)
+  campaign = migrateV11CampaignToV12(campaign)
   return campaign
 }
 

@@ -1857,5 +1857,6 @@ export function initialCampaignState(): CampaignState {
     shopRefreshSeed: 0,
     pendingHubNotice: null,
     onboarding: { ...DEFAULT_ONBOARDING },
+    completedMilestones: [],
   }
 }
