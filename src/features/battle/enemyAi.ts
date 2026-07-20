@@ -14,6 +14,8 @@ import {
   usesCardAoEDispatch,
   usesCardUtilitySingleDispatch,
 } from '../../game/content/cardTemplates'
+import { canAffordManaCost, effectiveManaCostForTemplate } from '../../game/battle/mana'
+import type { ModCombatContext } from '../../game/mods/modPipeline'
 import { ORTHO_DELTAS, cellKey, manhattan, wallSet } from '../../game/battle/grid'
 import {
   aoeCastTargetCells,
@@ -40,8 +42,18 @@ function actorEnemyCards(state: BattleState, actorId: string): readonly BattlePl
   return state.enemyCardsByUnitId?.[actorId] ?? []
 }
 
-function cardReady(c: BattlePlayerCard): boolean {
-  return (c.cooldownRemaining ?? 0) <= 0
+function cardModCtx(c: BattlePlayerCard): ModCombatContext {
+  return { carrierTags: [], modSlots: c.modSlots, rng: () => 100 }
+}
+
+function cardAffordable(actor: Unit, c: BattlePlayerCard): boolean {
+  const cost = effectiveManaCostForTemplate(c.templateId, cardModCtx(c))
+  if (cost === null) return false
+  return canAffordManaCost(actor, cost)
+}
+
+function cardReady(c: BattlePlayerCard, actor: Unit): boolean {
+  return (c.cooldownRemaining ?? 0) <= 0 && cardAffordable(actor, c)
 }
 
 function wallsOf(state: BattleState): ReadonlySet<string> {
@@ -161,7 +173,7 @@ function pickBestSkillAction(actor: Unit, state: BattleState): CardAttackDecisio
   let best: { score: number; action: CardAttackDecision } | null = null
   for (const priority of priorities) {
     const card = cards.find((c) => c.templateId === priority.skillId)
-    if (!card || !cardReady(card)) continue
+    if (!card || !cardReady(card, actor)) continue
     const action = scorePriority(actor, state, priority, card)
     if (!action) continue
     if (!best || priority.baseScore > best.score) {

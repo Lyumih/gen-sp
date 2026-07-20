@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, afterEach } from 'vitest'
+import { unitManaFromBaseStats } from '../../game/battle/mana'
 import { LEGACY_HERO_CHARACTER_ID } from '../../game/character/constants'
 import { enemyCardsFromArchetype } from '../../game/battle/enemyCards'
 import * as enemyArchetypes from '../../game/content/enemyArchetypes'
@@ -7,8 +8,14 @@ import type { BattlePlayerCard, BattleState, Unit } from '../../game/types'
 import { pickEnemyAiAction } from './enemyAi'
 
 const HERO_ID = LEGACY_HERO_CHARACTER_ID
+const realGetEnemyArchetype = enemyArchetypes.getEnemyArchetype.bind(enemyArchetypes)
 
 function unit(partial: Unit): Unit {
+  if (partial.mana !== undefined) return partial
+  if (partial.baseStats) {
+    const { mana, maxMana } = unitManaFromBaseStats(partial.baseStats)
+    return { ...partial, mana, maxMana }
+  }
   return partial
 }
 
@@ -50,7 +57,7 @@ function battle(
           defense: 1,
           attack: 2,
           magicPower: 5,
-          mana: 0,
+          mana: 15,
           manaRegen: 0,
           healPower: 0,
           speed: 2,
@@ -81,15 +88,18 @@ const fireCasterArchetype: EnemyArchetype = {
 }
 
 describe('pickEnemyAiAction', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('returns null when not an enemy turn', () => {
     const s = battle({ currentTurnIndex: 1 })
     expect(pickEnemyAiAction(s)).toBeNull()
   })
 
   it('prefers off-CD fireball in range over basic strike', () => {
-    const original = enemyArchetypes.getEnemyArchetype
     vi.spyOn(enemyArchetypes, 'getEnemyArchetype').mockImplementation((id: string) =>
-      id === 'test_fire_caster' ? fireCasterArchetype : original(id),
+      id === 'test_fire_caster' ? fireCasterArchetype : realGetEnemyArchetype(id),
     )
 
     const s = battle({
@@ -103,6 +113,57 @@ describe('pickEnemyAiAction', () => {
       targetY: 0,
     })
     expect(act?.type === 'card_attack' && act.targetX !== undefined).toBe(true)
+  })
+
+  it('skips unaffordable skill and picks basic attack', () => {
+    const shieldBashArchetype: EnemyArchetype = {
+      ...getEnemyArchetype('grunt')!,
+      id: 'test_shield_basher',
+      skillPresets: [{ templateId: 'shield_bash', global_level: 1, modSlots: [] }],
+      skillPriorities: [{ skillId: 'shield_bash', baseScore: 10 }],
+    }
+    const original = realGetEnemyArchetype
+    vi.spyOn(enemyArchetypes, 'getEnemyArchetype').mockImplementation((id: string) =>
+      id === 'test_shield_basher' ? shieldBashArchetype : original(id),
+    )
+
+    const s = battle({
+      units: [
+        unit({ id: HERO_ID, side: 'player', x: 1, y: 0, hp: 10, maxHp: 10, unitLevel: 1 }),
+        unit({
+          id: 'e1',
+          side: 'enemy',
+          x: 0,
+          y: 0,
+          hp: 10,
+          maxHp: 10,
+          unitLevel: 1,
+          mana: 5,
+          maxMana: 10,
+          archetypeId: 'test_shield_basher',
+          baseStats: {
+            health: 10,
+            defense: 1,
+            attack: 2,
+            magicPower: 0,
+            mana: 10,
+            manaRegen: 0,
+            healPower: 0,
+            speed: 2,
+            initiative: 6,
+            critChance: 2,
+          },
+        }),
+      ],
+      enemyCards: [card({ id: 'sb', templateId: 'shield_bash', global_level: 1 })],
+    })
+    const act = pickEnemyAiAction(s)
+    expect(act).toMatchObject({
+      type: 'attack',
+      attackerId: 'e1',
+      targetId: HERO_ID,
+      kind: 'melee',
+    })
   })
 
   it('boss_blink_hunter turn 1 scores boss_blink_adjacent highest', () => {
@@ -129,7 +190,7 @@ describe('pickEnemyAiAction', () => {
           maxHp: 22,
           unitLevel: 1,
           archetypeId: 'boss_blink_hunter',
-          baseStats: bossArchetype.baseStats,
+          baseStats: { ...bossArchetype.baseStats, mana: 15 },
         }),
       ],
       turnOrder: ['boss', 'h-warrior', 'h-ranger'],
