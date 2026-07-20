@@ -73,6 +73,11 @@ export function applyCooldownMods(baseCd: number, ctx: ModCombatContext): number
   return Math.max(0, baseCd + delta)
 }
 
+export function applyManaCostMods(baseCost: number, ctx: ModCombatContext): number {
+  const mult = sumOpsByKind(ctx.modSlots, 'mana_cost_mult')
+  return Math.max(0, Math.ceil(baseCost * (1 + mult)))
+}
+
 export function applyAoeSizeMods(baseSize: number, ctx: ModCombatContext): number {
   return baseSize + sumOpsByKind(ctx.modSlots, 'aoe_size_add')
 }

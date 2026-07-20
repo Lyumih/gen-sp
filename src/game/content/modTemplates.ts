@@ -200,8 +200,8 @@ const MVP_MODS: Record<SpecModId, ModTemplate> = {
     group: 'utility',
     tags: ['skill'],
     requires: ['skill'],
-    enabled: false,
-    descriptionLines: ['−20% к стоимости маны (фаза 2, когда мана в бою).'],
+    enabled: true,
+    descriptionLines: ['−20% к стоимости маны.'],
     ops: [{ kind: 'mana_cost_mult', base: -0.2, scaleMode: 'percent' }],
   },
   'mod-initiative': {

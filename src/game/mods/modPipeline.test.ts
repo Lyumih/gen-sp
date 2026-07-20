@@ -7,6 +7,7 @@ import {
   applyCooldownMods,
   applyDamageMods,
   applyHealMods,
+  applyManaCostMods,
   applyRangeMods,
   computeHealSplashAmount,
   computeLifestealHeal,
@@ -95,6 +96,21 @@ describe('applyRangeMods', () => {
   it('applies range_add +1 at lm=0', () => {
     const slots: ModSlotState[] = [{ status: 'filled', templateId: 'mod-range-up', lm: 0 }]
     expect(applyRangeMods(3, ctx(slots, ['ranged', 'attack', 'skill']))).toBe(4)
+  })
+})
+
+describe('applyManaCostMods', () => {
+  it('mod-mana-save −20% rounds up with ceil', () => {
+    const slots: ModSlotState[] = [{ status: 'filled', templateId: 'mod-mana-save', lm: 0 }]
+    const combatCtx: ModCombatContext = { carrierTags: ['skill'], modSlots: slots, rng: () => 50 }
+    expect(applyManaCostMods(10, combatCtx)).toBe(8)
+    expect(applyManaCostMods(13, combatCtx)).toBe(11)
+  })
+
+  it('never goes below 0', () => {
+    const slots: ModSlotState[] = [{ status: 'filled', templateId: 'mod-mana-save', lm: 0 }]
+    const combatCtx: ModCombatContext = { carrierTags: ['skill'], modSlots: slots, rng: () => 50 }
+    expect(applyManaCostMods(1, combatCtx)).toBeGreaterThanOrEqual(0)
   })
 })
 
