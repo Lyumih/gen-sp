@@ -44,6 +44,8 @@ export type Unit = {
   y: number
   hp: number
   maxHp: number
+  mana?: number
+  maxMana?: number
   unitLevel: number
   archetypeId?: string
   raceId?: RaceId

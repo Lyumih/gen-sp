@@ -24,6 +24,7 @@ import { resolveEnemyUnitDisplay } from '../content/enemyDisplay'
 import { hashSeed } from '../stats/rollBaseStats'
 import type { BattleAttemptSnapshot, BattleState, IconAccentId, Unit } from '../types'
 import { cellKey } from '../battle/grid'
+import { unitManaFromBaseStats } from '../battle/mana'
 
 export type SpawnZone = { xMin: number; xMax: number; yMin: number; yMax: number }
 
@@ -349,12 +350,14 @@ export function makePlayerUnits(
     .filter((member) => placements.has(member.characterId))
     .map((member) => {
       const spawn = placements.get(member.characterId)!
+      const baseStats = { ...member.baseStats }
+      const { mana, maxMana } = unitManaFromBaseStats(baseStats)
       const passiveEquip = member.passiveEquip ?? [null, null, null, null, null]
       const passiveHpBonus =
         aggregatePassiveSkillStatBonuses(
           member.passives ?? [],
           passiveEquip,
-          member.baseStats,
+          baseStats,
         ).health ?? 0
       const maxHp =
         computeCharacterMaxHpForScenario(member, scenario, snapshot.worldPower) + passiveHpBonus
@@ -364,7 +367,7 @@ export function makePlayerUnits(
         getItemTemplate,
       )
       const initiativeBase = computeEffectiveStat(
-        member.baseStats,
+        baseStats,
         'initiative',
         member.unitLevel,
         snapshot.worldPower,
@@ -377,9 +380,11 @@ export function makePlayerUnits(
         y: spawn.y,
         hp: maxHp,
         maxHp,
+        mana,
+        maxMana,
         unitLevel: member.unitLevel,
         initiativeBase,
-        baseStats: { ...member.baseStats },
+        baseStats,
       }
     })
 
@@ -419,6 +424,7 @@ function makeEnemies(
     if (chaotic) chaoticByUnitId[e.id] = chaotic
 
     const baseStats = chaotic?.baseStats ?? enemyBaseStats(e.archetypeId, e.baseHpStat)
+    const { mana, maxMana } = unitManaFromBaseStats(baseStats)
     const maxHp = computeUnitStat({
       baseStat: baseStats.health,
       unitLevel: e.unitLevel,
@@ -438,6 +444,8 @@ function makeEnemies(
       y: e.y,
       hp: maxHp,
       maxHp,
+      mana,
+      maxMana,
       unitLevel: e.unitLevel,
       archetypeId: e.archetypeId,
       raceId: chaotic?.raceId ?? archetype?.raceId,
