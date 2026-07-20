@@ -44,10 +44,10 @@ describe('rollVarianceMult', () => {
     expect(mult as number).toBeLessThanOrEqual(1.5)
   })
 
-  it('returns 9 independent multipliers for chaotic variance', () => {
+  it('returns independent multipliers per stat for chaotic variance', () => {
     const rng = makeSeededRng('chaotic-variance')
     const mults = rollVarianceMult(rng, true, BASE_STAT_IDS.length) as number[]
-    expect(mults).toHaveLength(9)
+    expect(mults).toHaveLength(BASE_STAT_IDS.length)
     for (const m of mults) {
       expect(m).toBeGreaterThanOrEqual(0.5)
       expect(m).toBeLessThanOrEqual(1.5)

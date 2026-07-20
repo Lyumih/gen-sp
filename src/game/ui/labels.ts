@@ -16,6 +16,10 @@ export const UI_MAGIC = '✨'
 
 export const UI_MANA = '🔮'
 
+export const UI_MANA_REGEN = '♻️'
+
+export const UI_COOLDOWN = '⏳'
+
 export const UI_HEAL = '💚'
 
 export const UI_DOT = '🔥'

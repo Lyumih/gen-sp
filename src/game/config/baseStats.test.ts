@@ -2,13 +2,26 @@ import { describe, expect, it } from 'vitest'
 import {
   BASE_STAT_BOUNDS,
   BASE_STAT_IDS,
+  CLASS_MANA_REGEN_ROLL_MAX,
+  CLASS_MANA_ROLL_MAX,
   CLASS_STAT_AFFINITY,
   getStatAffinity,
 } from './baseStats'
 
 describe('baseStats config', () => {
-  it('has 9 stats in display order', () => {
-    expect(BASE_STAT_IDS).toHaveLength(9)
+  it('has manaRegen as 10th stat', () => {
+    expect(BASE_STAT_IDS).toContain('manaRegen')
+    expect(BASE_STAT_IDS).toHaveLength(10)
+  })
+
+  it('warrior mana roll max is at least 15', () => {
+    expect(CLASS_MANA_ROLL_MAX.warrior).toBeGreaterThanOrEqual(15)
+    expect(CLASS_MANA_ROLL_MAX.berserker).toBeGreaterThanOrEqual(15)
+  })
+
+  it('mage has highest mana pool roll max', () => {
+    expect(CLASS_MANA_ROLL_MAX.mage).toBe(35)
+    expect(CLASS_MANA_REGEN_ROLL_MAX.mage).toBe(8)
   })
 
   it('warrior has health and defense as primary', () => {

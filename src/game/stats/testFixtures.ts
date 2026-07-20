@@ -10,6 +10,7 @@ export const TEST_BASE_STATS: BaseStats = {
   attack: 3,
   magicPower: 1,
   mana: 10,
+  manaRegen: 3,
   healPower: 1,
   speed: 2,
   initiative: 8,

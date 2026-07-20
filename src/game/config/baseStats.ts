@@ -7,6 +7,7 @@ import {
   UI_INITIATIVE,
   UI_MAGIC,
   UI_MANA,
+  UI_MANA_REGEN,
   UI_SPEED,
 } from '../ui/labels'
 
@@ -16,6 +17,7 @@ export type StatId =
   | 'attack'
   | 'magicPower'
   | 'mana'
+  | 'manaRegen'
   | 'healPower'
   | 'speed'
   | 'initiative'
@@ -41,6 +43,7 @@ export const BASE_STAT_IDS: readonly StatId[] = [
   'attack',
   'magicPower',
   'mana',
+  'manaRegen',
   'healPower',
   'speed',
   'initiative',
@@ -53,6 +56,7 @@ export const BASE_STAT_BOUNDS: Record<StatId, { min: number; max: number }> = {
   attack: { min: 0, max: 5 },
   magicPower: { min: 0, max: 5 },
   mana: { min: 0, max: 30 },
+  manaRegen: { min: 0, max: 8 },
   healPower: { min: 0, max: 5 },
   speed: { min: 1, max: 3 },
   initiative: { min: 0, max: 10 },
@@ -86,7 +90,12 @@ export const BASE_STAT_META: Record<
   mana: {
     labelRu: 'Мана',
     emoji: UI_MANA,
-    descriptionRu: 'Ресурс для карт (фаза 2+).',
+    descriptionRu: 'Максимум маны в бою (flat).',
+  },
+  manaRegen: {
+    labelRu: 'Реген маны',
+    emoji: UI_MANA_REGEN,
+    descriptionRu: 'Восстановление 🔮 в начале своего хода в бою.',
   },
   healPower: {
     labelRu: 'Сила исцеления',
@@ -124,6 +133,28 @@ export const CLASS_STAT_AFFINITY: Record<
   berserker: { primary: ['attack', 'health'], secondary: ['critChance'] },
 }
 
+export const CLASS_MANA_ROLL_MAX: Record<ClassId, number> = {
+  mage: 35,
+  healer: 30,
+  warlock: 25,
+  paladin: 18,
+  ranger: 12,
+  rogue: 10,
+  warrior: 20,
+  berserker: 18,
+}
+
+export const CLASS_MANA_REGEN_ROLL_MAX: Record<ClassId, number> = {
+  mage: 8,
+  healer: 6,
+  warlock: 5,
+  paladin: 4,
+  ranger: 4,
+  rogue: 3,
+  warrior: 3,
+  berserker: 3,
+}
+
 export function getStatAffinity(classId: string, statId: StatId): StatAffinityKind {
   const affinity = CLASS_STAT_AFFINITY[classId as ClassId]
   if (!affinity) return 'normal'
@@ -139,6 +170,7 @@ export const STARTER_HERO_BASE_STATS: BaseStats = {
   attack: 3,
   magicPower: 0,
   mana: 5,
+  manaRegen: 2,
   healPower: 0,
   speed: 2,
   initiative: 10,
