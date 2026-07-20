@@ -74,6 +74,13 @@ describe('applyVarianceToBaseStats', () => {
   })
 })
 
+describe('enemy archetype manaRegen', () => {
+  it('caster archetypes have manaRegen', () => {
+    const mage = getEnemyArchetype('enemy_storm_caller')!
+    expect(mage.baseStats.manaRegen).toBeGreaterThan(0)
+  })
+})
+
 describe('pickEnemyArchetypesFromPool', () => {
   it('never returns archetypes missing a pool tag', () => {
     const rng = makeSeededRng('forest-pool')
