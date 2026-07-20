@@ -85,7 +85,7 @@ function withHero(
 }
 
 function unit(p: Unit): Unit {
-  return p
+  return { mana: 100, maxMana: 100, ...p }
 }
 
 function heroBattleCards(b: BattleState): readonly BattlePlayerCard[] {

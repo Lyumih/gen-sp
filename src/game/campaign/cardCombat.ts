@@ -5,6 +5,7 @@ import { cellKey, inBounds, manhattan, wallSet } from '../battle/grid'
 import { hasLineOfSight } from '../battle/lineOfSight'
 import { canCastAoEAt, canHealTarget } from '../battle/rangeOverlay'
 import { cellsInAoE } from '../battle/rangeOverlay'
+import { canAffordManaCost, effectiveManaCostForTemplate, spendMana } from '../battle/mana'
 import {
   appendUnitStatus,
   frenzyDefenseDebuff,
@@ -74,7 +75,7 @@ function applyCardUseWithOwnerLuck(
     lucky ? { lucky: true } : undefined,
   )
 }
-function cardModCombatContext(
+export function cardModCombatContext(
   state: CampaignState,
   actorId: string,
   card: BattlePlayerCard,
@@ -97,6 +98,16 @@ function cardModCombatContext(
       )
     },
   }
+}
+
+export function assertActorCanPayManaCost(
+  actor: Unit,
+  card: BattlePlayerCard,
+  modCtx: ModCombatContext,
+): number | null {
+  const cost = effectiveManaCostForTemplate(card.templateId, modCtx)
+  if (cost === null || !canAffordManaCost(actor, cost)) return null
+  return cost
 }
 
 function battleModContext(ctx: ModCombatContext) {
@@ -221,6 +232,9 @@ export function dispatchCardAttackUse(input: CardAttackUseInput): CampaignState 
     return null
   }
 
+  const manaCost = assertActorCanPayManaCost(actor, card, modCtx)
+  if (manaCost === null) return null
+
   const resolved = resolveAmount(state, actorId, actor, card, tmpl, modCtx)
   if (!resolved) return null
 
@@ -253,6 +267,9 @@ export function dispatchCardAttackUse(input: CardAttackUseInput): CampaignState 
 
   const bWithCards: BattleState = {
     ...battle,
+    units: battle.units.map((unit) =>
+      unit.id === actorId ? spendMana(unit, manaCost) : unit,
+    ),
     playerCardsByUnitId: {
       ...battle.playerCardsByUnitId,
       [actorId]: (battle.playerCardsByUnitId[actorId] ?? []).map((c) =>
@@ -314,6 +331,9 @@ export function dispatchCardAoEUse(input: CardAoEUseInput): CampaignState | null
   const effectiveRange = applyRangeMods(tmpl.maxRange, modCtx)
   if (!canCastAoEAt(actor, targetX, targetY, effectiveRange, walls)) return null
 
+  const manaCost = assertActorCanPayManaCost(actor, card, modCtx)
+  if (manaCost === null) return null
+
   const resolved = resolveAmount(state, actorId, actor, card, tmpl, modCtx)
   if (!resolved) return null
 
@@ -327,6 +347,9 @@ export function dispatchCardAoEUse(input: CardAoEUseInput): CampaignState | null
 
   const bWithCards: BattleState = {
     ...battle,
+    units: battle.units.map((unit) =>
+      unit.id === actorId ? spendMana(unit, manaCost) : unit,
+    ),
     playerCardsByUnitId: {
       ...battle.playerCardsByUnitId,
       [actorId]: (battle.playerCardsByUnitId[actorId] ?? []).map((c) =>
@@ -397,6 +420,9 @@ export function dispatchCardHealUse(input: CardHealUseInput): CampaignState | nu
   const effectiveRange = applyRangeMods(tmpl.maxRange, modCtx)
   if (!canHealOrResurrect(actor, target, effectiveRange, walls, tmpl.kind)) return null
 
+  const manaCost = assertActorCanPayManaCost(actor, card, modCtx)
+  if (manaCost === null) return null
+
   const resolved = resolveAmount(state, actorId, actor, card, tmpl, modCtx)
   if (!resolved) return null
 
@@ -407,6 +433,9 @@ export function dispatchCardHealUse(input: CardHealUseInput): CampaignState | nu
 
   const bWithCards: BattleState = {
     ...battle,
+    units: battle.units.map((unit) =>
+      unit.id === actorId ? spendMana(unit, manaCost) : unit,
+    ),
     playerCardsByUnitId: {
       ...battle.playerCardsByUnitId,
       [actorId]: (battle.playerCardsByUnitId[actorId] ?? []).map((c) =>
@@ -472,6 +501,9 @@ export function dispatchCardBuffUse(input: CardBuffUseInput): CampaignState | nu
   if (d > effectiveRange) return null
   if (d > 0 && !hasLineOfSight(actor.x, actor.y, target.x, target.y, walls)) return null
 
+  const manaCost = assertActorCanPayManaCost(actor, card, modCtx)
+  if (manaCost === null) return null
+
   const resolved = resolveAmount(state, actorId, actor, card, tmpl, modCtx)
   if (!resolved) return null
 
@@ -484,6 +516,9 @@ export function dispatchCardBuffUse(input: CardBuffUseInput): CampaignState | nu
 
   let nextBattle: BattleState = {
     ...battle,
+    units: battle.units.map((unit) =>
+      unit.id === actorId ? spendMana(unit, manaCost) : unit,
+    ),
     playerCardsByUnitId: {
       ...battle.playerCardsByUnitId,
       [actorId]: (battle.playerCardsByUnitId[actorId] ?? []).map((c) =>

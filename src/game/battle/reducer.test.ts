@@ -11,7 +11,7 @@ import { applyAction, advanceBattleTurn, getCurrentActorId } from './reducer'
 const HERO_ID = LEGACY_HERO_CHARACTER_ID
 
 function unit(partial: Unit): Unit {
-  return partial
+  return { mana: 100, maxMana: 100, ...partial }
 }
 
 function battle(overrides: Partial<BattleState> = {}): BattleState {

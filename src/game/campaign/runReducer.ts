@@ -3,6 +3,8 @@ import { syncDownedAfterBattle } from '../battle/outcomes'
 import { enemyTurnAdvanced, heroTurnAdvanced, tickEnemyCardCooldowns, tickHeroCardCooldowns } from '../battle/cardCooldown'
 import { CARD_ATTACK_TEMPLATES, getCardAttackTemplate, usesCardBuffDispatch, usesCardAoEDispatch, isHealKind, usesCardAttackDispatch } from '../content/cardTemplates'
 import {
+  assertActorCanPayManaCost,
+  cardModCombatContext,
   dispatchCardAoEUse,
   dispatchCardAttackUse,
   dispatchCardBuffUse,
@@ -816,6 +818,15 @@ function tryUseCardAttack(
   const actorCards = b.playerCardsByUnitId[actorId!] ?? []
   const card = actorCards.find((c) => c.id === action.cardId)
   if (!card || (card.cooldownRemaining ?? 0) > 0) return state
+  if (
+    assertActorCanPayManaCost(
+      actor,
+      card,
+      cardModCombatContext(state, actorId!, card, action.randomInt1to100),
+    ) === null
+  ) {
+    return state
+  }
 
   const tmpl = getCardAttackTemplate(card.templateId)
   if (!tmpl) return state
@@ -851,6 +862,15 @@ function tryUseCardAoE(
   const actorCards = b.playerCardsByUnitId[actorId!] ?? []
   const card = actorCards.find((c) => c.id === action.cardId)
   if (!card || (card.cooldownRemaining ?? 0) > 0) return state
+  if (
+    assertActorCanPayManaCost(
+      actor,
+      card,
+      cardModCombatContext(state, actorId!, card, action.randomInt1to100),
+    ) === null
+  ) {
+    return state
+  }
 
   const tmpl = getCardAttackTemplate(card.templateId)
   if (!tmpl || !usesCardAoEDispatch(tmpl)) return state
@@ -885,6 +905,15 @@ function tryUseCardHeal(
   const actorCards = b.playerCardsByUnitId[actorId!] ?? []
   const card = actorCards.find((c) => c.id === action.cardId)
   if (!card || (card.cooldownRemaining ?? 0) > 0) return state
+  if (
+    assertActorCanPayManaCost(
+      actor,
+      card,
+      cardModCombatContext(state, actorId!, card, action.randomInt1to100),
+    ) === null
+  ) {
+    return state
+  }
 
   const tmpl = getCardAttackTemplate(card.templateId)
   if (!tmpl || !isHealKind(tmpl.kind)) return state
@@ -918,6 +947,15 @@ function tryUseCardBuff(
   const actorCards = b.playerCardsByUnitId[actorId!] ?? []
   const card = actorCards.find((c) => c.id === action.cardId)
   if (!card || (card.cooldownRemaining ?? 0) > 0) return state
+  if (
+    assertActorCanPayManaCost(
+      actor,
+      card,
+      cardModCombatContext(state, actorId!, card, action.randomInt1to100),
+    ) === null
+  ) {
+    return state
+  }
 
   const tmpl = getCardAttackTemplate(card.templateId)
   if (!tmpl || !usesCardBuffDispatch(tmpl.kind)) return state

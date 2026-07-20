@@ -43,6 +43,7 @@ import type { PassiveTrigger } from '../content/passiveTemplates'
 import { applyRaceDamageModifiers, applyElementalResistModifiers, resolveCardDamageTags } from './enemyResists'
 import { updateActorEnemyCards } from './enemyCards'
 import { resolveEnemySkillAmount, resolveEnemySkillEffectPower } from './enemySkillResolve'
+import { canAffordManaCost, effectiveManaCostForTemplate, spendMana } from './mana'
 import {
   applyBossSkillUse,
   isBossSkillHandledInMechanics,
@@ -1008,11 +1009,18 @@ function tryCardAttack(
 
   const tmpl = getCardAttackTemplate(card.templateId)
   if (!tmpl) return state
+  const manaCost = effectiveManaCostForTemplate(card.templateId, {
+    carrierTags: [],
+    modSlots: card.modSlots,
+    rng: () => 100,
+  })
+  if (manaCost === null || !canAffordManaCost(attacker, manaCost)) return state
 
   const walls = wallSet(state.walls)
   const fromCard = { cardId: card.id, templateId: card.templateId }
   const cd = tmpl.cooldownTurns ?? 0
-  let next = setEnemyCardCooldown(state, action.attackerId, card, cd)
+  let next = updateUnit(state, action.attackerId, spendMana(attacker, manaCost))
+  next = setEnemyCardCooldown(next, action.attackerId, card, cd)
   if (cd > 0) {
     next = { ...next, skipEnemyCooldownTick: true }
   }
