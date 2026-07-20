@@ -1,19 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import type { BaseStats } from '../config/baseStats'
 import { getItemTemplate } from '../content/itemTemplates'
+import { TEST_BASE_STATS } from '../stats/testFixtures'
 import { computeCharacterMaxHp, computeEffectiveStat } from './effectiveStats'
 
-const sampleBaseStats: BaseStats = {
-  health: 20,
-  defense: 2,
-  attack: 3,
-  magicPower: 1,
-  mana: 10,
-  healPower: 1,
-  speed: 2,
-  initiative: 8,
-  critChance: 5,
-}
+const sampleBaseStats = TEST_BASE_STATS
 
 describe('computeEffectiveStat', () => {
   it('scales base stat with unitLevel and worldPower', () => {

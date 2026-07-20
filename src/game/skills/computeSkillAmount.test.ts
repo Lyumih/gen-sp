@@ -3,6 +3,7 @@ import type { BaseStats } from '../config/baseStats'
 import type { ItemTemplate } from '../content/itemTemplates'
 import { EMPTY_EQUIPMENT } from '../equipment/equipmentOrder'
 import type { ItemInstance } from '../types'
+import { TEST_BASE_STATS } from '../stats/testFixtures'
 import {
   computeEffectiveStatForSkill,
   computeSkillAmount,
@@ -13,15 +14,8 @@ import {
 
 function baseStats(healPower: number): BaseStats {
   return {
-    health: 20,
-    defense: 2,
-    attack: 3,
-    magicPower: 1,
-    mana: 10,
+    ...TEST_BASE_STATS,
     healPower,
-    speed: 2,
-    initiative: 8,
-    critChance: 5,
   }
 }
 

@@ -2,18 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { PassiveEquipLoadout } from '../types'
 import { createPassiveInstance } from './passiveFactory'
 import { aggregatePassiveSkillStatBonuses } from './passiveStatBonuses'
+import { TEST_BASE_STATS } from '../stats/testFixtures'
 
-const baseStats = {
-  health: 20,
-  defense: 2,
-  attack: 3,
-  magicPower: 1,
-  mana: 10,
-  healPower: 1,
-  speed: 2,
-  initiative: 8,
-  critChance: 5,
-}
+const baseStats = TEST_BASE_STATS
 
 function equip(ids: readonly string[]): PassiveEquipLoadout {
   const loadout: PassiveEquipLoadout = [null, null, null, null, null]

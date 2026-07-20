@@ -395,6 +395,7 @@ function enemyBaseStats(archetypeId: string, fallbackHp: number): BaseStats {
     attack: 2,
     magicPower: 0,
     mana: 0,
+    manaRegen: 0,
     healPower: 0,
     speed: 2,
     initiative: 6,

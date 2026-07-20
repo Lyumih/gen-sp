@@ -29,6 +29,7 @@ const sampleBase: BaseStats = {
   attack: 4,
   magicPower: 1,
   mana: 5,
+  manaRegen: 0,
   healPower: 0,
   speed: 2,
   initiative: 6,

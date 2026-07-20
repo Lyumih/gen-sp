@@ -151,6 +151,7 @@ describe('boss_spell_eater', () => {
             attack: 3,
             magicPower: 8,
             mana: 0,
+            manaRegen: 0,
             healPower: 0,
             speed: 2,
             initiative: 5,

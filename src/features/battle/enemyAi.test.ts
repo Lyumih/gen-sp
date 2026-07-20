@@ -51,6 +51,7 @@ function battle(
           attack: 2,
           magicPower: 5,
           mana: 0,
+          manaRegen: 0,
           healPower: 0,
           speed: 2,
           initiative: 6,

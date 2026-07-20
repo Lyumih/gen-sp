@@ -10,6 +10,7 @@ const MINI_BASE_STATS: BaseStats = {
   attack: 5,
   magicPower: 0,
   mana: 0,
+  manaRegen: 0,
   healPower: 0,
   speed: 0,
   initiative: 0,
