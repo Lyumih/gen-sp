@@ -18,8 +18,9 @@ import {
   HERO_MOVE_RANGE,
 } from '../../game/battle/combat'
 import { getHeroRangedCooldown } from '../../game/battle/heroRangedCooldown'
+import { effectiveManaCostForTemplate } from '../../game/battle/mana'
 import { unitCombatMiniStats } from '../../game/battle/unitCombatStats'
-import { UI_CELL, UI_DAMAGE, UI_GOLD, UI_WORLD_POWER } from '../../game/ui/labels'
+import { UI_CELL, UI_DAMAGE, UI_GOLD, UI_MANA, UI_WORLD_POWER } from '../../game/ui/labels'
 import { computeVictoryGoldGain } from '../../game/campaign/victoryRewards'
 import { battleGridScale } from './battleCellLayout'
 import { worldPowerTooltip } from '../campaign/resourceTooltips'
@@ -28,6 +29,7 @@ import '../layout/game-layout.css'
 import { computeEffectiveStats, computeGearStatBonuses } from '../../game/stats/effectiveStats'
 import { aggregatePassiveSkillStatBonuses } from '../../game/passives/passiveStatBonuses'
 import { computePassiveRangedRangeBonus } from '../../game/passives/passiveEngine'
+import { resolveCarrierTags } from '../../game/mods/carrierTags'
 import { getItemTemplate } from '../../game/content/itemTemplates'
 import { BattleSkillCell } from './BattleSkillCell'
 import { BattleUnitTooltip } from './BattleUnitTooltip'
@@ -670,6 +672,19 @@ export function BattleScreen() {
       }
       const tmpl = getCardAttackTemplate(card.templateId)
       if (!tmpl) return
+      if (card.cooldownRemaining > 0) {
+        message.warning('Умение на перезарядке')
+        return
+      }
+      const manaCost = effectiveManaCostForTemplate(card.templateId, {
+        carrierTags: resolveCarrierTags('card', card.templateId),
+        modSlots: card.modSlots,
+        rng: () => 50,
+      })
+      if (manaCost !== null && (actor.mana ?? 0) < manaCost) {
+        message.warning('Недостаточно маны')
+        return
+      }
       if (tmpl.kind === 'aoe' || (tmpl.kind === 'utility' && tmpl.aoeSize !== undefined)) {
         const walls = wallSet(battle.walls)
         if (!canCastAoEAt(actor, x, y, tmpl.maxRange, walls)) {
@@ -701,10 +716,6 @@ export function BattleScreen() {
           message.warning('Цель недоступна')
           return
         }
-        if (card.cooldownRemaining > 0) {
-          message.warning('Умение на перезарядке')
-          return
-        }
         dispatchRun({
           type: 'USE_CARD_HEAL',
           cardId: card.id,
@@ -720,10 +731,6 @@ export function BattleScreen() {
         }
         if (!overlaySets.validTargetCells.has(cellKey(x, y))) {
           message.warning('Цель недоступна')
-          return
-        }
-        if (card.cooldownRemaining > 0) {
-          message.warning('Умение на перезарядке')
           return
         }
         dispatchRun({
@@ -1103,6 +1110,7 @@ export function BattleScreen() {
                     ? `${getUnitDisplay(current, campaign).emoji} ${getUnitDisplay(current, campaign).name}`
                     : '—'}
                 </strong>
+                {actor ? ` · ${UI_MANA}${actor.mana ?? 0}/${actor.maxMana ?? 0}` : ''}
                 {' · '}Раунд {battle.roundNumber}
               </>
             )}
