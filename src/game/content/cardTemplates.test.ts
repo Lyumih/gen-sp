@@ -5,6 +5,7 @@ import {
   isCardTemplateEnabled,
   usesCardAttackDispatch,
 } from './cardTemplates'
+import { MONSTER_SKILL_TEMPLATES } from './monsterSkillTemplates'
 
 describe('CARD_ATTACK_TEMPLATES', () => {
   it('strike is enabled melee skill', () => {
@@ -30,5 +31,23 @@ describe('CARD_ATTACK_TEMPLATES', () => {
     expect(CARD_ATTACK_TEMPLATES.regeneration.enabled).not.toBe(false)
     expect(CARD_ATTACK_TEMPLATES.battle_cry.enabled).not.toBe(false)
     expect(CARD_ATTACK_TEMPLATES.fireball.enabled).not.toBe(false)
+  })
+})
+
+describe('manaCost on templates', () => {
+  it('every hero template has manaCost', () => {
+    for (const [id, tmpl] of Object.entries(CARD_ATTACK_TEMPLATES)) {
+      expect(tmpl.manaCost, id).toBeGreaterThan(0)
+    }
+  })
+
+  it('fireball costs 13', () => {
+    expect(CARD_ATTACK_TEMPLATES.fireball.manaCost).toBe(13)
+  })
+
+  it('every monster template has manaCost', () => {
+    for (const [id, tmpl] of Object.entries(MONSTER_SKILL_TEMPLATES)) {
+      expect(tmpl.manaCost, id).toBeGreaterThan(0)
+    }
   })
 })

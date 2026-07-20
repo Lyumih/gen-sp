@@ -22,6 +22,7 @@ export type CardAttackTemplate = {
   skillFlat: number
   scaleToken: string
   cooldownTurns?: number
+  manaCost: number
   tags: readonly string[]
   semanticEmojiId: string
   enabled?: boolean
