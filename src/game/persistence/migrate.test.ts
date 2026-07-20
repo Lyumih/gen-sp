@@ -17,6 +17,8 @@ import { SAVE_VERSION } from './schema'
 import { DEFAULT_ONBOARDING } from '../onboarding/onboardingState'
 import { MOD_SLOT_MILESTONES } from '../config/modSlotMilestones'
 import { EMPTY_EQUIPMENT } from '../equipment/equipmentOrder'
+import { computeBaseStatRating } from '../stats/computeRating'
+import { rollClassManaStatsDeterministic } from '../stats/rollBaseStats'
 
 function hero(c: CampaignState) {
   return getPrimaryCharacter(c)
@@ -419,7 +421,7 @@ describe('migrate v8 → v9 passives and loadout', () => {
     const v8 = { version: 8 as const, campaign: v8CampaignWithoutPassives(initialCampaignState()) }
     const out = migrateFromUnknown(v8)
     expect(out).not.toBeNull()
-    expect(SAVE_VERSION).toBe(13)
+    expect(SAVE_VERSION).toBe(14)
     expect(hero(out!).passives).toEqual([])
     expect(hero(out!).passiveEquip).toEqual([null, null, null, null, null])
     expect(hero(out!).battleLoadout).toHaveLength(4)
@@ -550,6 +552,40 @@ describe('migrate v12 → v13 dismissedCoachMarkIds', () => {
     }
     const out = migrateFromUnknown({ version: 12, campaign: legacy })
     expect(out!.onboarding.dismissedCoachMarkIds).toContain('trials-intro')
+  })
+})
+
+describe('migrate v13 → v14 class mana stats', () => {
+  it('adds manaRegen and rerolls mana deterministically for existing characters', () => {
+    const initial = initialCampaignState()
+    const character = hero(initial)
+    const legacyBaseStats = { ...character.baseStats }
+    delete (legacyBaseStats as { manaRegen?: number }).manaRegen
+    legacyBaseStats.mana = 999
+    const legacy = {
+      ...initial,
+      characters: [
+        {
+          ...character,
+          baseStats: legacyBaseStats,
+          baseStatRating: 0,
+        },
+      ],
+    } as CampaignState
+
+    const migrated = migrateFromUnknown({ version: 13, campaign: legacy })
+    const migratedCharacter = hero(migrated!)
+    const expectedMana = rollClassManaStatsDeterministic(
+      migratedCharacter.classId,
+      migratedCharacter.id,
+    )
+
+    expect(SAVE_VERSION).toBe(14)
+    expect(migratedCharacter.baseStats.mana).toBe(expectedMana.mana)
+    expect(migratedCharacter.baseStats.manaRegen).toBe(expectedMana.manaRegen)
+    expect(migratedCharacter.baseStatRating).toBe(
+      computeBaseStatRating(migratedCharacter.baseStats),
+    )
   })
 })
 

@@ -29,7 +29,11 @@ import { defaultIconEmojiForClass, isValidIconAccent, isValidIconEmoji } from '.
 import { DEFAULT_SQUAD_SLOTS, LEGACY_HERO_CHARACTER_ID } from '../character/constants'
 import { STARTER_HERO_BASE_STATS } from '../config/baseStats'
 import { computeBaseStatRating } from '../stats/computeRating'
-import { hashSeed, rollBaseStatsDeterministic } from '../stats/rollBaseStats'
+import {
+  hashSeed,
+  rollBaseStatsDeterministic,
+  rollClassManaStatsDeterministic,
+} from '../stats/rollBaseStats'
 import {
   EMPTY_EQUIPMENT,
   EQUIPMENT_ROLL_ORDER,
@@ -762,6 +766,21 @@ export function migrateV12CampaignToV13(c: CampaignState): CampaignState {
   return { ...c, onboarding }
 }
 
+export function migrateV13CampaignToV14(c: CampaignState): CampaignState {
+  return {
+    ...c,
+    characters: c.characters.map((character) => {
+      const manaStats = rollClassManaStatsDeterministic(character.classId, character.id)
+      const baseStats = { ...character.baseStats, ...manaStats }
+      return {
+        ...character,
+        baseStats,
+        baseStatRating: computeBaseStatRating(baseStats),
+      }
+    }),
+  }
+}
+
 export function migrateV11CampaignToV12(c: CampaignState): CampaignState {
   const onboarding = {
     ...DEFAULT_ONBOARDING,
@@ -1084,10 +1103,11 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
     version !== 10 &&
     version !== 11 &&
     version !== 12 &&
-    version !== 13
+    version !== 13 &&
+    version !== 14
   ) {
     console.warn(
-      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, or 13`,
+      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, or 14`,
     )
     return null
   }
@@ -1119,6 +1139,9 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
   campaign = migrateV10CampaignToV11(campaign)
   campaign = migrateV11CampaignToV12(campaign)
   campaign = migrateV12CampaignToV13(campaign)
+  if (version <= 13) {
+    campaign = migrateV13CampaignToV14(campaign)
+  }
   return campaign
 }
 
