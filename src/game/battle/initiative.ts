@@ -1,4 +1,5 @@
 import type { BattleLogEntry, BattleState, Unit } from '../types'
+import { regenManaAtTurnStart } from './mana'
 import { tickUnitStatusesAtTurnStart } from './unitStatus'
 
 export type InitiativeContext = {
@@ -112,6 +113,11 @@ function processTurnStartStatuses(state: BattleState, unitId: string): BattleSta
       u.id === unitId ? { ...u, hp: Math.min(u.maxHp, u.hp + regenHeal) } : u,
     )
   }
+
+  const withMana = regenManaAtTurnStart(
+    units.find((candidate) => candidate.id === unitId)!,
+  )
+  units = units.map((u) => (u.id === unitId ? withMana : u))
 
   if (logs.length === 0) {
     return units === state.units ? state : { ...state, units }

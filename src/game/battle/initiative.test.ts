@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { TEST_BASE_STATS } from '../stats/testFixtures'
 import type { BattleState, Unit } from '../types'
 import {
   advanceTurn,
@@ -133,5 +134,47 @@ describe('advanceTurn', () => {
     expect(next.roundNumber).toBe(2)
     expect(next.turnOrder).toEqual(['e1', 'hero'])
     expect(next.currentTurnIndex).toBe(0)
+  })
+
+  it('regenerates mana for the new actor at turn start', () => {
+    const units = [
+      unit({
+        id: 'enemy',
+        side: 'enemy',
+        x: 2,
+        y: 0,
+        hp: 5,
+        maxHp: 5,
+        unitLevel: 1,
+        mana: 30,
+        maxMana: 30,
+        baseStats: { ...TEST_BASE_STATS, mana: 30, manaRegen: 0 },
+      }),
+      unit({
+        id: 'hero',
+        side: 'player',
+        x: 0,
+        y: 0,
+        hp: 10,
+        maxHp: 10,
+        unitLevel: 1,
+        mana: 10,
+        maxMana: 30,
+        baseStats: { ...TEST_BASE_STATS, mana: 30, manaRegen: 5 },
+      }),
+    ]
+    const next = advanceTurn(
+      battle({
+        units,
+        turnOrder: ['enemy', 'hero'],
+        currentTurnIndex: 0,
+      }),
+    )
+
+    const actor = next.units.find(
+      (candidate) => candidate.id === next.turnOrder[next.currentTurnIndex],
+    )
+    expect(actor?.id).toBe('hero')
+    expect(actor?.mana).toBe(15)
   })
 })
