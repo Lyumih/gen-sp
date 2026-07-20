@@ -1,13 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import { getItemTemplate } from '../content/itemTemplates'
 import { TEST_BASE_STATS } from '../stats/testFixtures'
-import { computeCharacterMaxHp, computeEffectiveStat } from './effectiveStats'
+import { computeCharacterMaxHp, computeEffectiveStat, computeEffectiveStats } from './effectiveStats'
 
 const sampleBaseStats = TEST_BASE_STATS
 
 describe('computeEffectiveStat', () => {
   it('scales base stat with unitLevel and worldPower', () => {
     expect(computeEffectiveStat(sampleBaseStats, 'health', 1, 0)).toBe(Math.round(20 * 1.01))
+  })
+})
+
+describe('computeEffectiveStats', () => {
+  it('keeps mana and manaRegen flat across level and worldPower', () => {
+    const effective = computeEffectiveStats(sampleBaseStats, 20, 50)
+
+    expect(effective.mana).toBe(sampleBaseStats.mana)
+    expect(effective.manaRegen).toBe(sampleBaseStats.manaRegen)
   })
 })
 

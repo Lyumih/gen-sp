@@ -587,6 +587,24 @@ describe('migrate v13 → v14 class mana stats', () => {
       computeBaseStatRating(migratedCharacter.baseStats),
     )
   })
+
+  it('initializes mana pools on units in an active battle', () => {
+    const initial = initialCampaignState()
+    const inBattle = applyRunAction(initial, { type: 'START_OR_CONTINUE_BATTLE' })
+    const battle = inBattle.battle!
+    const legacyUnits = battle.units.map(({ mana: _mana, maxMana: _maxMana, ...unit }) => unit)
+
+    const migrated = migrateFromUnknown({
+      version: 13,
+      campaign: { ...inBattle, battle: { ...battle, units: legacyUnits } },
+    })
+
+    expect(migrated?.battle?.units).toHaveLength(legacyUnits.length)
+    for (const unit of migrated!.battle!.units) {
+      expect(unit.mana, unit.id).toBe(unit.baseStats?.mana ?? 0)
+      expect(unit.maxMana, unit.id).toBe(unit.baseStats?.mana ?? 0)
+    }
+  })
 })
 
 function withClassicLegacyCards(c: CampaignState): CampaignState {

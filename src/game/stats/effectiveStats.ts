@@ -67,6 +67,10 @@ export function computeEffectiveStats(
 ): BaseStats {
   const out = { ...baseStats }
   for (const id of Object.keys(out) as StatId[]) {
+    if (id === 'mana' || id === 'manaRegen') {
+      out[id] = baseStats[id]
+      continue
+    }
     out[id] = computeEffectiveStat(
       baseStats,
       id,

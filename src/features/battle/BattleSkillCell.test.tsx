@@ -76,4 +76,28 @@ describe('BattleSkillCell', () => {
     expect(html).toContain('🔮')
     expect(html).toContain('⏳')
   })
+
+  it.each(['heal', 'regeneration', 'resurrection'])(
+    'uses healing emoji for %s badge',
+    (templateId) => {
+      const campaign = initialCampaignState()
+      const character = campaign.characters[0]!
+      const card = character.cards[0]
+      if (!card) throw new Error('fixture needs a card')
+
+      const html = renderToStaticMarkup(
+        createElement(BattleSkillCell, {
+          card: { ...card, templateId, cooldownRemaining: 0 },
+          character,
+          campaign,
+          selected: false,
+          disabled: false,
+          onSelect: () => {},
+        }),
+      )
+
+      expect(html).toContain('💚')
+      expect(html).not.toContain('💥')
+    },
+  )
 })

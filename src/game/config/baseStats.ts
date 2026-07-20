@@ -169,7 +169,7 @@ export const STARTER_HERO_BASE_STATS: BaseStats = {
   defense: 2,
   attack: 3,
   magicPower: 0,
-  mana: 5,
+  mana: 20,
   manaRegen: 2,
   healPower: 0,
   speed: 2,

@@ -1205,6 +1205,15 @@ export function BattleScreen() {
                       selected={mode === 'card' && selectedCardId === c.id}
                       disabled={actionsDisabled || guidedModeBlocked('card')}
                       onSelect={() => {
+                        const manaCost = effectiveManaCostForTemplate(c.templateId, {
+                          carrierTags: resolveCarrierTags('card', c.templateId),
+                          modSlots: c.modSlots,
+                          rng: () => 50,
+                        })
+                        if (manaCost !== null && (actor?.mana ?? 0) < manaCost) {
+                          message.warning('Недостаточно маны')
+                          return
+                        }
                         setMode('card')
                         setSelectedCardPickId(c.id)
                       }}

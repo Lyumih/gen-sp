@@ -18,6 +18,20 @@ describe('enemy archetype content', () => {
     }
   })
 
+  it('every skilled archetype can cast its cheapest skill at battle start', () => {
+    for (const id of ENEMY_ARCHETYPE_IDS) {
+      const archetype = getEnemyArchetype(id)!
+      if (archetype.skillPresets.length === 0) continue
+      const cheapestCost = Math.min(
+        ...archetype.skillPresets.map(
+          ({ templateId }) => getCardAttackTemplate(templateId)!.manaCost,
+        ),
+      )
+
+      expect.soft(archetype.baseStats.mana, id).toBeGreaterThanOrEqual(cheapestCost)
+    }
+  })
+
   it('has exactly 16 regular, 8 boss, 3 chaotic, 4 hero', () => {
     const all = ENEMY_ARCHETYPE_IDS.map((id) => getEnemyArchetype(id)!)
     expect(all.filter((a) => a.isBoss).length).toBe(8)

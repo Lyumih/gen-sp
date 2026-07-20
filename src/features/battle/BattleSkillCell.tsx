@@ -3,7 +3,7 @@ import { describeCardCombatStats, getCardDisplayLabel } from '../../game/descrip
 import { resolveCarrierTags } from '../../game/mods/carrierTags'
 import { applyCooldownMods, applyManaCostMods } from '../../game/mods/modPipeline'
 import type { BattlePlayerCard, CampaignState, Character, Unit } from '../../game/types'
-import { UI_COOLDOWN, UI_DAMAGE, UI_HEART, UI_LEVEL, UI_MANA } from '../../game/ui/labels'
+import { UI_COOLDOWN, UI_DAMAGE, UI_HEAL, UI_LEVEL, UI_MANA } from '../../game/ui/labels'
 import { InventoryCell } from '../inventory/InventoryCell'
 import { resolveCardEmoji } from '../inventory/inventoryEmoji'
 import { BattleCardPopover } from './BattleCardPopover'
@@ -29,7 +29,10 @@ export function BattleSkillCell({
 }: BattleSkillCellProps) {
   const tmpl = getCardAttackTemplate(card.templateId)
   const stats = describeCardCombatStats(card, character, campaign, actor)
-  const effectUi = tmpl?.kind === 'heal' ? UI_HEART : UI_DAMAGE
+  const effectUi =
+    tmpl?.kind === 'heal' || tmpl?.kind === 'regen' || tmpl?.kind === 'resurrect'
+      ? UI_HEAL
+      : UI_DAMAGE
   const onCd = card.cooldownRemaining > 0
   const label = getCardDisplayLabel(card.templateId)
   const effectPart =

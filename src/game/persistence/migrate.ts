@@ -769,6 +769,15 @@ export function migrateV12CampaignToV13(c: CampaignState): CampaignState {
 export function migrateV13CampaignToV14(c: CampaignState): CampaignState {
   return {
     ...c,
+    battle: c.battle
+      ? {
+          ...c.battle,
+          units: c.battle.units.map((unit) => {
+            const maxMana = unit.baseStats?.mana ?? 0
+            return { ...unit, mana: maxMana, maxMana }
+          }),
+        }
+      : null,
     characters: c.characters.map((character) => {
       const manaStats = rollClassManaStatsDeterministic(character.classId, character.id)
       const baseStats = { ...character.baseStats, ...manaStats }
