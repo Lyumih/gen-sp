@@ -110,6 +110,8 @@ export function TurnOrderStrip({
                 effectiveStats={effective}
                 hp={unit.hp}
                 maxHp={unit.maxHp}
+                mana={unit.mana}
+                maxMana={unit.maxMana}
                 raceId={unit.raceId}
               >
                 {chip}

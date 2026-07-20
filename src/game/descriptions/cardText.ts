@@ -8,12 +8,13 @@ import { resolveCarrierTags } from '../mods/carrierTags'
 import {
   applyAoeSizeMods,
   applyCooldownMods,
+  applyManaCostMods,
   applyRangeMods,
   type ModCombatContext,
 } from '../mods/modPipeline'
 import { resolveSkillForCard } from '../skills/resolveSkillForCard'
 import type { CampaignState, CardInstance, Character, Unit } from '../types'
-import { UI_CELL, UI_DAMAGE, UI_HEART, UI_LEVEL } from '../ui/labels'
+import { UI_CELL, UI_DAMAGE, UI_HEART, UI_LEVEL, UI_MANA } from '../ui/labels'
 
 export function getCardDisplayLabel(templateId: string): string {
   const tmpl = getCardAttackTemplate(templateId)
@@ -97,6 +98,7 @@ export function describeCardCombatStats(
   const modCtx = modContextForCard(card)
   const effectiveRange = applyRangeMods(tmpl.maxRange, modCtx)
   const effectiveCd = applyCooldownMods(tmpl.cooldownTurns ?? 0, modCtx)
+  const effectiveCost = applyManaCostMods(tmpl.manaCost, modCtx)
   const { lines: chainLines, expected } = skillChainLines(tmpl, card, character, campaign, actor)
 
   const kindRu =
@@ -135,6 +137,7 @@ export function describeCardCombatStats(
     rangeLine,
     tokenLine,
     `${UI_LEVEL} карты: ${card.global_level}`,
+    `Стоимость: ${UI_MANA}${effectiveCost}`,
     ...chainLines,
     ...(cdLine !== null ? [cdLine] : []),
   ]

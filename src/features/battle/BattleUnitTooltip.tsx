@@ -4,7 +4,7 @@ import type { UnitDisplay } from '../../game/character/display'
 import type { RaceId } from '../../game/content/enemyRaces'
 import { describeRaceResistLines } from '../../game/descriptions/enemyText'
 import type { BaseStats } from '../../game/types'
-import { UI_HEART } from '../../game/ui/labels'
+import { UI_HEART, UI_MANA } from '../../game/ui/labels'
 import { StatStrip } from '../stats/StatStrip'
 
 type BattleUnitTooltipProps = {
@@ -13,6 +13,8 @@ type BattleUnitTooltipProps = {
   effectiveStats?: BaseStats
   hp: number
   maxHp: number
+  mana?: number
+  maxMana?: number
   raceId?: RaceId
   children: ReactNode
 }
@@ -23,6 +25,8 @@ export function BattleUnitTooltip({
   effectiveStats,
   hp,
   maxHp,
+  mana,
+  maxMana,
   raceId,
   children,
 }: BattleUnitTooltipProps) {
@@ -42,6 +46,11 @@ export function BattleUnitTooltip({
       <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 8 }}>
         {UI_HEART} в бою: {hp}/{maxHp}
       </Typography.Text>
+      {mana !== undefined && maxMana !== undefined ? (
+        <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
+          {UI_MANA} в бою: {mana}/{maxMana}
+        </Typography.Text>
+      ) : null}
     </div>
   )
 
