@@ -6,5 +6,5 @@ export const OVERLAY_THREAT_BASE = 'rgba(255, 163, 158, 0.25)'
 export const OVERLAY_THREAT_FOCUS = 'rgba(255, 77, 79, 0.35)'
 export const OVERLAY_THREAT_DIM = 'rgba(255, 163, 158, 0.125)'
 
-export const OVERLAY_WALL_BG = '#333'
-export const OVERLAY_CELL_BG = '#f5f5f5'
+export const OVERLAY_WALL_BG = '#3d3630'
+export const OVERLAY_CELL_BG = '#f7f2e8'

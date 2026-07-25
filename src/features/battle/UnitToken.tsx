@@ -121,7 +121,7 @@ export function UnitToken({
           gap: 2,
           padding: '2px 8px',
           borderRadius: 4,
-          border: isCurrentActor ? '2px solid #1677ff' : '1px solid #d9d9d9',
+          border: isCurrentActor ? '2px solid var(--game-primary)' : '1px solid #d9d9d9',
           background: isCurrentActor ? '#e6f4ff' : isDead ? '#f5f5f5' : '#fff',
           opacity: isDead ? 0.45 : 1,
           fontWeight: isCurrentActor ? 600 : 400,

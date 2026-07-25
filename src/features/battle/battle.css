@@ -27,15 +27,15 @@
 }
 
 .unit-token--highlighted {
-  box-shadow: 0 0 0 2px #1677ff, 0 0 8px rgba(22, 119, 255, 0.45);
+  box-shadow: 0 0 0 2px var(--game-primary), 0 0 8px var(--game-primary-glow);
   transition:
     box-shadow 180ms ease,
     outline-color 180ms ease;
 }
 
 .unit-token--initiative.unit-token--highlighted {
-  background: #e6f4ff;
-  border-color: #1677ff !important;
+  background: #f5ecd4;
+  border-color: var(--game-primary) !important;
   transform: scale(1.04);
   transition:
     box-shadow 180ms ease,
@@ -52,7 +52,7 @@
 }
 
 .battle-cell-unit-highlight {
-  box-shadow: 0 0 0 2px #1677ff, 0 0 10px rgba(22, 119, 255, 0.35);
+  box-shadow: 0 0 0 2px var(--game-primary), 0 0 10px var(--game-primary-glow);
   transition: box-shadow 180ms ease;
 }
 

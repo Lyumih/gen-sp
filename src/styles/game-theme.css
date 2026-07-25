@@ -9,6 +9,15 @@
   --game-surface-muted-2: #faf6ef;
   --game-font-ui: 'Golos Text', system-ui, -apple-system, sans-serif;
   --game-font-display: 'PT Serif', Georgia, 'Times New Roman', serif;
+  --game-primary: #8b6914;
+  --game-primary-hover: #735610;
+  --game-primary-glow: rgba(139, 105, 20, 0.45);
+  --game-primary-soft: rgba(139, 105, 20, 0.12);
+  --game-stage-bg: #f0e6d4;
+  --game-battle-mat: #e4d9c8;
+  --game-battle-cell-bg: #f7f2e8;
+  --game-battle-cell-border: #c9baa8;
+  --game-battle-wall-bg: #3d3630;
   /* Set to 0.06 after manual browser check if desired */
   --game-noise-opacity: 0;
 }
@@ -61,6 +70,8 @@ body::after {
 }
 
 .game-app-shell {
+  background: var(--game-stage-bg);
+  border: 1px solid var(--game-panel-border);
   box-shadow: 0 4px 24px rgba(60, 48, 32, 0.12);
   border-radius: 8px;
 }

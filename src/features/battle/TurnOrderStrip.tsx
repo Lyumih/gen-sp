@@ -63,7 +63,7 @@ export function TurnOrderStrip({
           const chip = (
             <span style={{ position: 'relative', display: 'inline-block' }}>
               {badge ? (
-                <Badge count={badge} color="#1677ff" className="battle-cell__turn-badge" />
+                <Badge count={badge} color="var(--game-primary)" className="battle-cell__turn-badge" />
               ) : null}
               <UnitToken
                 variant="initiative"

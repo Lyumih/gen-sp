@@ -126,7 +126,7 @@ function BattleUnitCell({
       style={{ ...cellStyle, position: 'relative' }}
     >
       {badge ? (
-        <Badge count={badge} color="#1677ff" className="battle-cell__turn-badge" />
+        <Badge count={badge} color="var(--game-primary)" className="battle-cell__turn-badge" />
       ) : null}
       <UnitToken
         display={display}
@@ -884,7 +884,7 @@ export function BattleScreen() {
       <div className="game-battle-layout">
         <div className="game-battle-field">
           <div className="game-battle-turn-order">
-            <Typography.Text strong style={{ display: 'block', marginBottom: 6 }}>
+            <Typography.Text strong className="game-battle-section-title">
               Очерёдность хода
             </Typography.Text>
             <TurnOrderStrip
@@ -965,11 +965,11 @@ export function BattleScreen() {
                 fontSize: wall ? undefined : 12,
                 cursor: wall ? 'default' : 'pointer',
                 border: isCurrentActor
-                  ? '2px solid #1677ff'
+                  ? '2px solid var(--game-primary)'
                   : isSelectedPlayer
                     ? '2px solid #52c41a'
-                    : '1px solid #ccc',
-                boxShadow: isCurrentActor ? '0 0 0 1px #1677ff' : undefined,
+                    : '1px solid var(--game-battle-cell-border)',
+                boxShadow: isCurrentActor ? '0 0 0 1px var(--game-primary)' : undefined,
                 ...cellStyle,
               }
 

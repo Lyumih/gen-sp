@@ -75,7 +75,7 @@ function SquadSlotCell({
         }}
         {...(character && !squadLocked ? { ...attributes, ...listeners } : {})}
         style={{
-          outline: selected ? '2px solid #1677ff' : undefined,
+          outline: selected ? '2px solid var(--game-primary)' : undefined,
           borderRadius: 4,
           opacity: isDragging ? 0.4 : undefined,
         }}

@@ -81,6 +81,13 @@
   margin-bottom: 16px;
 }
 
+.game-battle-section-title {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--game-font-display);
+  font-weight: 600;
+}
+
 .game-battle-field-scroll {
   /* header + turn order + action panel estimate */
   max-height: calc(100vh - 280px);
@@ -88,6 +95,7 @@
   max-width: 100%;
   border: 1px solid var(--game-panel-border);
   border-radius: 4px;
+  background: var(--game-battle-mat);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -233,7 +241,7 @@
 }
 
 .game-mode-tile:hover:not(:disabled) {
-  border-color: #1677ff;
+  border-color: var(--game-primary);
 }
 
 .game-mode-tile:disabled {
