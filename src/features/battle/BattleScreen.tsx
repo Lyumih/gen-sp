@@ -1,26 +1,22 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
-  AimOutlined,
   CheckCircleOutlined,
-  DragOutlined,
   IdcardOutlined,
   LogoutOutlined,
   RedoOutlined,
   RobotOutlined,
-  ThunderboltOutlined,
 } from '@ant-design/icons'
-import { Alert, App, Badge, Button, Radio, Space, Switch, Tooltip, Typography } from 'antd'
+import { Alert, App, Badge, Button, Space, Switch, Tooltip, Typography } from 'antd'
 import { getCardAttackTemplate, isHealKind, usesCardBuffDispatch } from '../../game/content/cardTemplates'
 import {
   HERO_BASIC_MELEE_DAMAGE,
   HERO_BASIC_RANGED_DAMAGE,
   HERO_BASIC_RANGED_MAX_RANGE,
-  HERO_MOVE_RANGE,
 } from '../../game/battle/combat'
 import { getHeroRangedCooldown } from '../../game/battle/heroRangedCooldown'
 import { effectiveManaCostForTemplate } from '../../game/battle/mana'
 import { unitCombatMiniStats } from '../../game/battle/unitCombatStats'
-import { UI_CELL, UI_DAMAGE, UI_GOLD, UI_MANA, UI_WORLD_POWER } from '../../game/ui/labels'
+import { UI_GOLD, UI_MANA, UI_WORLD_POWER } from '../../game/ui/labels'
 import { computeVictoryGoldGain } from '../../game/campaign/victoryRewards'
 import { battleGridScale } from './battleCellLayout'
 import { worldPowerTooltip } from '../campaign/resourceTooltips'
@@ -32,6 +28,7 @@ import { computePassiveRangedRangeBonus } from '../../game/passives/passiveEngin
 import { resolveCarrierTags } from '../../game/mods/carrierTags'
 import { getItemTemplate } from '../../game/content/itemTemplates'
 import { BattleSkillCell } from './BattleSkillCell'
+import { BattleBasicActionCell } from './BattleBasicActionCell'
 import { BattleUnitTooltip } from './BattleUnitTooltip'
 import { UnitToken } from './UnitToken'
 import { HeroProfileModal } from '../profile/HeroProfileModal'
@@ -583,8 +580,6 @@ export function BattleScreen() {
     (guidedActive && guidedBattleStep === 0)
   const guidedModeBlocked = (candidate: ActionMode) =>
     guidedActive && !isGuidedModeAllowed(guidedBattleStep, candidate)
-  const basicMode: ActionMode | undefined =
-    mode === 'move' || mode === 'melee' || mode === 'ranged' ? mode : undefined
 
   const finalizeVictoryToHub = () => {
     const hero = getPrimaryCharacter(campaign)
@@ -1139,55 +1134,43 @@ export function BattleScreen() {
             </div>
             <div>
               <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>
-                Перемещение и базовая атака
+                Базовые действия
               </Typography.Text>
-              <Radio.Group
-                value={basicMode}
-                onChange={(e) => setMode(e.target.value as ActionMode)}
-                disabled={actionsDisabled}
+              <div
+                className="battle-action-row"
+                style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}
               >
-                <Space wrap>
-                  <Radio.Button value="move" disabled={actionsDisabled || guidedModeBlocked('move')}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <DragOutlined aria-hidden />
-                      {`Ход (≤${HERO_MOVE_RANGE}${UI_CELL})`}
-                    </span>
-                  </Radio.Button>
-                  <Radio.Button value="melee" disabled={actionsDisabled || guidedModeBlocked('melee')}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <ThunderboltOutlined aria-hidden />
-                      {`Удар (1${UI_CELL}) — ${HERO_BASIC_MELEE_DAMAGE}${UI_DAMAGE}`}
-                    </span>
-                  </Radio.Button>
-                  <Radio.Button value="ranged" disabled={actionsDisabled || heroRangedOnCd || guidedModeBlocked('ranged')}>
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        ...(heroRangedOnCd ? { opacity: 0.5 } : undefined),
-                      }}
-                    >
-                      <AimOutlined aria-hidden />
-                      {`Выстрел (≤${effectiveRangedRange}${UI_CELL}) — ${HERO_BASIC_RANGED_DAMAGE}${UI_DAMAGE}${heroRangedOnCd ? ` · CD ${heroRangedCooldown}` : ''}`}
-                    </span>
-                  </Radio.Button>
-                </Space>
-              </Radio.Group>
-              {actor && !autoBattleEnabled ? (
-                <Button
-                  style={{ marginTop: 8 }}
-                  disabled={actionsDisabled || animationPlaying}
-                  onClick={() => {
-                    dispatchBattle({ type: 'end_turn' })
-                    if (guidedActive && guidedBattleStep === 4) {
-                      setGuidedBattleStep(5)
+                {(['move', 'melee', 'ranged'] as const).map((kind) => (
+                  <BattleBasicActionCell
+                    key={kind}
+                    kind={kind}
+                    battle={battle}
+                    actor={actor}
+                    effectiveRangedRange={effectiveRangedRange}
+                    rangedCooldownRemaining={heroRangedCooldown}
+                    selected={mode === kind}
+                    disabled={
+                      actionsDisabled ||
+                      guidedModeBlocked(kind) ||
+                      (kind === 'ranged' && heroRangedOnCd)
                     }
-                  }}
-                >
-                  Завершить ход
-                </Button>
-              ) : null}
+                    onSelect={() => setMode(kind)}
+                  />
+                ))}
+                {actor && !autoBattleEnabled ? (
+                  <Button
+                    disabled={actionsDisabled || animationPlaying}
+                    onClick={() => {
+                      dispatchBattle({ type: 'end_turn' })
+                      if (guidedActive && guidedBattleStep === 4) {
+                        setGuidedBattleStep(5)
+                      }
+                    }}
+                  >
+                    Завершить ход
+                  </Button>
+                ) : null}
+              </div>
             </div>
             <div>
               <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>
