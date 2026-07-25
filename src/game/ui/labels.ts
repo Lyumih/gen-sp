@@ -12,6 +12,9 @@ export const UI_DEFENSE = '🛡'
 
 export const UI_ATTACK = '⚔'
 
+/** Базовый дальний выстрел героя в бою */
+export const UI_BASIC_RANGED = '🏹'
+
 export const UI_MAGIC = '✨'
 
 export const UI_MANA = '🔮'
