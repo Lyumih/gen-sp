@@ -14,6 +14,7 @@ describe('serialize / parse round-trip', () => {
     expect(back!.worldPower).toBe(s.worldPower)
     expect(getPrimaryCharacter(back!).cards).toEqual(getPrimaryCharacter(s).cards)
     expect(back!.battleAttemptSnapshot).toBeNull()
+    expect(back!.tower).toBeNull()
     expect(back!.onboarding.dismissedCoachMarkIds).toEqual([])
   })
 

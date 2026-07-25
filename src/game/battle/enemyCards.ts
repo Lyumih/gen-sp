@@ -4,11 +4,20 @@ import { mergeArchetypeWithChaoticResolution } from './enemySpawn'
 import { cloneModSlots } from '../memento/modSlotsClone'
 import type { BattlePlayerCard, BattleState, PassiveInstance } from '../types'
 
+export function bumpPresetLevels<T extends { global_level: number }>(
+  presets: readonly T[],
+  add: number,
+): T[] {
+  if (add <= 0) return [...presets]
+  return presets.map((preset) => ({ ...preset, global_level: preset.global_level + add }))
+}
+
 export function enemyCardsFromArchetype(
   archetype: EnemyArchetype,
   unitId: string,
+  skillTierAdd = 0,
 ): BattlePlayerCard[] {
-  return archetype.skillPresets.map((preset, i) => ({
+  return bumpPresetLevels(archetype.skillPresets, skillTierAdd).map((preset, i) => ({
     id: `${unitId}-skill-${i}`,
     templateId: preset.templateId,
     global_level: preset.global_level,
@@ -21,8 +30,9 @@ export function enemyCardsFromArchetype(
 export function enemyPassivesFromArchetype(
   archetype: EnemyArchetype,
   unitId: string,
+  skillTierAdd = 0,
 ): PassiveInstance[] {
-  return archetype.passivePresets.map((preset, i) => ({
+  return bumpPresetLevels(archetype.passivePresets, skillTierAdd).map((preset, i) => ({
     id: `${unitId}-passive-${i}`,
     templateId: preset.templateId,
     global_level: preset.global_level,
@@ -53,10 +63,16 @@ export function getActorEnemyCards(
   return state.enemyCardsByUnitId?.[unitId] ?? []
 }
 
+export type EnemySkillTierOptions = {
+  gruntTier: number
+  bossTier: number
+}
+
 export function enemyCardsByUnitFromScenario(
   enemies: readonly { id: string; archetypeId: string }[],
   getArchetype: (id: string) => EnemyArchetype | undefined,
   chaoticByUnitId?: Readonly<Record<string, ChaoticArchetypeResolution>>,
+  skillTiers?: EnemySkillTierOptions,
 ): Record<string, BattlePlayerCard[]> {
   const out: Record<string, BattlePlayerCard[]> = {}
   for (const enemy of enemies) {
@@ -65,7 +81,12 @@ export function enemyCardsByUnitFromScenario(
     const archetype =
       base && chaotic ? mergeArchetypeWithChaoticResolution(base, chaotic) : base
     if (!archetype || archetype.skillPresets.length === 0) continue
-    out[enemy.id] = enemyCardsFromArchetype(archetype, enemy.id)
+    const tierAdd = skillTiers
+      ? archetype.isBoss
+        ? skillTiers.bossTier
+        : skillTiers.gruntTier
+      : 0
+    out[enemy.id] = enemyCardsFromArchetype(archetype, enemy.id, tierAdd)
   }
   return out
 }
@@ -74,6 +95,7 @@ export function enemyPassivesByUnitFromScenario(
   enemies: readonly { id: string; archetypeId: string }[],
   getArchetype: (id: string) => EnemyArchetype | undefined,
   chaoticByUnitId?: Readonly<Record<string, ChaoticArchetypeResolution>>,
+  skillTiers?: EnemySkillTierOptions,
 ): Record<string, PassiveInstance[]> {
   const out: Record<string, PassiveInstance[]> = {}
   for (const enemy of enemies) {
@@ -82,7 +104,12 @@ export function enemyPassivesByUnitFromScenario(
     const archetype =
       base && chaotic ? mergeArchetypeWithChaoticResolution(base, chaotic) : base
     if (!archetype || archetype.passivePresets.length === 0) continue
-    out[enemy.id] = enemyPassivesFromArchetype(archetype, enemy.id)
+    const tierAdd = skillTiers
+      ? archetype.isBoss
+        ? skillTiers.bossTier
+        : skillTiers.gruntTier
+      : 0
+    out[enemy.id] = enemyPassivesFromArchetype(archetype, enemy.id, tierAdd)
   }
   return out
 }

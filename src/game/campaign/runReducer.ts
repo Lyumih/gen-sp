@@ -63,6 +63,7 @@ import type {
 import {
   buildBattleAttemptSnapshot,
   buildExpeditionBattleSnapshot,
+  buildTowerBattleSnapshot,
   cloneCards,
   cloneItems,
   clonePassives,
@@ -100,6 +101,14 @@ import {
 } from '../expedition/config'
 import { countOccupiedSquadSlots } from '../expedition/resolveExpeditionParty'
 import { generateScenario } from '../expedition/generators'
+import { generateInfiniteTower } from '../expedition/generators/infiniteTower'
+import {
+  applyTowerFloorVictory,
+  createInitialTowerProgress,
+  ensureTowerProgress,
+  resetTowerProgress,
+} from '../tower/towerProgress'
+import { applyTowerFirstClearRewards } from '../tower/rewards'
 import { hashSeed } from '../stats/rollBaseStats'
 import {
   generateTavernCandidates,
@@ -192,6 +201,8 @@ export type RunAction =
     }
   | { type: 'MARK_CODEX_SEEN' }
   | { type: 'START_EXPEDITION'; chainId: string; selectedCharacterIds: readonly string[] }
+  | { type: 'START_TOWER_BATTLE'; selectedCharacterIds: readonly string[] }
+  | { type: 'RESET_TOWER' }
   | { type: 'ADVANCE_EXPEDITION_BATTLE' }
   | { type: 'INTER_BATTLE_REVIVE_ALL' }
   | { type: 'FINISH_EXPEDITION' }
@@ -399,6 +410,48 @@ function resolveExpeditionScenario(
   }
 }
 
+function startTowerBattle(
+  state: CampaignState,
+  selectedCharacterIds: readonly string[],
+): CampaignState {
+  const runSeed =
+    state.tower?.runSeed ?? hashSeed(`tower-init:${state.battleAttemptId}:${state.characters.length}`)
+  const tower = ensureTowerProgress(state, runSeed)
+  const floor = tower.currentFloor
+  const scenario = generateInfiniteTower({ runSeed, floor })
+  const snapshot = buildTowerBattleSnapshot(state, selectedCharacterIds, floor)
+  if (!snapshot) return state
+
+  const battle = withBattleSpecializationFlags(
+    battleStateFromScenario(scenario, snapshot, hashSeed(`${runSeed}:${floor}:spawn`)),
+    state,
+  )
+
+  return {
+    ...state,
+    tower,
+    phase: 'battle',
+    battle,
+    battleAttemptSnapshot: snapshot,
+    battleAttemptId: state.battleAttemptId + 1,
+  }
+}
+
+function handleTowerBattleVictory(state: CampaignState): CampaignState {
+  const battle = state.battle
+  const floor = state.battleAttemptSnapshot?.towerFloor
+  if (!battle || battle.phase !== 'victory' || floor === undefined || !state.tower) return state
+
+  const merged = mergeExpeditionBattleProgress(state, battle)
+  return {
+    ...merged,
+    worldPower: battle.worldPower,
+    tower: applyTowerFloorVictory(state.tower, floor),
+    battle,
+    phase: 'victory',
+  }
+}
+
 function startExpeditionBattle(
   state: CampaignState,
   expedition: Expedition,
@@ -584,9 +637,20 @@ function finalizeVictory(
 
   const scenarioSlot =
     state.battleAttemptSnapshot?.scenarioSlotIndex ?? state.scenarioIndex
+  const towerFloor = state.battleAttemptSnapshot?.towerFloor
+  const isTowerVictory = towerFloor !== undefined
   const goldGain = computeVictoryGoldGain(state, scenarioSlot)
+  let firstClearGold = 0
+  let firstClearWorldPower = 0
+  let towerProgress = state.tower
+  if (isTowerVictory && towerProgress !== null && towerFloor !== undefined) {
+    const firstClear = applyTowerFirstClearRewards(towerProgress, towerFloor)
+    towerProgress = firstClear.progress
+    firstClearGold = firstClear.gold
+    firstClearWorldPower = firstClear.worldPower
+  }
   const nextScenarioIndex =
-    state.expedition !== null
+    state.expedition !== null || isTowerVictory
       ? state.scenarioIndex
       : state.scenarioIndex >= SCENARIOS.length
         ? state.scenarioIndex
@@ -645,7 +709,7 @@ function finalizeVictory(
 
   const base: CampaignState = {
     ...state,
-    worldPower: b.worldPower,
+    worldPower: b.worldPower + firstClearWorldPower,
     scenarioIndex: isCompletingOnboardingExpedition(state)
       ? campaignFullyCompleteScenarioIndex()
       : nextScenarioIndex,
@@ -653,7 +717,8 @@ function finalizeVictory(
     phase: 'hub',
     battleAttemptSnapshot: null,
     expedition: null,
-    gold: state.gold + goldGain,
+    tower: towerProgress,
+    gold: state.gold + goldGain + firstClearGold,
     characters: mergedCharacters.map((c) =>
       c.id === hero.id ? { ...c, unitLevel, items } : c,
     ),
@@ -786,6 +851,15 @@ function applyBattleOutcome(
   if (state.expedition) {
     if (battle.phase === 'victory') {
       return handleExpeditionBattleVictory({ ...syncedState, battle })
+    }
+    if (battle.phase === 'defeat') {
+      return { ...syncedState, battle, phase: 'defeat' }
+    }
+    return { ...syncedState, battle, phase: 'battle' }
+  }
+  if (state.battleAttemptSnapshot?.towerFloor !== undefined) {
+    if (battle.phase === 'victory') {
+      return handleTowerBattleVictory({ ...syncedState, battle })
     }
     if (battle.phase === 'defeat') {
       return { ...syncedState, battle, phase: 'defeat' }
@@ -1476,6 +1550,24 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
 
       return startExpeditionBattle(withExpeditionStarted, expedition)
     }
+    case 'START_TOWER_BATTLE': {
+      if (state.battle !== null || state.expedition !== null) return state
+      if (state.phase !== 'hub') return state
+      if (action.selectedCharacterIds.length < 1) return state
+      if (action.selectedCharacterIds.length > 4) return state
+      for (const id of action.selectedCharacterIds) {
+        if (!getCharacter(state, id)) return state
+      }
+      return startTowerBattle(state, action.selectedCharacterIds)
+    }
+    case 'RESET_TOWER': {
+      if (state.battle !== null || state.phase !== 'hub') return state
+      const prev =
+        state.tower ??
+        createInitialTowerProgress(hashSeed(`tower-reset-init:${state.battleAttemptId}`))
+      const newSeed = hashSeed(`tower-reset:${prev.runSeed}:${state.battleAttemptId}`)
+      return { ...state, tower: resetTowerProgress(prev, newSeed) }
+    }
     case 'ADVANCE_EXPEDITION_BATTLE': {
       if (state.phase !== 'inter_battle' || !state.expedition || state.battle !== null) {
         return state
@@ -1918,6 +2010,7 @@ export function initialCampaignState(): CampaignState {
     characters: [hero],
     squad,
     expedition: null,
+    tower: null,
     tavernCandidates: null,
     chest: { ...EMPTY_CHEST },
     shopOffers: null,

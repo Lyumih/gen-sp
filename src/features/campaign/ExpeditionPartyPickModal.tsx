@@ -14,6 +14,7 @@ export type ExpeditionPartyPickModalProps = {
   chain: ExpeditionChainConfig
   campaign: CampaignState
   maxParty: number
+  titleOverride?: string
   onCancel: () => void
   onConfirm: (selectedCharacterIds: string[]) => void
 }
@@ -37,6 +38,7 @@ export function ExpeditionPartyPickModal({
   chain,
   campaign,
   maxParty,
+  titleOverride,
   onCancel,
   onConfirm,
 }: ExpeditionPartyPickModalProps) {
@@ -75,7 +77,7 @@ export function ExpeditionPartyPickModal({
 
   return (
     <Modal
-      title={`${chain.label} — выберите до ${maxParty} бойцов`}
+      title={titleOverride ?? `${chain.label} — выберите до ${maxParty} бойцов`}
       open={open}
       onCancel={onCancel}
       footer={

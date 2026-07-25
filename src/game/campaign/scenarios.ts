@@ -25,6 +25,7 @@ import { hashSeed } from '../stats/rollBaseStats'
 import type { BattleAttemptSnapshot, BattleState, IconAccentId, Unit } from '../types'
 import { cellKey } from '../battle/grid'
 import { unitManaFromBaseStats } from '../battle/mana'
+import { applyTowerAffixToUnits } from '../tower/towerAffixes'
 
 export type SpawnZone = { xMin: number; xMax: number; yMin: number; yMax: number }
 
@@ -58,6 +59,10 @@ export type BattleScenario = {
   enemySpawns: readonly ScenarioEnemySpawn[]
   isBossScenario?: boolean
   bossIndex?: number
+  defaultEnemyUnitLevel?: number
+  enemySkillTierGrunt?: number
+  enemySkillTierBoss?: number
+  towerAffixId?: string
 }
 
 export const BOSS_ARCHETYPE_IDS = [
@@ -263,7 +268,13 @@ export function resolveScenarioEnemies(
 
     for (let i = 0; i < placed; i++) {
       const cell = poolCells[i]!
-      const enemy = makeScenarioEnemy(`e${nextId++}`, picks[i]!, cell.x, cell.y, 1)
+      const enemy = makeScenarioEnemy(
+        `e${nextId++}`,
+        picks[i]!,
+        cell.x,
+        cell.y,
+        scenario.defaultEnemyUnitLevel ?? 1,
+      )
       enemies.push(enemy)
       occupied.add(cellKey(enemy.x, enemy.y))
     }
@@ -479,18 +490,30 @@ export function battleStateFromScenario(
     spawnSeed,
   )
   const { units: enemies, chaoticByUnitId } = makeEnemies(resolvedEnemies, snapshot, seed)
-  const units = [...players, ...enemies]
+  const affixedEnemies = scenario.towerAffixId
+    ? applyTowerAffixToUnits(enemies, scenario.towerAffixId)
+    : enemies
+  const units = [...players, ...affixedEnemies]
   const phase = players.length === 0 ? 'defeat' : 'ongoing'
+  const skillTiers =
+    scenario.enemySkillTierGrunt !== undefined || scenario.enemySkillTierBoss !== undefined
+      ? {
+          gruntTier: scenario.enemySkillTierGrunt ?? 0,
+          bossTier: scenario.enemySkillTierBoss ?? 0,
+        }
+      : undefined
   const playerPassives = passivesByUnitFromParty(snapshot.party)
   const enemyPassives = enemyPassivesByUnitFromScenario(
     resolvedEnemies,
     getEnemyArchetype,
     chaoticByUnitId,
+    skillTiers,
   )
   const enemyCards = enemyCardsByUnitFromScenario(
     resolvedEnemies,
     getEnemyArchetype,
     chaoticByUnitId,
+    skillTiers,
   )
   const passivesByUnitId =
     Object.keys({ ...playerPassives, ...enemyPassives }).length > 0

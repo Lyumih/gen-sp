@@ -143,5 +143,28 @@ export function copyBattleAttemptSnapshot(snap: BattleAttemptSnapshot): BattleAt
     scenarioSlotIndex: snap.scenarioSlotIndex,
     gold: snap.gold,
     party: snap.party.map(clonePartyMember),
+    ...(snap.towerFloor !== undefined ? { towerFloor: snap.towerFloor } : {}),
+  }
+}
+
+export function buildTowerBattleSnapshot(
+  state: CampaignState,
+  selectedCharacterIds: readonly string[],
+  towerFloor: number,
+): BattleAttemptSnapshot | null {
+  const party: PartyMemberBattleSnapshot[] = []
+  selectedCharacterIds.forEach((characterId, spawnIndex) => {
+    const character = getCharacter(state, characterId)
+    if (!character) return
+    party.push(partyMemberFromCharacter(character, spawnIndex, 'active'))
+  })
+  if (party.length === 0) return null
+
+  return {
+    worldPower: state.worldPower,
+    scenarioSlotIndex: -1,
+    gold: state.gold,
+    party,
+    towerFloor,
   }
 }

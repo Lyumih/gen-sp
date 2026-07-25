@@ -694,6 +694,11 @@ function withDefaultTavernCandidates(c: CampaignState): CampaignState {
   return c
 }
 
+function withDefaultTower(c: CampaignState): CampaignState {
+  if (c.tower === undefined) return { ...c, tower: null }
+  return c
+}
+
 /** Старые сохранения без `battle.battleLog` — подставляем пустой массив. */
 export function normalizeLoadedCampaign(c: CampaignState): CampaignState {
   let out: CampaignState
@@ -708,6 +713,7 @@ export function normalizeLoadedCampaign(c: CampaignState): CampaignState {
     }
   }
   out = withDefaultExpedition(out)
+  out = withDefaultTower(out)
   out = withDefaultTavernCandidates(out)
   out = withDefaultSquad(out)
   out = withDefaultScenarioSlotIndex(out)
@@ -788,6 +794,10 @@ export function migrateV13CampaignToV14(c: CampaignState): CampaignState {
       }
     }),
   }
+}
+
+export function migrateV14CampaignToV15(c: CampaignState): CampaignState {
+  return { ...c, tower: c.tower ?? null }
 }
 
 export function migrateV11CampaignToV12(c: CampaignState): CampaignState {
@@ -1086,6 +1096,7 @@ function campaignFromRaw(raw: Record<string, unknown>): CampaignState {
     characters: Array.isArray(raw.characters) ? (raw.characters as Character[]) : [],
     squad: Array.isArray(raw.squad) ? (raw.squad as (string | null)[]) : [],
     expedition: raw.expedition === undefined ? null : (raw.expedition as CampaignState['expedition']),
+    tower: raw.tower === undefined ? null : (raw.tower as CampaignState['tower']),
   })
 }
 
@@ -1113,10 +1124,11 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
     version !== 11 &&
     version !== 12 &&
     version !== 13 &&
-    version !== 14
+    version !== 14 &&
+    version !== 15
   ) {
     console.warn(
-      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, or 14`,
+      `[gen-sp] save: unsupported version ${String(version)}, expected 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, or 15`,
     )
     return null
   }
@@ -1150,6 +1162,9 @@ export function migrateFromUnknown(raw: unknown): CampaignState | null {
   campaign = migrateV12CampaignToV13(campaign)
   if (version <= 13) {
     campaign = migrateV13CampaignToV14(campaign)
+  }
+  if (version <= 14) {
+    campaign = migrateV14CampaignToV15(campaign)
   }
   return campaign
 }

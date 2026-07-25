@@ -429,6 +429,10 @@ export function CampaignHub() {
             onStartExpedition={(chainId, selectedCharacterIds) =>
               dispatchRun({ type: 'START_EXPEDITION', chainId, selectedCharacterIds })
             }
+            onStartTowerBattle={(selectedCharacterIds) =>
+              dispatchRun({ type: 'START_TOWER_BATTLE', selectedCharacterIds })
+            }
+            onResetTower={() => dispatchRun({ type: 'RESET_TOWER' })}
             onSetSquadSlot={setSquadSlot}
             onSwapSquadSlots={swapSquadSlots}
           />

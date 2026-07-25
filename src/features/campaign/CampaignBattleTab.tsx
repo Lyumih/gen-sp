@@ -24,6 +24,7 @@ import { buildBattleModeEntries } from './buildBattleModeEntries'
 import { CampaignReplayModal } from './CampaignReplayModal'
 import { ExpeditionOrphanPanel } from './ExpeditionOrphanPanel'
 import { ExpeditionPartyPickModal } from './ExpeditionPartyPickModal'
+import { InfiniteTowerPanel, TOWER_PLACEHOLDER_CHAIN } from './InfiniteTowerPanel'
 import { useGameStore } from '../../store/gameStore'
 import { SQUAD_SECTION_HELP } from './sectionTooltips'
 
@@ -38,6 +39,8 @@ type CampaignBattleTabProps = {
   onStartOrContinue: () => void
   onStartReplay: () => void
   onStartExpedition: (chainId: string, selectedCharacterIds: string[]) => void
+  onStartTowerBattle: (selectedCharacterIds: string[]) => void
+  onResetTower: () => void
   onSetSquadSlot: (slotIndex: number, characterId: string | null) => void
   onSwapSquadSlots: (from: number, to: number) => void
 }
@@ -51,6 +54,8 @@ export function CampaignBattleTab({
   onStartOrContinue,
   onStartReplay,
   onStartExpedition,
+  onStartTowerBattle,
+  onResetTower,
   onSetSquadSlot,
   onSwapSquadSlots,
 }: CampaignBattleTabProps) {
@@ -59,6 +64,7 @@ export function CampaignBattleTab({
   const setHubBattleFocusSection = useGameStore((s) => s.setHubBattleFocusSection)
   const [partyPickOpen, setPartyPickOpen] = useState(false)
   const [partyPickChainId, setPartyPickChainId] = useState<string | null>(null)
+  const [towerPartyPickOpen, setTowerPartyPickOpen] = useState(false)
   const [replayOpen, setReplayOpen] = useState(false)
 
   const expeditionActive = campaign.expedition !== null
@@ -155,6 +161,21 @@ export function CampaignBattleTab({
           />
         ) : null}
 
+        {showFeaturedModes ? (
+          <InfiniteTowerPanel
+            campaign={campaign}
+            disabled={modeDisabled}
+            onResetTower={onResetTower}
+            onOpenPartyPick={() => {
+              if (countOccupiedSquadSlots(campaign.squad) < 1) {
+                message.error('Добавьте хотя бы одного бойца в отряд')
+                return
+              }
+              setTowerPartyPickOpen(true)
+            }}
+          />
+        ) : null}
+
         <BattleModeList
           entries={modeEntries}
           disabled={modeDisabled}
@@ -178,6 +199,19 @@ export function CampaignBattleTab({
             }}
           />
         ) : null}
+
+        <ExpeditionPartyPickModal
+          open={towerPartyPickOpen}
+          chain={TOWER_PLACEHOLDER_CHAIN}
+          campaign={campaign}
+          maxParty={4}
+          titleOverride="Бесконечная башня — выберите до 4 бойцов"
+          onCancel={() => setTowerPartyPickOpen(false)}
+          onConfirm={(selectedCharacterIds) => {
+            onStartTowerBattle(selectedCharacterIds)
+            setTowerPartyPickOpen(false)
+          }}
+        />
 
         <CampaignReplayModal
           open={replayOpen}

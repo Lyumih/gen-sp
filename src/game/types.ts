@@ -149,6 +149,13 @@ export type Expedition = {
   interBattleReviveAllDowned?: boolean
 }
 
+export type TowerProgress = {
+  currentFloor: number
+  bestFloor: number
+  runSeed: number
+  floorsFirstCleared: number[]
+}
+
 export type BattlePhase = 'ongoing' | 'victory' | 'defeat'
 
 /** Card mod context passed into battle actions for proc / on-use effects. */
@@ -349,6 +356,8 @@ export type BattleAttemptSnapshot = {
   scenarioSlotIndex: number
   gold: number
   party: readonly PartyMemberBattleSnapshot[]
+  /** Этаж башни, если бой из режима «Бесконечная башня». */
+  towerFloor?: number
 }
 
 import type { OnboardingState } from './onboarding/types'
@@ -372,6 +381,8 @@ export type CampaignState = {
   /** Слоты отряда в хабе; null = пустой слот. */
   squad: (string | null)[]
   expedition: Expedition | null
+  /** Прогресс «Бесконечной башни»; null до первого старта. */
+  tower: TowerProgress | null
   /** Hub-only tavern roster; null until first refresh. */
   tavernCandidates: TavernCandidate[] | null
   chest: CampaignChest

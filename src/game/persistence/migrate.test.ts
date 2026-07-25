@@ -421,7 +421,7 @@ describe('migrate v8 → v9 passives and loadout', () => {
     const v8 = { version: 8 as const, campaign: v8CampaignWithoutPassives(initialCampaignState()) }
     const out = migrateFromUnknown(v8)
     expect(out).not.toBeNull()
-    expect(SAVE_VERSION).toBe(14)
+    expect(SAVE_VERSION).toBe(15)
     expect(hero(out!).passives).toEqual([])
     expect(hero(out!).passiveEquip).toEqual([null, null, null, null, null])
     expect(hero(out!).battleLoadout).toHaveLength(4)
@@ -580,7 +580,7 @@ describe('migrate v13 → v14 class mana stats', () => {
       migratedCharacter.id,
     )
 
-    expect(SAVE_VERSION).toBe(14)
+    expect(SAVE_VERSION).toBe(15)
     expect(migratedCharacter.baseStats.mana).toBe(expectedMana.mana)
     expect(migratedCharacter.baseStats.manaRegen).toBe(expectedMana.manaRegen)
     expect(migratedCharacter.baseStatRating).toBe(
