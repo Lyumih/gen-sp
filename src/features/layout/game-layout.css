@@ -47,10 +47,23 @@
 }
 
 .game-battle-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  display: flex;
+  flex-direction: column;
   gap: 8px;
   width: 100%;
+}
+
+.game-battle-bottom {
+  display: grid;
+  grid-template-columns: 1fr minmax(260px, 320px);
+  gap: 8px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .game-battle-bottom {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 900px) {
@@ -89,8 +102,8 @@
 }
 
 .game-battle-field-scroll {
-  /* header + turn order + action panel estimate */
-  max-height: calc(100vh - 280px);
+  /* header + turn order + command dock estimate */
+  max-height: calc(100vh - 420px);
   overflow: auto;
   max-width: 100%;
   border: 1px solid var(--game-panel-border);
@@ -103,7 +116,7 @@
 }
 
 .game-battle-field-scroll--compact {
-  min-height: min(320px, calc(100vh - 280px));
+  min-height: min(320px, calc(100vh - 420px));
 }
 
 .battle-field-root {

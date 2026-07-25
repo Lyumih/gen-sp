@@ -10,12 +10,13 @@ import { BattleCardPopover } from './BattleCardPopover'
 
 export type BattleSkillCellProps = {
   card: BattlePlayerCard
-  character: Character
+  character: Pick<Character, 'baseStats' | 'unitLevel' | 'items' | 'equipment'>
   campaign: CampaignState
   actor?: Unit
   selected: boolean
   disabled: boolean
-  onSelect: () => void
+  readOnly?: boolean
+  onSelect?: () => void
 }
 
 export function BattleSkillCell({
@@ -25,6 +26,7 @@ export function BattleSkillCell({
   actor,
   selected,
   disabled,
+  readOnly = false,
   onSelect,
 }: BattleSkillCellProps) {
   const tmpl = getCardAttackTemplate(card.templateId)
@@ -54,18 +56,20 @@ export function BattleSkillCell({
     .join(' · ')
   const ariaLabel = `${label}, ${UI_LEVEL}${card.global_level}${badge ? `, ${badge}` : ''}`
 
+  const cellDisabled = disabled || onCd || readOnly
+
   return (
-    <BattleCardPopover card={card} character={character} campaign={campaign} actor={actor}>
+    <BattleCardPopover card={card} character={character as Character} campaign={campaign} actor={actor}>
       <InventoryCell
         emoji={resolveCardEmoji(tmpl)}
         levelBadge={`${UI_LEVEL}${card.global_level}`}
         contextBadge={badge || undefined}
-        state={disabled || onCd ? 'disabled' : 'filled'}
-        className={selected ? 'inv-cell--selected' : undefined}
+        state={cellDisabled ? 'disabled' : 'filled'}
+        className={selected && !readOnly ? 'inv-cell--selected' : undefined}
         ariaLabel={ariaLabel}
         onClick={() => {
-          if (disabled || onCd) return
-          onSelect()
+          if (cellDisabled) return
+          onSelect?.()
         }}
       />
     </BattleCardPopover>

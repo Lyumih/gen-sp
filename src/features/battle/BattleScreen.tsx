@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   CheckCircleOutlined,
-  IdcardOutlined,
-  LogoutOutlined,
   RedoOutlined,
-  RobotOutlined,
 } from '@ant-design/icons'
-import { Alert, App, Badge, Button, Space, Switch, Tooltip, Typography } from 'antd'
+import { Alert, App, Badge, Button, Space, Typography } from 'antd'
 import { getCardAttackTemplate, isHealKind, usesCardBuffDispatch } from '../../game/content/cardTemplates'
 import {
   HERO_BASIC_MELEE_DAMAGE,
@@ -16,37 +13,31 @@ import {
 import { getHeroRangedCooldown } from '../../game/battle/heroRangedCooldown'
 import { effectiveManaCostForTemplate } from '../../game/battle/mana'
 import { unitCombatMiniStats } from '../../game/battle/unitCombatStats'
-import { UI_GOLD, UI_MANA, UI_WORLD_POWER } from '../../game/ui/labels'
+import { unitBattleEffectiveStats } from '../../game/battle/unitBattleEffectiveStats'
+import { UI_GOLD } from '../../game/ui/labels'
 import { computeVictoryGoldGain } from '../../game/campaign/victoryRewards'
 import { battleGridScale } from './battleCellLayout'
-import { worldPowerTooltip } from '../campaign/resourceTooltips'
-import { GamePanel } from '../layout/GamePanel'
-import '../layout/game-layout.css'
-import { computeEffectiveStats, computeGearStatBonuses } from '../../game/stats/effectiveStats'
-import { aggregatePassiveSkillStatBonuses } from '../../game/passives/passiveStatBonuses'
 import { computePassiveRangedRangeBonus } from '../../game/passives/passiveEngine'
 import { resolveCarrierTags } from '../../game/mods/carrierTags'
-import { getItemTemplate } from '../../game/content/itemTemplates'
-import { BattleSkillCell } from './BattleSkillCell'
-import { BattleBasicActionCell } from './BattleBasicActionCell'
-import { BattleEndTurnCell } from './BattleEndTurnCell'
+import { BattleCommandDock } from './BattleCommandDock'
+import { BattleLogPanel } from './BattleLogPanel'
+import { buildBattleUnitInspectModel } from './battleInspectModel'
+import '../layout/game-layout.css'
 import { BattleUnitTooltip } from './BattleUnitTooltip'
 import { UnitToken } from './UnitToken'
 import { HeroProfileModal } from '../profile/HeroProfileModal'
-import type { CampaignState, Unit } from '../../game/types'
+import type { CampaignState, Unit, BattleState } from '../../game/types'
 import { useGameStore } from '../../store/gameStore'
 import { BattleAnimationLayer } from './animation/BattleAnimationLayer'
 import { useBattleAnimationQueue } from './animation/useBattleAnimationQueue'
 import { getUnitDisplay } from '../../game/character/display'
 import { turnBadgeLabel } from '../../game/battle/turnBadge'
-import { BattleLogLine } from './BattleLogLine'
 import { getCurrentActorId } from '../../game/battle/reducer'
 import { getActorPlayerCards } from '../../game/battle/playerCards'
 import { cellKey, wallSet } from '../../game/battle/grid'
 import { hasCompletedStep } from '../../game/onboarding/onboardingState'
 import { isGuidedTutorialActive } from '../../game/onboarding/selectors'
 import {
-  GuidedBattleOverlay,
   isGuidedModeAllowed,
 } from '../onboarding/GuidedBattleOverlay'
 import { PostBattleDebriefModal } from '../onboarding/PostBattleDebriefModal'
@@ -67,7 +58,6 @@ import { occupiedEquipmentSlotsInOrder } from '../../game/equipment/equipmentOrd
 import { getCharacter, getPrimaryCharacter } from '../../game/campaign/selectors'
 import { randomInt1to100 } from '../../game/rng'
 import { cellBackgroundStyle, OVERLAY_LEGEND } from './cellOverlayStyle'
-import { ActorPassivesPanel } from './ActorPassivesPanel'
 import { TurnOrderStrip } from './TurnOrderStrip'
 import { pickEnemyAiAction } from './enemyAi'
 import { pickPlayerAiAction } from './playerAi'
@@ -80,6 +70,7 @@ const HERO_AI_DELAY_MS = 2000
 
 function BattleUnitCell({
   unit,
+  battle,
   campaign,
   worldPower,
   turnOrder,
@@ -94,6 +85,7 @@ function BattleUnitCell({
   hiddenByAnimation,
 }: {
   unit: Unit
+  battle: BattleState
   campaign: CampaignState
   worldPower: number
   turnOrder: readonly string[]
@@ -145,28 +137,14 @@ function BattleUnitCell({
 
   if (!unit.baseStats) return button
 
-  const character = campaign.characters.find((c) => c.id === unit.id)
-  const gearBonuses = character
-    ? computeGearStatBonuses(character.items, character.equipment, getItemTemplate)
-    : {}
-  const passiveBonuses = character
-    ? aggregatePassiveSkillStatBonuses(character.passives, character.passiveEquip, unit.baseStats)
-    : {}
-  const effective = computeEffectiveStats(
-    unit.baseStats,
-    unit.unitLevel,
-    worldPower,
-    gearBonuses,
-    passiveBonuses,
-  )
-  effective.health = unit.maxHp
-  effective.initiative = unit.initiativeBase ?? effective.initiative
+  const stats = unitBattleEffectiveStats(battle, unit, campaign)
+  if (!stats) return button
 
   return (
     <BattleUnitTooltip
       display={display}
-      baseStats={unit.baseStats}
-      effectiveStats={effective}
+      baseStats={stats.base}
+      effectiveStats={stats.effective}
       hp={unit.hp}
       maxHp={unit.maxHp}
       mana={unit.mana}
@@ -195,6 +173,7 @@ export function BattleScreen() {
   const [profileOpen, setProfileOpen] = useState(false)
   const [hoverCell, setHoverCell] = useState<{ x: number; y: number } | null>(null)
   const [hoveredEnemyId, setHoveredEnemyId] = useState<string | null>(null)
+  const [pinnedInspectUnitId, setPinnedInspectUnitId] = useState<string | null>(null)
   const [selectedCardPickId, setSelectedCardPickId] = useState<string | null>(null)
   const [pendingAoeCell, setPendingAoeCell] = useState<{ x: number; y: number } | null>(null)
   const [explosionCells, setExplosionCells] = useState<Set<string>>(new Set())
@@ -294,10 +273,31 @@ export function BattleScreen() {
   const effectiveRangedRange = HERO_BASIC_RANGED_MAX_RANGE + passiveRangedRangeBonus
   const heroRangedCooldown = battle && actor ? getHeroRangedCooldown(battle, actor.id) : 0
   const heroRangedOnCd = heroRangedCooldown > 0
+  useEffect(() => {
+    if (!battle || !pinnedInspectUnitId) return
+    if (!battle.units.some((u) => u.id === pinnedInspectUnitId)) {
+      setPinnedInspectUnitId(null)
+    }
+  }, [battle, pinnedInspectUnitId])
+
+  useEffect(() => {
+    if (!pinnedInspectUnitId) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPinnedInspectUnitId(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [pinnedInspectUnitId])
+
   const actorCards = useMemo(
     () => (battle && currentId ? getActorPlayerCards(battle, currentId) : []),
     [battle, currentId],
   )
+
+  const inspectModel = useMemo(() => {
+    if (!battle || !pinnedInspectUnitId) return null
+    return buildBattleUnitInspectModel(battle, campaign, pinnedInspectUnitId)
+  }, [battle, campaign, pinnedInspectUnitId])
 
   if (currentId !== trackedTurnId) {
     setTrackedTurnId(currentId)
@@ -634,9 +634,12 @@ export function BattleScreen() {
   }
 
   const onCellClick = (x: number, y: number) => {
+    const target = unitAt(x, y)
+    if (target?.baseStats && target.side === 'enemy') {
+      setPinnedInspectUnitId((prev) => (prev === target.id ? null : target.id))
+    }
     if (battle.phase !== 'ongoing') return
     if (autoBattleEnabled) return
-    const target = unitAt(x, y)
     if (target?.side === 'player' && current?.side === 'player') {
       setPlayerUnitPickId(target.id)
       if (target.id !== currentId) {
@@ -974,6 +977,7 @@ export function BattleScreen() {
                   <BattleUnitCell
                     key={k}
                     unit={u}
+                    battle={battle}
                     campaign={campaign}
                     worldPower={battle.worldPower}
                     turnOrder={battle.turnOrder}
@@ -1050,199 +1054,64 @@ export function BattleScreen() {
           )}
         </div>
 
-        <GamePanel
-          title={
-            actor
-              ? `Действия: ${getCharacter(campaign, actor.id)?.name ?? actor.id}`
-              : 'Действия'
-          }
-          extra={
-            <Space wrap size="small">
-              <Button
-                size="small"
-                icon={<IdcardOutlined aria-hidden />}
-                aria-label="Профиль героя"
-                onClick={() => setProfileOpen(true)}
-              >
-                Профиль
-              </Button>
-              {battle.phase === 'ongoing' || battle.phase === 'defeat' ? (
-                <Tooltip
-                  title={
-                    inExpedition
-                      ? 'Текущий бой не засчитается. Можно попробовать снова или завершить экспедицию в лагере.'
-                      : 'Прогресс боя будет потерян. Награды за незавершённый бой не начислятся.'
+        <div className="game-battle-bottom">
+          <BattleCommandDock
+            campaign={campaign}
+            battle={battle}
+            actor={actor}
+            actorCharacter={actorCharacter}
+            actorCards={actorCards}
+            currentId={currentId}
+            currentDisplay={
+              current
+                ? {
+                    emoji: getUnitDisplay(current, campaign).emoji,
+                    name: getUnitDisplay(current, campaign).name,
                   }
-                  mouseEnterDelay={0.3}
-                >
-                  <Button
-                    size="small"
-                    danger
-                    icon={<LogoutOutlined aria-hidden />}
-                    aria-label={inExpedition ? 'Отступить в лагерь' : 'Выйти из боя'}
-                    onClick={confirmAbandon}
-                  >
-                    {inExpedition ? 'В лагерь' : 'Выйти из боя'}
-                  </Button>
-                </Tooltip>
-              ) : null}
-            </Space>
-          }
-        >
-          {guidedActive ? (
-            <GuidedBattleOverlay
-              stepIndex={guidedBattleStep}
-              onAck={() => setGuidedBattleStep(1)}
-            />
-          ) : null}
-          <Typography.Text style={{ display: 'block', marginBottom: 8, fontSize: 13 }}>
-            {battle.phase === 'victory' ? (
-              <>Победа — пролистайте журнал.</>
-            ) : (
-              <>
-                Ход:{' '}
-                <strong>
-                  {current
-                    ? `${getUnitDisplay(current, campaign).emoji} ${getUnitDisplay(current, campaign).name}`
-                    : '—'}
-                </strong>
-                {actor ? ` · ${UI_MANA}${actor.mana ?? 0}/${actor.maxMana ?? 0}` : ''}
-                {' · '}Раунд {battle.roundNumber}
-              </>
-            )}
-            {' · '}
-            <Tooltip title={worldPowerTooltip(battle.worldPower)} mouseEnterDelay={0.3}>
-              <span>
-                <span className="game-header__resource-emoji" aria-hidden>
-                  {UI_WORLD_POWER}
-                </span>{' '}
-                {battle.worldPower}
-              </span>
-            </Tooltip>
-          </Typography.Text>
-          <Space orientation="vertical" size="small" style={{ width: '100%' }}>
-            <div style={{ marginBottom: 4 }}>
-              <Space align="center">
-                <Switch
-                  checked={autoBattleEnabled}
-                  onChange={setAutoBattleEnabled}
-                  disabled={battle.phase !== 'ongoing' || guidedActive}
-                />
-                <Typography.Text>
-                  <RobotOutlined aria-hidden /> Автобой
-                </Typography.Text>
-              </Space>
-            </div>
-            <div>
-              <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>
-                Базовые действия
-              </Typography.Text>
-              <div
-                className="battle-action-row"
-                style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}
-              >
-                {(['move', 'melee', 'ranged'] as const).map((kind) => (
-                  <BattleBasicActionCell
-                    key={kind}
-                    kind={kind}
-                    battle={battle}
-                    actor={actor}
-                    effectiveRangedRange={effectiveRangedRange}
-                    rangedCooldownRemaining={heroRangedCooldown}
-                    selected={mode === kind}
-                    disabled={
-                      actionsDisabled ||
-                      guidedModeBlocked(kind) ||
-                      (kind === 'ranged' && heroRangedOnCd)
-                    }
-                    onSelect={() => setMode(kind)}
-                  />
-                ))}
-                {actor && !autoBattleEnabled ? (
-                  <BattleEndTurnCell
-                    disabled={actionsDisabled || animationPlaying}
-                    onEndTurn={() => {
-                      dispatchBattle({ type: 'end_turn' })
-                      if (guidedActive && guidedBattleStep === 4) {
-                        setGuidedBattleStep(5)
-                      }
-                    }}
-                  />
-                ) : null}
-              </div>
-            </div>
-            <div>
-              <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>
-                Умения
-              </Typography.Text>
-              {actorCards.length > 0 ? (
-                <div className="battle-skill-row" style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                  {actorCards.map((c) => (
-                    <BattleSkillCell
-                      key={c.id}
-                      card={c}
-                      character={actorCharacter!}
-                      campaign={campaign}
-                      actor={actor}
-                      selected={mode === 'card' && selectedCardId === c.id}
-                      disabled={actionsDisabled || guidedModeBlocked('card')}
-                      onSelect={() => {
-                        const manaCost = effectiveManaCostForTemplate(c.templateId, {
-                          carrierTags: resolveCarrierTags('card', c.templateId),
-                          modSlots: c.modSlots,
-                          rng: () => 50,
-                        })
-                        if (manaCost !== null && (actor?.mana ?? 0) < manaCost) {
-                          message.warning('Недостаточно маны')
-                          return
-                        }
-                        setMode('card')
-                        setSelectedCardPickId(c.id)
-                      }}
-                    />
-                  ))}
-                </div>
-              ) : null}
-            </div>
-            <ActorPassivesPanel
-              passives={battle.passivesByUnitId?.[currentId ?? ''] ?? []}
-              character={actorCharacter}
-              campaign={campaign}
-            />
-          </Space>
-
-          <div style={{ marginTop: 8 }}>
-            <Typography.Text strong style={{ fontSize: 13 }}>
-              Журнал боя
-            </Typography.Text>
-            <div
-              style={{
-                marginTop: 8,
-                maxHeight: 200,
-                overflowY: 'auto',
-                padding: 8,
-                background: '#fafafa',
-                border: '1px solid #eee',
-                borderRadius: 6,
-                fontSize: 12,
-              }}
-            >
-              {battle.battleLog.length === 0 ? (
-                <Typography.Text type="secondary">Пока пусто</Typography.Text>
-              ) : (
-                battle.battleLog.map((entry, i) => (
-                  <BattleLogLine
-                    key={i}
-                    entry={entry}
-                    unitSideLookup={unitSideLookup}
-                    unitLogLookup={unitLogLookup}
-                  />
-                ))
-              )}
-              <div ref={logEndRef} />
-            </div>
-          </div>
-        </GamePanel>
+                : null
+            }
+            mode={mode}
+            selectedCardId={selectedCardId}
+            actionsDisabled={actionsDisabled}
+            animationPlaying={animationPlaying}
+            autoBattleEnabled={autoBattleEnabled}
+            guidedActive={guidedActive}
+            guidedBattleStep={guidedBattleStep}
+            effectiveRangedRange={effectiveRangedRange}
+            heroRangedCooldown={heroRangedCooldown}
+            heroRangedOnCd={heroRangedOnCd}
+            inExpedition={inExpedition}
+            inspectModel={inspectModel}
+            onCloseInspect={() => setPinnedInspectUnitId(null)}
+            onSetMode={setMode}
+            onSelectCard={setSelectedCardPickId}
+            onEndTurn={() => {
+              dispatchBattle({ type: 'end_turn' })
+              if (guidedActive && guidedBattleStep === 4) {
+                setGuidedBattleStep(5)
+              }
+            }}
+            onProfileOpen={() => setProfileOpen(true)}
+            onConfirmAbandon={confirmAbandon}
+            onAutoBattleChange={setAutoBattleEnabled}
+            onGuidedAck={() => setGuidedBattleStep(1)}
+            guidedModeBlocked={guidedModeBlocked}
+            onCardManaWarning={() => message.warning('Недостаточно маны')}
+            effectiveManaCostForCard={(templateId, card) =>
+              effectiveManaCostForTemplate(templateId, {
+                carrierTags: resolveCarrierTags('card', templateId),
+                modSlots: card.modSlots,
+                rng: () => 50,
+              })
+            }
+          />
+          <BattleLogPanel
+            entries={battle.battleLog}
+            unitSideLookup={unitSideLookup}
+            unitLogLookup={unitLogLookup}
+            logEndRef={logEndRef}
+          />
+        </div>
       </div>
 
       <HeroProfileModal

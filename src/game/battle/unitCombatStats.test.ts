@@ -54,6 +54,19 @@ describe('unitCombatMiniStats', () => {
       remainingTurns: 2,
       magnitude: 2,
     })
+    campaign.battle = {
+      width: 5,
+      height: 5,
+      walls: [],
+      units: [u],
+      turnOrder: ['e1'],
+      currentTurnIndex: 0,
+      roundNumber: 1,
+      phase: 'ongoing',
+      worldPower: 0,
+      playerCardsByUnitId: {},
+      battleLog: [],
+    }
 
     const stats = unitCombatMiniStats(u, campaign, 0)
     expect(stats).not.toBeNull()

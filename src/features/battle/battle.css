@@ -94,3 +94,20 @@
     animation: guided-move-pulse 1.2s ease-in-out infinite;
   }
 }
+
+.battle-command-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.battle-command-strip__sep {
+  width: 1px;
+  align-self: stretch;
+  min-height: 32px;
+  margin: 0 8px;
+  background: var(--game-panel-border);
+  flex-shrink: 0;
+}
