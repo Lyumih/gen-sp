@@ -1450,12 +1450,19 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
       if (!snap) return state
 
       let scenario: BattleScenario | null = null
+      let scenarioSpawnSeed: number | undefined
       if (state.expedition) {
         const chain = getExpeditionChainById(state.expedition.scenarioChainId)
         if (!chain) return state
         const resolved = resolveExpeditionScenario(chain, state.expedition)
         if (!resolved) return state
         scenario = resolved.scenario
+      } else if (snap.towerFloor !== undefined) {
+        if (!state.tower) return state
+        const floor = snap.towerFloor
+        const { runSeed } = state.tower
+        scenario = generateInfiniteTower({ runSeed, floor })
+        scenarioSpawnSeed = hashSeed(`${runSeed}:${floor}:spawn`)
       } else {
         const base = SCENARIOS[snap.scenarioSlotIndex]
         if (!base) return state
@@ -1471,13 +1478,14 @@ export function applyRunAction(state: CampaignState, action: RunAction): Campaig
         battleAttemptId: state.battleAttemptId + 1,
         battleAttemptSnapshot: snapCopy,
       }
+      const battleFromScenario =
+        scenarioSpawnSeed !== undefined
+          ? battleStateFromScenario(scenario, snapCopy, scenarioSpawnSeed)
+          : battleStateFromScenario(scenario, snapCopy)
       return restorePartyFromSnapshot(
         {
           ...retryState,
-          battle: withBattleSpecializationFlags(
-            battleStateFromScenario(scenario, snapCopy),
-            retryState,
-          ),
+          battle: withBattleSpecializationFlags(battleFromScenario, retryState),
         },
         snapCopy,
       )
