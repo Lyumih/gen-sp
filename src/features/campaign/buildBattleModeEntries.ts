@@ -12,6 +12,7 @@ import { BATTLE_MODE_CATEGORY } from './battleModeCategories'
 import { getScenarioDisplayLabel } from '../../game/campaign/scenarioLabels'
 
 export type BattleModeListEntry =
+  | { kind: 'tower' }
   | {
       kind: 'chain'
       chain: ExpeditionChainConfig
@@ -42,6 +43,7 @@ export function buildBattleModeEntries(input: {
   const entries: BattleModeListEntry[] = []
 
   if (showFeaturedModes) {
+    entries.push({ kind: 'tower' })
     getTrialChains().forEach((chain, index) => {
       entries.push({
         kind: 'chain',

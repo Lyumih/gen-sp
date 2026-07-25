@@ -20,7 +20,7 @@ describe('buildBattleModeEntries', () => {
     }
   })
 
-  it('after first win puts trials first with scroll target on first trial', () => {
+  it('after first win puts tower first and scroll target on first trial', () => {
     const onboarding = completeStep(DEFAULT_ONBOARDING, 'first_battle_won')
     const entries = buildBattleModeEntries({
       campaign: { ...initialCampaignState(), onboarding },
@@ -28,10 +28,11 @@ describe('buildBattleModeEntries', () => {
       showFeaturedModes: true,
       showDevTestMode: false,
     })
-    expect(entries[0]?.kind).toBe('chain')
-    if (entries[0]?.kind === 'chain') {
-      expect(entries[0].scrollTargetId).toBe('hub-battle-mode-trials')
-      expect(entries[0].categoryLabel).toBe('Испытание')
+    expect(entries[0]?.kind).toBe('tower')
+    const firstTrial = entries.find((e) => e.kind === 'chain' && e.scrollTargetId === 'hub-battle-mode-trials')
+    expect(firstTrial?.kind).toBe('chain')
+    if (firstTrial?.kind === 'chain') {
+      expect(firstTrial.categoryLabel).toBe('Испытание')
     }
     expect(entries.some((e) => e.kind === 'chain' && e.chain.id === 'campaign-main')).toBe(true)
     expect(entries.some((e) => e.kind === 'placeholder')).toBe(true)

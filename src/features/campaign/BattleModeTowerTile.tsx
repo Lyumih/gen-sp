@@ -48,7 +48,7 @@ export function BattleModeTowerTile({
 
   const ariaLabel = `${BATTLE_MODE_CATEGORY.trial}. Бесконечная башня. ${badge}. ${descParts.join('. ')}. ${paramsLine}`
 
-  const handleReset = (e: React.MouseEvent) => {
+  const handleReset = (e: MouseEvent) => {
     e.stopPropagation()
     if (disabled || tower === null) return
     modal.confirm({

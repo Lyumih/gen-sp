@@ -24,7 +24,7 @@ import { buildBattleModeEntries } from './buildBattleModeEntries'
 import { CampaignReplayModal } from './CampaignReplayModal'
 import { ExpeditionOrphanPanel } from './ExpeditionOrphanPanel'
 import { ExpeditionPartyPickModal } from './ExpeditionPartyPickModal'
-import { InfiniteTowerPanel, TOWER_PLACEHOLDER_CHAIN } from './InfiniteTowerPanel'
+import { TOWER_PLACEHOLDER_CHAIN } from './towerMode'
 import { useGameStore } from '../../store/gameStore'
 import { SQUAD_SECTION_HELP } from './sectionTooltips'
 
@@ -133,6 +133,15 @@ export function CampaignBattleTab({
     onStartExpedition(chain.id, party)
   }
 
+  const handleTowerStart = () => {
+    if (modeDisabled) return
+    if (countOccupiedSquadSlots(campaign.squad) < 1) {
+      message.error('Добавьте хотя бы одного бойца в отряд')
+      return
+    }
+    setTowerPartyPickOpen(true)
+  }
+
   return (
     <div role="tabpanel">
       <Space orientation="vertical" size="small" style={{ width: '100%' }}>
@@ -161,25 +170,13 @@ export function CampaignBattleTab({
           />
         ) : null}
 
-        {showFeaturedModes ? (
-          <InfiniteTowerPanel
-            campaign={campaign}
-            disabled={modeDisabled}
-            onResetTower={onResetTower}
-            onOpenPartyPick={() => {
-              if (countOccupiedSquadSlots(campaign.squad) < 1) {
-                message.error('Добавьте хотя бы одного бойца в отряд')
-                return
-              }
-              setTowerPartyPickOpen(true)
-            }}
-          />
-        ) : null}
-
         <BattleModeList
           entries={modeEntries}
           disabled={modeDisabled}
           onSelectChain={handleModeSelect}
+          campaign={campaign}
+          onTowerStart={handleTowerStart}
+          onResetTower={onResetTower}
         />
 
         {partyPickChain ? (
