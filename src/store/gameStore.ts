@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { CampaignHubTab } from '../features/campaign/campaignHubShared'
+import type { CampaignHubTab, CampaignReferencePane } from '../features/campaign/campaignHubShared'
 import type { BattleAction, CampaignState } from '../game/types'
 import {
   applyRunAction,
@@ -21,6 +21,11 @@ export type GameStoreState = {
     activeCoachMarkId: string | null
     guidedBattleStep: number
   }
+  referenceDrawer: {
+    open: boolean
+    pane: CampaignReferencePane
+    helpFocusArticleId: string | null
+  }
   setHubActiveTab: (tab: CampaignHubTab) => void
   setHubBattleFocusSection: (section: 'trials' | null) => void
   setAutoBattleEnabled: (enabled: boolean) => void
@@ -28,6 +33,10 @@ export type GameStoreState = {
   setActiveCoachMarkId: (id: string | null) => void
   setGuidedBattleStep: (step: number) => void
   resetGuidedBattleStep: () => void
+  openReferenceDrawer: (pane: CampaignReferencePane, helpFocusArticleId?: string | null) => void
+  closeReferenceDrawer: () => void
+  setReferenceDrawerPane: (pane: CampaignReferencePane) => void
+  clearReferenceHelpFocus: () => void
   dismissCoachMark: (id: string) => void
   dispatchRun: (action: RunAction) => void
   dispatchBattle: (action: BattleAction) => void
@@ -63,6 +72,11 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     activeCoachMarkId: null,
     guidedBattleStep: 0,
   },
+  referenceDrawer: {
+    open: false,
+    pane: 'codex',
+    helpFocusArticleId: null,
+  },
   setHubActiveTab: (tab) => set({ hubActiveTab: tab }),
   setHubBattleFocusSection: (hubBattleFocusSection) => set({ hubBattleFocusSection }),
   setAutoBattleEnabled: (enabled) => set({ autoBattleEnabled: enabled }),
@@ -74,6 +88,45 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     set((s) => ({ onboardingUi: { ...s.onboardingUi, guidedBattleStep } })),
   resetGuidedBattleStep: () =>
     set((s) => ({ onboardingUi: { ...s.onboardingUi, guidedBattleStep: 0 } })),
+  openReferenceDrawer: (pane, helpFocusArticleId = null) => {
+    const { referenceDrawer, dispatchRun } = get()
+    if (referenceDrawer.open && referenceDrawer.pane === pane) {
+      set({
+        referenceDrawer: { ...referenceDrawer, open: false, helpFocusArticleId: null },
+      })
+      return
+    }
+    if (pane === 'codex') {
+      dispatchRun({ type: 'MARK_CODEX_SEEN' })
+    }
+    set({
+      referenceDrawer: {
+        open: true,
+        pane,
+        helpFocusArticleId: pane === 'help' ? helpFocusArticleId : null,
+      },
+    })
+  },
+  closeReferenceDrawer: () =>
+    set((s) => ({
+      referenceDrawer: { ...s.referenceDrawer, open: false, helpFocusArticleId: null },
+    })),
+  setReferenceDrawerPane: (pane) => {
+    if (pane === 'codex') {
+      get().dispatchRun({ type: 'MARK_CODEX_SEEN' })
+    }
+    set((s) => ({
+      referenceDrawer: {
+        ...s.referenceDrawer,
+        pane,
+        helpFocusArticleId: pane === 'help' ? s.referenceDrawer.helpFocusArticleId : null,
+      },
+    }))
+  },
+  clearReferenceHelpFocus: () =>
+    set((s) => ({
+      referenceDrawer: { ...s.referenceDrawer, helpFocusArticleId: null },
+    })),
   dismissCoachMark: (id) => get().dispatchRun({ type: 'DISMISS_COACH_MARK', coachMarkId: id }),
   dispatchRun: (action) => {
     set((s) => ({ campaign: applyRunAction(s.campaign, action) }))
@@ -103,6 +156,11 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
         checklistExpanded: true,
         activeCoachMarkId: null,
         guidedBattleStep: 0,
+      },
+      referenceDrawer: {
+        open: false,
+        pane: 'codex',
+        helpFocusArticleId: null,
       },
     })
   },

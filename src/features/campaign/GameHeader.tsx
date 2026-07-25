@@ -2,7 +2,7 @@ import { FlagOutlined, PlayCircleOutlined } from '@ant-design/icons'
 import { Button, Space, Tooltip, Typography } from 'antd'
 import type { CampaignState } from '../../game/types'
 import { UI_DNA, UI_GOLD, UI_WORLD_POWER } from '../../game/ui/labels'
-import type { CampaignHubTab } from './campaignHubShared'
+import type { CampaignHubTab, CampaignReferencePane } from './campaignHubShared'
 import { isBattleContextActive } from './campaignHubShared'
 import { CampaignHubNav } from './CampaignHubNav'
 import { GOLD_TOOLTIP, worldPowerTooltip } from './resourceTooltips'
@@ -13,10 +13,13 @@ type GameHeaderProps = {
   activeTab: CampaignHubTab
   onTabChange: (tab: CampaignHubTab) => void
   unreadCodexCount: number
-  codexDisabled: boolean
   shopDisabled: boolean
   tavernDisabled: boolean
   tabsDisabled?: boolean
+  referenceDrawerOpen: boolean
+  referencePane: CampaignReferencePane
+  onCodexClick: () => void
+  onHelpClick: () => void
   onBattleClick: () => void
   battleScreenActive?: boolean
   onGoalsClick?: () => void
@@ -49,10 +52,13 @@ export function GameHeader({
   activeTab,
   onTabChange,
   unreadCodexCount,
-  codexDisabled,
   shopDisabled,
   tavernDisabled,
   tabsDisabled = false,
+  referenceDrawerOpen,
+  referencePane,
+  onCodexClick,
+  onHelpClick,
   onBattleClick,
   battleScreenActive = false,
   onGoalsClick,
@@ -78,10 +84,13 @@ export function GameHeader({
             activeTab={activeTab}
             onTabChange={onTabChange}
             unreadCodexCount={unreadCodexCount}
-            codexDisabled={codexDisabled}
             shopDisabled={shopDisabled}
             tavernDisabled={tavernDisabled}
             tabsDisabled={tabsDisabled}
+            referenceDrawerOpen={referenceDrawerOpen}
+            referencePane={referencePane}
+            onCodexClick={onCodexClick}
+            onHelpClick={onHelpClick}
           />
         </div>
 

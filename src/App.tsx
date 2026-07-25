@@ -5,6 +5,7 @@ import { BattleScreen } from './features/battle/BattleScreen'
 import { CampaignBattleNav } from './features/campaign/CampaignBattleNav'
 import { CampaignHub } from './features/campaign/CampaignHub'
 import { InterBattleScreen } from './features/campaign/InterBattleScreen'
+import { CampaignReferenceDrawer } from './features/campaign/CampaignReferenceDrawer'
 import { useGameStore } from './store/gameStore'
 
 function AppContent() {
@@ -28,6 +29,16 @@ function AppContent() {
   return <CampaignHub />
 }
 
+function GameRoot() {
+  const campaign = useGameStore((s) => s.campaign)
+  return (
+    <>
+      <AppContent />
+      <CampaignReferenceDrawer campaign={campaign} />
+    </>
+  )
+}
+
 function App() {
   return (
     <ConfigProvider theme={antdGameTheme}>
@@ -36,7 +47,7 @@ function App() {
           className="game-app-shell"
           style={{ maxWidth: 1280, margin: '0 auto', padding: 8 }}
         >
-          <AppContent />
+          <GameRoot />
         </div>
         <Analytics />
       </AntdApp>

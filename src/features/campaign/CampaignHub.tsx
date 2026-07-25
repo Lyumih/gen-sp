@@ -20,8 +20,6 @@ import { TutorialCompleteModal } from './TutorialCompleteModal'
 import { WelcomeModal } from '../onboarding/WelcomeModal'
 import { CampaignBattleTab } from './CampaignBattleTab'
 import { CampaignCharacterTab } from './CampaignCharacterTab'
-import { CampaignCodexTab } from '../codex/CampaignCodexTab'
-import { CampaignHelpTab } from '../help/CampaignHelpTab'
 import type { CampaignHubTab } from './campaignHubShared'
 import { GameHeader } from './GameHeader'
 import { GameShell } from '../layout/GameShell'
@@ -39,8 +37,9 @@ export function CampaignHub() {
   const checklistExpanded = useGameStore((s) => s.onboardingUi.checklistExpanded)
   const dismissedCoachMarkIds = useGameStore((s) => s.campaign.onboarding.dismissedCoachMarkIds)
   const dismissCoachMark = useGameStore((s) => s.dismissCoachMark)
+  const referenceDrawer = useGameStore((s) => s.referenceDrawer)
+  const openReferenceDrawer = useGameStore((s) => s.openReferenceDrawer)
   const [goalsDrawerOpen, setGoalsDrawerOpen] = useState(false)
-  const [helpFocusArticleId, setHelpFocusArticleId] = useState<string | null>(null)
   const [replaySlot, setReplaySlot] = useState(0)
   const done = campaign.scenarioIndex >= SCENARIOS.length
   const scenario = SCENARIOS[campaign.scenarioIndex]
@@ -145,9 +144,6 @@ export function CampaignHub() {
   const handleTabChange = (tab: CampaignHubTab) => {
     if (tab === activeTab) return
     setGoalsDrawerOpen(false)
-    if (tab === 'codex') {
-      dispatchRun({ type: 'MARK_CODEX_SEEN' })
-    }
     if (tab === 'shop') {
       dispatchRun({ type: 'MARK_ONBOARDING_STEP', stepId: 'shop_visited' })
     }
@@ -354,8 +350,7 @@ export function CampaignHub() {
           setHubActiveTab('shop')
         }}
         onGoHelp={() => {
-          setHelpFocusArticleId('memento')
-          setHubActiveTab('help')
+          openReferenceDrawer('help', 'memento')
         }}
       />
 
@@ -384,9 +379,12 @@ export function CampaignHub() {
         activeTab={activeTab}
         onTabChange={handleTabChange}
         unreadCodexCount={unreadCodexCount}
-        codexDisabled={inBattle}
         shopDisabled={expeditionActive}
         tavernDisabled={expeditionActive}
+        referenceDrawerOpen={referenceDrawer.open}
+        referencePane={referenceDrawer.pane}
+        onCodexClick={() => openReferenceDrawer('codex')}
+        onHelpClick={() => openReferenceDrawer('help')}
         onBattleClick={() => handleTabChange('battle')}
         onGoalsClick={() => setGoalsDrawerOpen(true)}
         showGoalsButton={onboarding.graduated || onboarding.skipMode}
@@ -493,15 +491,6 @@ export function CampaignHub() {
               dispatchRun({ type: 'HIRE_TAVERN_CANDIDATE', candidateId })
             }
             onInsufficientGold={() => message.warning('Недостаточно золота')}
-          />
-        ) : null}
-
-        {activeTab === 'codex' ? <CampaignCodexTab campaign={campaign} /> : null}
-
-        {activeTab === 'help' ? (
-          <CampaignHelpTab
-            focusArticleId={helpFocusArticleId}
-            onFocusConsumed={() => setHelpFocusArticleId(null)}
           />
         ) : null}
       </Space>

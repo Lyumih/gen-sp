@@ -6,6 +6,7 @@ import {
 } from '../../game/expedition/config'
 import {
   countOccupiedSquadSlots,
+  getOccupiedSquadCharacterIds,
   resolveExpeditionParty,
 } from '../../game/expedition/resolveExpeditionParty'
 import { getExpeditionChainLabel } from '../../game/expedition/expeditionLabels'
@@ -24,7 +25,6 @@ import { buildBattleModeEntries } from './buildBattleModeEntries'
 import { CampaignReplayModal } from './CampaignReplayModal'
 import { ExpeditionOrphanPanel } from './ExpeditionOrphanPanel'
 import { ExpeditionPartyPickModal } from './ExpeditionPartyPickModal'
-import { TOWER_PLACEHOLDER_CHAIN } from './towerMode'
 import { useGameStore } from '../../store/gameStore'
 import { SQUAD_SECTION_HELP } from './sectionTooltips'
 
@@ -64,7 +64,6 @@ export function CampaignBattleTab({
   const setHubBattleFocusSection = useGameStore((s) => s.setHubBattleFocusSection)
   const [partyPickOpen, setPartyPickOpen] = useState(false)
   const [partyPickChainId, setPartyPickChainId] = useState<string | null>(null)
-  const [towerPartyPickOpen, setTowerPartyPickOpen] = useState(false)
   const [replayOpen, setReplayOpen] = useState(false)
 
   const expeditionActive = campaign.expedition !== null
@@ -139,7 +138,8 @@ export function CampaignBattleTab({
       message.error('Добавьте хотя бы одного бойца в отряд')
       return
     }
-    setTowerPartyPickOpen(true)
+    const party = getOccupiedSquadCharacterIds(campaign.squad).slice(0, 4)
+    onStartTowerBattle(party)
   }
 
   return (
@@ -196,19 +196,6 @@ export function CampaignBattleTab({
             }}
           />
         ) : null}
-
-        <ExpeditionPartyPickModal
-          open={towerPartyPickOpen}
-          chain={TOWER_PLACEHOLDER_CHAIN}
-          campaign={campaign}
-          maxParty={4}
-          titleOverride="Бесконечная башня — выберите до 4 бойцов"
-          onCancel={() => setTowerPartyPickOpen(false)}
-          onConfirm={(selectedCharacterIds) => {
-            onStartTowerBattle(selectedCharacterIds)
-            setTowerPartyPickOpen(false)
-          }}
-        />
 
         <CampaignReplayModal
           open={replayOpen}
