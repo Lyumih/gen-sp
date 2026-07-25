@@ -93,22 +93,24 @@ export function BattleModeTowerTile({
       <Typography.Text type="secondary" className="game-mode-tile__desc">
         {descParts.join(' · ')}
       </Typography.Text>
-      <Typography.Text
-        type="secondary"
-        className="game-mode-tile__params"
-        style={firstClearPending ? undefined : { opacity: 0.65 }}
-      >
-        {paramsLine}
-      </Typography.Text>
-      <Button
-        size="small"
-        type="link"
-        disabled={disabled || tower === null}
-        className="game-mode-tile__reset"
-        onClick={handleReset}
-      >
-        Сбросить башню
-      </Button>
+      <div className="game-mode-tile__footer">
+        <Typography.Text
+          type="secondary"
+          className="game-mode-tile__params game-mode-tile__params--in-footer"
+          style={firstClearPending ? undefined : { opacity: 0.65 }}
+        >
+          {paramsLine}
+        </Typography.Text>
+        <Button
+          size="small"
+          type="link"
+          disabled={disabled || tower === null}
+          className="game-mode-tile__reset"
+          onClick={handleReset}
+        >
+          Сбросить башню
+        </Button>
+      </div>
     </div>
   )
 }
