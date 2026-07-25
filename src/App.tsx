@@ -1,5 +1,6 @@
 import { Analytics } from '@vercel/analytics/react'
-import { App as AntdApp, Space } from 'antd'
+import { App as AntdApp, ConfigProvider, Space } from 'antd'
+import { antdGameTheme } from './theme/antdGameTheme'
 import { BattleScreen } from './features/battle/BattleScreen'
 import { CampaignBattleNav } from './features/campaign/CampaignBattleNav'
 import { CampaignHub } from './features/campaign/CampaignHub'
@@ -29,12 +30,17 @@ function AppContent() {
 
 function App() {
   return (
-    <AntdApp>
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: 8 }}>
-        <AppContent />
-      </div>
-      <Analytics />
-    </AntdApp>
+    <ConfigProvider theme={antdGameTheme}>
+      <AntdApp>
+        <div
+          className="game-app-shell"
+          style={{ maxWidth: 1280, margin: '0 auto', padding: 8 }}
+        >
+          <AppContent />
+        </div>
+        <Analytics />
+      </AntdApp>
+    </ConfigProvider>
   )
 }
 

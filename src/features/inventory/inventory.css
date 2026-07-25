@@ -11,7 +11,7 @@
   padding: 2px;
   border: 1px solid #ccc;
   border-radius: 4px;
-  background: #f5f5f5;
+  background: var(--game-surface-muted);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -25,12 +25,12 @@
 
 .inv-cell--empty {
   border-style: dashed;
-  background: #fafafa;
+  background: var(--game-surface-muted-2);
   cursor: default;
 }
 
 .inv-cell--empty-ghost {
-  background: #f0f0f0;
+  background: var(--game-panel-border);
   border-style: dashed;
   cursor: default;
 }
