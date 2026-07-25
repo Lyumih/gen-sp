@@ -23,6 +23,9 @@ export const UI_MANA_REGEN = '♻️'
 
 export const UI_COOLDOWN = '⏳'
 
+/** Завершить ход / пропуск оставшихся действий */
+export const UI_END_TURN = '⏭'
+
 export const UI_HEAL = '💚'
 
 export const UI_DOT = '🔥'

@@ -29,6 +29,7 @@ import { resolveCarrierTags } from '../../game/mods/carrierTags'
 import { getItemTemplate } from '../../game/content/itemTemplates'
 import { BattleSkillCell } from './BattleSkillCell'
 import { BattleBasicActionCell } from './BattleBasicActionCell'
+import { BattleEndTurnCell } from './BattleEndTurnCell'
 import { BattleUnitTooltip } from './BattleUnitTooltip'
 import { UnitToken } from './UnitToken'
 import { HeroProfileModal } from '../profile/HeroProfileModal'
@@ -1158,17 +1159,15 @@ export function BattleScreen() {
                   />
                 ))}
                 {actor && !autoBattleEnabled ? (
-                  <Button
+                  <BattleEndTurnCell
                     disabled={actionsDisabled || animationPlaying}
-                    onClick={() => {
+                    onEndTurn={() => {
                       dispatchBattle({ type: 'end_turn' })
                       if (guidedActive && guidedBattleStep === 4) {
                         setGuidedBattleStep(5)
                       }
                     }}
-                  >
-                    Завершить ход
-                  </Button>
+                  />
                 ) : null}
               </div>
             </div>
